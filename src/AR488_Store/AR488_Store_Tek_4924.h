@@ -11,27 +11,30 @@
 
 #define STGC_SIZE 10
 
-class storage {
+class SDstorage {
   public:
 
     // Storage management functions
-    storage();
-    void init();
+    SDstorage();
+    void getInfo();
+    bool isInit();
+    bool isVolumeMounted();
     void storeExecCmd(uint8_t cmd);
     const size_t stgcSize = 10;
+    bool isinit = false;
+    bool isvolmounted = false;
 
   private:
-
-    Sd2Card *card;
-    SdVolume *volume;
-    SdFile *root;
+    Sd2Card sdcard;
+    SdVolume sdvolume;
+    SdFile sdroot;
 #ifdef CHIP_SELECT_PIN
     const uint8_t chipSelect = CHIP_SELECT_PIN;
 #else
     const uint8_t chipSelect = 4;
 #endif
 
-    using stgcHandler = void (storage::*)();
+    using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
     void stgc_0x60_h();
@@ -54,10 +57,6 @@ class storage {
 
     static storeCmdRec storeCmdHidx[STGC_SIZE];
 };
-
-
-
-
 
 
 

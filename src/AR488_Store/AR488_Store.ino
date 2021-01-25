@@ -34,7 +34,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.01.04, 21/01/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.01.05, 25/01/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -412,6 +412,11 @@ uint8_t runMacro = 0;
 
 // Send response to *idn?
 bool sendIdn = false;
+
+#ifdef EN_STORAGE
+  // SD card storage
+SDstorage storage;
+#endif
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** COMMON VARIABLES SECTION *****/
@@ -933,7 +938,9 @@ static cmdRec cmdHidx [] = {
   { "srq",         2, (void(*)(char*)) srq_h     },
   { "srqauto",     2, srqa_h      },
   { "status",      1, stat_h      },
-  { "store",       3, store_h     },
+#ifdef EN_STORAGE
+//  { "storage",     3, store_h     },
+#endif
   { "ton",         1, ton_h       },
   { "ver",         3, ver_h       },
   { "verbose",     3, (void(*)(char*)) verb_h    },
@@ -2086,6 +2093,8 @@ void macro_h(char *params) {
 
 
 /***** Storage management *****/
+#ifdef EN_STORAGE
+/*
 void store_h(char *params){
   char *keyword;
   char *param;
@@ -2098,7 +2107,13 @@ void store_h(char *params){
   
   if (keyword != NULL) {
     if (strncmp(keyword, "info", 4)==0) {
-
+      arSerial->println(F("SDcard initialised:\t"));
+      storage.isInit() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));
+      arSerial->println(F("Volume mounted:\t"));
+      storage.isInit() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));
+      if (storage.isInit()) {
+        
+      }
     }
 
    if (strncmp(keyword, "list", 4)==0) {
@@ -2124,6 +2139,8 @@ void store_h(char *params){
 
 
 }
+*/
+#endif
 
 
 /***** Bus diagnostics *****/

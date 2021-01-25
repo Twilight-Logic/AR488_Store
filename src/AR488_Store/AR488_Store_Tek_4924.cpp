@@ -12,14 +12,14 @@
 
 
 
-storage::storage(){
-  card = new Sd2Card;
-  volume = new SdVolume;
-  root = new SdFile;
+SDstorage::SDstorage(){
+
+  // Initialise SD card object
+//  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+  // Attempt to mount volume
+//  if (!sdvolume.init(sdcard)) isvolmounted = true;
+
 }
-
-
-
 
 
 
@@ -28,7 +28,16 @@ storage::storage(){
 /***** SD Card handling functions *****/
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
-void storage::init(){
+bool SDstorage::isInit(){
+  return isinit;
+}
+
+
+bool SDstorage::isVolumeMounted(){
+  return isvolmounted;
+}
+
+void SDstorage::getInfo(){
   
 }
 
@@ -47,7 +56,7 @@ void storage::init(){
 
 
 /***** Command handler interface *****/
-void storage::storeExecCmd(uint8_t cmd) {
+void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
 //  int sclsize = sizeof(storeCmdHidx) / sizeof(storeCmdHidx[0]);
 //  int sclsize = std::size(storeCmdHidx);
@@ -70,68 +79,68 @@ void storage::storeExecCmd(uint8_t cmd) {
 /***** Command handlers *****/
 
 
-void storage::stgc_0x60_h(){
+void SDstorage::stgc_0x60_h(){
   
 }
 
 
-void storage::stgc_0x61_h() {
+void SDstorage::stgc_0x61_h() {
   
 }
 
 
-void storage::stgc_0x62_h() {
+void SDstorage::stgc_0x62_h() {
   
 }
 
 
-void storage::stgc_0x67_h(){
+void SDstorage::stgc_0x67_h(){
   
 }
 
 
-void storage::stgc_0x69_h() {
+void SDstorage::stgc_0x69_h() {
   
 }
 
 
-void storage::stgc_0x6C_h() {
+void SDstorage::stgc_0x6C_h() {
   
 }
 
 
-void storage::stgc_0x6F_h(){
+void SDstorage::stgc_0x6F_h(){
   
 }
 
 
-void storage::stgc_0x7B_h(){
+void SDstorage::stgc_0x7B_h(){
   
 }
 
 
-void storage::stgc_0x7C_h(){
+void SDstorage::stgc_0x7C_h(){
   
 }
 
 
-void storage::stgc_0x7D_h(){
+void SDstorage::stgc_0x7D_h(){
   
 }
 
 
 // Array containing index of accepted storage commands
-storage::storeCmdRec storage::storeCmdHidx [] = { 
-  { 0x60, &storage::stgc_0x60_h }, 
-  { 0x61, &storage::stgc_0x61_h },
-  { 0x62, &storage::stgc_0x62_h },
-  { 0x67, &storage::stgc_0x67_h },
-  { 0x69, &storage::stgc_0x69_h },
-  { 0x6C, &storage::stgc_0x6C_h },
-  { 0x6F, &storage::stgc_0x6F_h },
-  { 0x7B, &storage::stgc_0x7B_h },
-  { 0x7C, &storage::stgc_0x7C_h },
-  { 0x7D, &storage::stgc_0x7D_h }
+SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = { 
+  { 0x60, &SDstorage::stgc_0x60_h }, 
+  { 0x61, &SDstorage::stgc_0x61_h },
+  { 0x62, &SDstorage::stgc_0x62_h },
+  { 0x67, &SDstorage::stgc_0x67_h },
+  { 0x69, &SDstorage::stgc_0x69_h },
+  { 0x6C, &SDstorage::stgc_0x6C_h },
+  { 0x6F, &SDstorage::stgc_0x6F_h },
+  { 0x7B, &SDstorage::stgc_0x7B_h },
+  { 0x7C, &SDstorage::stgc_0x7C_h },
+  { 0x7D, &SDstorage::stgc_0x7D_h }
 };
 
 
