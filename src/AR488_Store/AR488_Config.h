@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB Storage, ver. 0.01.05, 25/01/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.01.06, 26/01/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -85,8 +85,8 @@
   //#define AR488_MEGA2560_D
   //#define AR488_MEGA2560_E1
   //#define AR488_MEGA2560_E2
-  //#define AR488_MEGA2560_E1
-  #define AR488_MEGA2560_S2
+  #define AR488_MEGA2560_S1
+  //#define AR488_MEGA2560_S2
   /*** Serial ports ***/
   // Mega 2560 supports Serial, Serial1, Serial2, Serial3. Since the pins 
   // associated with Serial2 are used in the default pin layout, Serial2
@@ -161,7 +161,7 @@
  * This will require the use of an additional GPIO pin to control
  * the read and write modes of the ICs.
  */
-//#define SN7516X
+#define SN7516X
 #ifdef SN7516X
   #define SN7516X_TE 7
 //  #define SN7516X_DC 13
@@ -185,7 +185,7 @@
 /*
  * Only ONE storage device can be used at a time!
  */
-#define EN_STORAGE
+//#define EN_STORAGE
 #ifdef EN_STORAGE
   #define CHIP_SELECT_PIN 6
   #define EN_TEK_4924
@@ -211,7 +211,7 @@
 //#define DEBUG2  // setGpibControls
 //#define DEBUG3  // gpibSendData
 //#define DEBUG4  // spoll_h
-#define DEBUG5  // attnRequired
+//#define DEBUG5  // attnRequired
 //#define DEBUG6  // EEPROM
 //#define DEBUG7  // gpibReceiveData
 //#define DEBUG8  // ppoll_h

@@ -5,7 +5,7 @@
 
 #include "AR488_Config.h"
 
-/***** AR488_Layouts.h, ver. 0.01.05, 21/01/2021 *****/
+/***** AR488_Hardware.h, ver. 0.01.06, 26/01/2021 *****/
 /*
  * Hardware pin layout definitions
  */
@@ -76,7 +76,7 @@
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_D
 
-// NOTE: last updated 28/07/2019
+// NOTE: MEGA2560 pinout last updated 28/07/2019
 #define DIO1  A0  /* GPIB 1  : PORTF bit 0 */
 #define DIO2  A1  /* GPIB 2  : PORTF bit 1 */
 #define DIO3  A2  /* GPIB 3  : PORTF bit 2 */
@@ -187,12 +187,13 @@
 /*****************************************/
 
 
+
 /*****************************************/
 /***** MEGA2560 LAYOUT DEFINITION S1 *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_S1
 
-// NOTE: last updated 25/01/2021
+// NOTE: last updated 28/07/2019
 #define DIO1  30  /* GPIB 1  : PORTC bit 1 */
 #define DIO2  32  /* GPIB 2  : PORTC bit 3 */
 #define DIO3  34  /* GPIB 3  : PORTC bit 5 */
@@ -209,11 +210,8 @@
 #define EOI   40  /* GPIB 5  : PORTL bit 3 */
 #define REN   38  /* GPIB 17 : PORTL bit 1 */
 
-#define SRQ    2  /* GPIB 10 : PORTB bit 4 */
-#define ATN    3  /* GPIB 11 : PORTB bit 5 */
-
-//#define SRQ   50  /* GPIB 10 : PORTB bit 1 */
-//#define ATN   52  /* GPIB 11 : PORTB bit 3 */
+#define SRQ    2  /* GPIB 10 : PORTE bit 4 */
+#define ATN    3  /* GPIB 11 : PORTE bit 5 */
 
 // PCINT registers
 #ifdef USE_INTERRUPTS
@@ -228,12 +226,13 @@
 /*****************************************/
 
 
+
 /*****************************************/
 /***** MEGA2560 LAYOUT DEFINITION S2 *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_S2
 
-// NOTE: last updated 25/01/2021
+// NOTE: last updated 28/07/2019
 #define DIO1  37  /* GPIB 1  : PORTA bit 1 */
 #define DIO2  35  /* GPIB 2  : PORTA bit 3 */
 #define DIO3  33  /* GPIB 3  : PORTA bit 5 */
@@ -253,9 +252,6 @@
 #define SRQ    2  /* GPIB 10 : PORTE bit 4 */
 #define ATN    3  /* GPIB 11 : PORTE bit 5 */
 
-//#define SRQ   51  /* GPIB 10 : PORTB bit 0 */
-//#define ATN   53  /* GPIB 11 : PORTB bit 2 */
-
 // PCINT registers
 #ifdef USE_INTERRUPTS
   #define ATNPREG PINE
@@ -267,6 +263,7 @@
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** MEGA2560 LAYOUT DEFINITION S2 *****/
 /*****************************************/
+
 
 
 /****************************************************************/

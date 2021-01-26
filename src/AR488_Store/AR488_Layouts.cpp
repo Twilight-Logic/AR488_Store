@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_Layouts.h"
 
-/***** AR488_Hardware.cpp, ver. 0.01.05, 25/01/2021 *****/
+/***** AR488_Hardware.cpp, ver. 0.01.06, 26/01/2021 *****/
 /*
  * Hardware layout function definitions
  */
@@ -282,7 +282,6 @@ ISR(PCINT0_vect) {
 /*******************************************/
 
 
-
 /************************************/
 /***** MEGA2560 BOARD LAYOUT E1 *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
@@ -448,11 +447,10 @@ ISR(PCINT0_vect) {
 
 #endif //USE_INTERRUPTS
 
-#endif //MEGA2560_E1
+#endif //MEGA2560
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** MEGA2560 BOARD LAYOUT E1 *****/
 /************************************/
-
 
 
 /************************************/
@@ -614,7 +612,7 @@ ISR(PCINT0_vect) {
 
 #endif //USE_INTERRUPTS
 
-#endif //MEGA2560_E2
+#endif //MEGA2560
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** MEGA2560 BOARD LAYOUT E2 *****/
@@ -699,8 +697,8 @@ void setGpibDbus(uint8_t db) {
    EOI   40  PORTG bit 1 byte bit 4
    REN   38  PORTD bit 7 byte bit 5
    // These require pcint
-   SRQ   50  PORTB bit 3 byte bit 6
-   ATN   52  PORTB bit 1 byte bit 7
+   SRQ    2  PORTE bit 4 byte bit 6
+   ATN    3  PORTE bit 5 byte bit 7
 */
 void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
 
@@ -722,7 +720,7 @@ void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
 
   // Set PORTs using mask to avoid affecting bits that should not be affected
   // and calculated and masked port byte
-  // PORT B - bits 7 & 6 (ATN + SRQ)
+  // PORT E - bits 5 & 4 (ATN + SRQ)
   // PORT D - bit 5 (REN)
   // PORT G - bit 4 (EOI)
   // PORT L - bits 1,3,5,7 (IFC, NDAC, NRFD, DAV)
@@ -732,14 +730,14 @@ void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
   switch (mode) {
     case 0:
       // Set pin states using mask
-      PORTB = ( (PORTB & ~portBm) | (portBb & portBm) );
+      PORTE = ( (PORTE & ~portEm) | (portEb & portEm) );
       PORTD = ( (PORTD & ~portDm) | (portDb & portDm) );
       PORTG = ( (PORTG & ~portGm) | (portGb & portGm) );
       PORTL = ( (PORTL & ~portLm) | (portLb & portLm) );
       break;
     case 1:
       // Set pin direction registers using mask
-      DDRB = ( (DDRB & ~portBm) | (portBb & portBm) );
+      DDRE = ( (DDRE & ~portEm) | (portEb & portEm) );
       DDRD = ( (DDRD & ~portDm) | (portDb & portDm) );
       DDRG = ( (DDRG & ~portGm) | (portGb & portGm) );
       DDRL = ( (DDRL & ~portLm) | (portLb & portLm) );
@@ -756,10 +754,9 @@ volatile uint8_t srqPinMem = SRQPREG;
 static const uint8_t ATNint = 0b00100000;
 static const uint8_t SRQint = 0b00010000;
 
-
 void interruptsEn(){
   cli();
-  PCICR |= 0b00000001;
+  PCICR |= 0b00000001;  // PORTB
   PCMSK0 |= (SRQint^ATNint);
   sei();
 }
@@ -787,10 +784,11 @@ ISR(PCINT0_vect) {
 
 #endif //USE_INTERRUPTS
 
-#endif //MEGA2560_S1
+#endif //MEGA2560
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** MEGA2560 BOARD LAYOUT S1 *****/
 /************************************/
+
 
 
 /************************************/
@@ -871,8 +869,6 @@ void setGpibDbus(uint8_t db) {
    EOI   40  PORTG bit 1 byte bit 4
    REN   38  PORTD bit 7 byte bit 5
    // These require pcint
-//   SRQ   50  PORTB bit 3 byte bit 6
-//   ATN   52  PORTB bit 1 byte bit 7
    SRQ    2  PORTE bit 4 byte bit 6
    ATN    3  PORTE bit 5 byte bit 7
 */
@@ -907,7 +903,7 @@ void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
       break;
     case 1:
       // Set pin direction registers using mask
-      DDRE = ( (DDRB & ~portEm) | (portEb & portEm) );
+      DDRE = ( (DDRE & ~portEm) | (portEb & portEm) );
       DDRG = ( (DDRG & ~portGm) | (portGb & portGm) );
       DDRL = ( (DDRL & ~portLm) | (portLb & portLm) );
       break;
@@ -937,12 +933,12 @@ void interruptsEn(){
 /***** Interrupt handler *****/
 ISR(PCINT0_vect) {
 
-  // Has PCINT0 fired (ATN asserted)?
+  // Has PCINT5 fired (ATN asserted)?
   if ((ATNPREG ^ atnPinMem) & ATNint) {
     isATN = (ATNPREG & ATNint) == 0;
   }
 
-  // Has PCINT2 fired (SRQ asserted)?
+  // Has PCINT4 fired (SRQ asserted)?
   if ((SRQPREG ^ srqPinMem) & SRQint) {
     isSRQ = (SRQPREG & SRQint) == 0;
   }
