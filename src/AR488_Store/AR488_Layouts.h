@@ -5,7 +5,7 @@
 
 #include "AR488_Config.h"
 
-/***** AR488_Hardware.h, ver. 0.01.06, 26/01/2021 *****/
+/***** AR488_Hardware.h, ver. 0.01.07, 26/01/2021 *****/
 /*
  * Hardware pin layout definitions
  */
@@ -65,6 +65,48 @@
 #endif
 
 #endif
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** UNO/NANO LAYOUT DEFINITION *****/
+/**************************************/
+
+
+
+/**************************************/
+/***** UNO/NANO LAYOUT DEFINITION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_328P_S1
+
+/***** NOTE: last updated 21/09/2019 *****/
+/*
+ * Pins 11 - 13 (MISO, MOSI, SCK) must be free so that 
+ * the ICSP bus can be used. Pin 10 = CS on SD card.
+ */
+#define DIO1  A0  /* GPIB 1  : PORTC bit 0 */
+#define DIO2  A1  /* GPIB 2  : PORTC bit 1 */
+#define DIO3  A2  /* GPIB 3  : PORTC bit 2 */
+#define DIO4  A3  /* GPIB 4  : PORTC bit 3 */
+#define DIO5  A4  /* GPIB 13 : PORTC bit 4 */
+#define DIO6  A5  /* GPIB 14 : PORTC bit 5 */
+
+#define DIO7   8  /* GPIB 15 : PORTD bit 0 */
+#define DIO8   9  /* GPIB 16 : PORTD bit 1 */
+
+#define EOI    7  /* GPIB 5  : PORTD bit 7 */
+#define DAV    6  /* GPIB 6  : PORTD bit 6 */
+#define NRFD   5  /* GPIB 7  : PORTD bit 5 */
+#define NDAC   4  /* GPIB 8  : PORTD bit 4 */
+#define ATN    2  /* GPIB 11 : PORTD bit 2 */
+
+/***** PIN interrupts ******/
+
+// Interrupt registers
+#ifdef USE_INTERRUPTS
+  #define ATNPREG PIND
+//  #define SRQPREG PIND
+  void interruptsEn();
+#endif
+
+#endif // END AR488_328P_S1
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** UNO/NANO LAYOUT DEFINITION *****/
 /**************************************/

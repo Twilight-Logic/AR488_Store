@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_Layouts.h"
 
-/***** AR488_Hardware.cpp, ver. 0.01.06, 26/01/2021 *****/
+/***** AR488_Hardware.cpp, ver. 0.01.07, 26/01/2021 *****/
 /*
  * Hardware layout function definitions
  */
@@ -143,6 +143,143 @@ ISR(PCINT2_vect) {
 #endif //AR488UNO/AR488_NANO
 /***** ^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** UNO/NANO BOARD LAYOUT *****/
+/*********************************/
+
+
+
+/*********************************/
+/***** 328P_S1 BOARD LAYOUT *****/
+/***** vvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_328P_S1
+
+/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  DDRB &= 0b11111100;
+  DDRC &= 0b11000000;
+  PORTB |= 0b00110000; // PORTD bits 5,4 input_pullup
+  PORTC |= 0b00111111; // PORTC bits 5,4,3,2,1,0 input_pullup
+}
+
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  return ~((PINB << 6 & 0b11000000) + (PINC & 0b00111111));
+}
+
+
+/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+void setGpibDbus(uint8_t db) {
+  // Set data pins as outputs
+  DDRB |= 0b00000011;
+  DDRC |= 0b00111111;
+
+  // GPIB states are inverted
+  db = ~db;
+
+  // Set data bus
+  PORTC = (PORTC & ~0b00111111) | (db & 0b00111111);
+  PORTB = (PORTB & ~0b00000011) | ((db & 0b11000000) >> 6);
+}
+
+
+/***** Set the direction and state of the GPIB control lines ****/
+/*
+   Bits control lines as follows: 7-ATN, 6-SRQ, 5-REN, 4-EOI, 3-DAV, 2-NRFD, 1-NDAC, 0-IFC
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+    mode (mode)     : 0=set pin state, 1=set pin direction
+   Arduino Uno/Nano pin to Port/bit to direction/state byte map:
+   EOI   7   PORTD bit 4 byte bit 7
+   DAV   6   PORTD bit 3 byte bit 6
+   NDAC  5   PORTD bit 1 byte bit 5
+   NRFD  4   PORTD bit 2 byte bit 4
+   SRQ   3   PORTD bit 2 byte bit 3
+   ATN   2   PORTD bit 8 byte bit 2
+*/
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+
+  // ATN = ((bits & 0x80) >> 5); SRQ = ((bits & 0x40) >> 3); NDAC-EOI = ((bits & 0x1E) << 3)
+
+  // PORT D - use right-most 5 bits (pins 2 - 7), move bits to match control byte
+/*
+  // Including SRQ
+  uint8_t portDb = ((bits & 0x80) >> 5) + ((bits & 0x40) >> 3) + ((bits & 0x20) << 3);
+  uint8_t portDm = ((mask & 0x80) >> 5) + ((mask & 0x40) >> 3) + ((mask & 0x20) << 3);
+*/
+  // Ignoring SRQ
+  uint8_t portDb = ((bits & 0x80) >> 5) + ((bits & 0x20) << 3);
+  uint8_t portDm = ((mask & 0x80) >> 5) + ((mask & 0x20) << 3);
+
+  // Set registers: register = (register & ~bitmask) | (value & bitmask)
+  // Mask: 0=unaffected; 1=to be changed
+
+  switch (mode) {
+    case 0:
+      // Set pin states using mask
+      PORTD = ( (PORTD & ~portDm) | (portDb & portDm) );
+      break;
+    case 1:
+      // Set pin direction registers using mask
+      DDRD = ( (DDRD & ~portDm) | (portDb & portDm) );
+      break;
+  }
+}
+
+
+/***** Enable interrupts *****/
+#ifdef USE_INTERRUPTS
+
+volatile uint8_t atnPinMem = ATNPREG;
+volatile uint8_t srqPinMem = SRQPREG;
+static const uint8_t ATNint = 0b00000010;
+static const uint8_t SRQint = 0b00000100;
+
+
+void interruptsEn(){
+  cli();
+  PCICR |= 0b00000100;  // PORTD
+//  PCMSK2 |= (SRQint^ATNint);
+    PCMSK2 |= ATNint;
+  sei();
+}
+
+#pragma GCC diagnostic error "-Wmisspelled-isr"
+
+
+/***** Interrupt handler *****/
+ISR(PCINT2_vect) {
+
+  // Has PCINT18 fired (ATN asserted)?
+  if ((PIND ^ atnPinMem) & ATNint) {
+    isATN = (ATNPREG & ATNint) == 0;
+  }
+
+  // Has PCINT19 fired (SRQ asserted)?
+/*  
+  if ((PIND ^ srqPinMem) & SRQint) {
+    isSRQ = (SRQPREG & SRQint) == 0;
+  }
+*/
+
+  // Save current state of PORTD register
+  atnPinMem = ATNPREG;
+  srqPinMem = SRQPREG;
+}
+
+
+/***** Catchall interrupt vector *****/
+/*
+  ISR(BADISR_vect) {
+  // ISR to catch ISR firing without handler
+  isBAD = true;
+  }
+*/
+#endif //USE_INTERRUPTS
+
+
+#endif //AR488_328P_S1
+/***** ^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** 328P_S1 BOARD LAYOUT *****/
 /*********************************/
 
 
