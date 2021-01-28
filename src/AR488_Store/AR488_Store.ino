@@ -32,8 +32,11 @@
   #endif
 #endif
 
+//#include <SPI.h>
+//#include <SD.h>
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.01.07, 26/01/2021" *****/
+
+/***** FWVER "AR488 GPIB Storage, ver. 0.01.08, 28/01/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -418,6 +421,11 @@ bool sendIdn = false;
 SDstorage storage;
 #endif
 
+/*
+    Sd2Card sdcard;
+    SdVolume sdvolume;
+    SdFile sdroot;
+*/
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** COMMON VARIABLES SECTION *****/
@@ -547,6 +555,18 @@ void setup() {
   // Run startup macro
   execMacro(0);
 #endif
+
+
+/*
+bool isinit = false;
+if (sdcard.init(SPI_HALF_SPEED, 6)) isinit = true;
+if (isinit) {
+  Serial.println(F("SD card initialised."));
+}else{
+  Serial.println(F("SD card init failed!"));
+}
+*/
+
 
 #ifdef SAY_HELLO
   arSerial->println(F("AR488 ready."));
@@ -940,9 +960,9 @@ static cmdRec cmdHidx [] = {
   { "srq",         2, (void(*)(char*)) srq_h     },
   { "srqauto",     2, srqa_h      },
   { "status",      1, stat_h      },
-//#ifdef EN_STORAGE
-//  { "storage",     3, store_h     },
-//#endif
+#ifdef EN_STORAGE
+  { "storage",     3, store_h     },
+#endif
   { "ton",         1, ton_h       },
   { "ver",         3, ver_h       },
   { "verbose",     3, (void(*)(char*)) verb_h    },
@@ -2095,13 +2115,12 @@ void macro_h(char *params) {
 
 
 /***** Storage management *****/
-/*
 #ifdef EN_STORAGE
 void store_h(char *params){
   char *keyword;
   char *param;
-  uint8_t mode = 0;
-  uint8_t val = 0;
+//  uint8_t mode = 0;
+//  uint8_t val = 0;
   
   // Get first parameter (action)
   keyword = strtok(params, " \t");
@@ -2109,13 +2128,7 @@ void store_h(char *params){
   
   if (keyword != NULL) {
     if (strncmp(keyword, "info", 4)==0) {
-      arSerial->println(F("SDcard initialised:\t"));
-      storage.isInit() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));
-      arSerial->println(F("Volume mounted:\t"));
-      storage.isInit() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));
-      if (storage.isInit()) {
-        
-      }
+      showSdCardInfo();
     }
 
    if (strncmp(keyword, "list", 4)==0) {
@@ -2141,8 +2154,34 @@ void store_h(char *params){
 
 
 }
+
+
+void showSdCardInfo(){
+  arSerial->print(F("SDcard initialised:\t"));
+  if (storage.isInit()) {
+    arSerial->println(F("YES"));
+    arSerial->print(F("Card type:\t\t"));
+    switch (storage.sdType()) {
+      case SD_CARD_TYPE_SD1:
+        arSerial->println("SD1");
+        break;
+      case SD_CARD_TYPE_SD2:
+        arSerial->println("SD2");
+        break;
+      case SD_CARD_TYPE_SDHC:
+        arSerial->println("SDHC");
+        break;
+      default:
+        Serial.println("Unknown");
+    }
+    arSerial->print(F("Volume mounted:\t\t"));
+    storage.isVolumeMounted() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));    
+  }
+}
+
+
 #endif
-*/
+
 
 
 /***** Bus diagnostics *****/

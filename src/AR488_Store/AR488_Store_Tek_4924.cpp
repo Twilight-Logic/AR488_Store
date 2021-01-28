@@ -5,7 +5,7 @@
 #include "AR488_Store_Tek_4924.h"
 
 
-/***** AR488_Store_Tek.cpp, ver. 0.01.04, 21/01/2021 *****/
+/***** AR488_Store_Tek.cpp, ver. 0.01.08, 28/01/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
@@ -15,9 +15,20 @@
 SDstorage::SDstorage(){
 
   // Initialise SD card object
-//  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+
+//  if (sdcard.init(SPI_HALF_SPEED, 6)) isinit = true;
+
+/*
+if (isinit) {
+  Serial.println(F("SD card initialised."));
+}else{
+  Serial.println(F("SD card init failed!"));
+}
+*/
+
   // Attempt to mount volume
-//  if (!sdvolume.init(sdcard)) isvolmounted = true;
+  if (sdvolume.init(sdcard)) isvolmounted = true;
 
 }
 
@@ -36,6 +47,12 @@ bool SDstorage::isInit(){
 bool SDstorage::isVolumeMounted(){
   return isvolmounted;
 }
+
+
+uint8_t SDstorage::sdType(){
+  return sdcard.type();
+}
+
 
 void SDstorage::getInfo(){
   
@@ -56,6 +73,7 @@ void SDstorage::getInfo(){
 
 
 /***** Command handler interface *****/
+/*
 void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
 //  int sclsize = sizeof(storeCmdHidx) / sizeof(storeCmdHidx[0]);
@@ -73,12 +91,12 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
   if (i < sclsize) (this->*storeCmdHidx[i].handler)();
 
 }
-
+*/
 
 
 /***** Command handlers *****/
 
-
+/*
 void SDstorage::stgc_0x60_h(){
   
 }
@@ -142,7 +160,7 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x7C, &SDstorage::stgc_0x7C_h },
   { 0x7D, &SDstorage::stgc_0x7D_h }
 };
-
+*/
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** Command handling functions *****/

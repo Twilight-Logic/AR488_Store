@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.01.07, 26/01/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.01.08, 28/01/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -185,7 +185,7 @@
 /*
  * Only ONE storage device can be used at a time!
  */
-//#define EN_STORAGE
+#define EN_STORAGE
 #ifdef EN_STORAGE
   #define CHIP_SELECT_PIN 6
   #define EN_TEK_4924
@@ -194,7 +194,7 @@
 
 
 /***** Acknowledge interface is ready *****/
-//#define SAY_HELLO
+#define SAY_HELLO
 
 /***** Debug options *****/
 // Uncomment to send debug messages to another port

@@ -3,7 +3,7 @@
 
 #include <SD.h>
 
-/***** AR488_Eeprom_Tek.h, ver. 0.01.04, 21/01/2021 *****/
+/***** AR488_Eeprom_Tek.h, ver. 0.01.08, 28/01/2021 *****/
 /*
  * Tektronix Storage Functions Definitions
  */
@@ -19,6 +19,7 @@ class SDstorage {
     void getInfo();
     bool isInit();
     bool isVolumeMounted();
+    uint8_t sdType();
     void storeExecCmd(uint8_t cmd);
     const size_t stgcSize = 10;
     bool isinit = false;
@@ -34,6 +35,7 @@ class SDstorage {
     const uint8_t chipSelect = 4;
 #endif
 
+/*
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
@@ -56,6 +58,7 @@ class SDstorage {
     };
 
     static storeCmdRec storeCmdHidx[STGC_SIZE];
+*/
 };
 
 
