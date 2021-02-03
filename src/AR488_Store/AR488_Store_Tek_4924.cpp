@@ -1,36 +1,16 @@
 #include <Arduino.h>
-#include <SPI.h>
-#include <SD.h>
 
 #include "AR488_Store_Tek_4924.h"
 
 
-/***** AR488_Store_Tek.cpp, ver. 0.01.08, 28/01/2021 *****/
+/***** AR488_Store_Tek.cpp, ver. 0.01.09, 03/02/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
 
 
 
-SDstorage::SDstorage(){
 
-  // Initialise SD card object
-  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
-
-//  if (sdcard.init(SPI_HALF_SPEED, 6)) isinit = true;
-
-/*
-if (isinit) {
-  Serial.println(F("SD card initialised."));
-}else{
-  Serial.println(F("SD card init failed!"));
-}
-*/
-
-  // Attempt to mount volume
-  if (sdvolume.init(sdcard)) isvolmounted = true;
-
-}
 
 
 
@@ -38,6 +18,18 @@ if (isinit) {
 /**************************************/
 /***** SD Card handling functions *****/
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
+
+SDstorage::SDstorage(){
+
+  // Initialise SD card object
+  SD.begin(chipSelect);
+  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+  
+  // Attempt to mount volume
+  if (sdvolume.init(sdcard)) isvolmounted = true;
+
+}
+
 
 bool SDstorage::isInit(){
   return isinit;
@@ -48,16 +40,23 @@ bool SDstorage::isVolumeMounted(){
   return isvolmounted;
 }
 
-
+/*
 uint8_t SDstorage::sdType(){
   return sdcard.type();
 }
 
 
-void SDstorage::getInfo(){
-  
+uint32_t SDstorage::sdSize(){
+  return sdcard.cardSize();
 }
+*/
 
+
+/*
+uint8_t SDstorage::fatType(){
+  return sdvolume.fatType();
+}
+*/
 
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/

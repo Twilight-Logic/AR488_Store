@@ -5,7 +5,7 @@
 
 #include "AR488_Config.h"
 
-/***** AR488_Hardware.h, ver. 0.01.07, 26/01/2021 *****/
+/***** AR488_Hardware.h, ver. 0.01.09, 03/02/2021 *****/
 /*
  * Hardware pin layout definitions
  */
@@ -71,9 +71,9 @@
 
 
 
-/**************************************/
-/***** UNO/NANO LAYOUT DEFINITION *****/
-/***** vvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+/******************************************/
+/***** 328P STORAGE LAYOUT DEFINITION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_328P_S1
 
 /***** NOTE: last updated 21/09/2019 *****/
@@ -88,8 +88,8 @@
 #define DIO5  A4  /* GPIB 13 : PORTC bit 4 */
 #define DIO6  A5  /* GPIB 14 : PORTC bit 5 */
 
-#define DIO7   8  /* GPIB 15 : PORTD bit 0 */
-#define DIO8   9  /* GPIB 16 : PORTD bit 1 */
+#define DIO7   8  /* GPIB 15 : PORTB bit 0 */
+#define DIO8   9  /* GPIB 16 : PORTB bit 1 */
 
 #define EOI    7  /* GPIB 5  : PORTD bit 7 */
 #define DAV    6  /* GPIB 6  : PORTD bit 6 */
@@ -107,9 +107,9 @@
 #endif
 
 #endif // END AR488_328P_S1
-/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
-/***** UNO/NANO LAYOUT DEFINITION *****/
-/**************************************/
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** 328P STORAGE LAYOUT DEFINITION *****/
+/******************************************/
 
 
 

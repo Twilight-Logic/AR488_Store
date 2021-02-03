@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.01.08, 28/01/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.01.09, 03/02/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -187,10 +187,12 @@
  */
 #define EN_STORAGE
 #ifdef EN_STORAGE
-  #define CHIP_SELECT_PIN 6
+  #define CHIP_SELECT_PIN 10
   #define EN_TEK_4924
 //  #define EN_PET_9060
 #endif
+
+//#define SD_TEST 10
 
 
 /***** Acknowledge interface is ready *****/
@@ -329,7 +331,7 @@ M3\n\
 /*********************************************/
 /***** SERIAL PORT EXTERNAL DECLARATIONS *****/
 /******vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv******/
-
+/*
 #ifdef AR_CDC_SERIAL
   extern Serial_ *arSerial;
   #ifndef DB_SERIAL_PORT
@@ -350,9 +352,10 @@ M3\n\
     extern SoftwareSerial *dbSerial;
   #endif
 #endif
-
+*/
 
 /***** Debug Port *****/
+/*
 #ifdef DB_SERIAL_PORT
   #ifdef DB_CDC_SERIAL
     extern Serial_ *dbSerial;
@@ -366,7 +369,7 @@ M3\n\
     extern SoftwareSerial *dbSerial;
   #endif
 #endif
-
+*/
 /******^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^******/
 /***** SERIAL PORT EXTERNAL DECLARATIONS *****/
 /*********************************************/

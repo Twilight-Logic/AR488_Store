@@ -32,11 +32,15 @@
   #endif
 #endif
 
-//#include <SPI.h>
-//#include <SD.h>
+
+#ifdef SD_TEST
+  #include <SPI.h>
+  #include <SD.h>
+  #define CHIP_SELECT_PIN 10
+#endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.01.08, 28/01/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.01.09, 03/02/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -226,7 +230,6 @@ const char * const macros[] PROGMEM = {
     HardwareSerial *dbSerial = arSerial;
   #endif
 #endif
-// Note: SoftwareSerial support conflicts with PCINT support
 #ifdef AR_SW_SERIAL
   #include <SoftwareSerial.h>
   SoftwareSerial swArSerial(AR_SW_SERIAL_RX, AR_SW_SERIAL_TX);
@@ -421,11 +424,11 @@ bool sendIdn = false;
 SDstorage storage;
 #endif
 
-/*
+#ifdef SD_TEST
     Sd2Card sdcard;
     SdVolume sdvolume;
     SdFile sdroot;
-*/
+#endif
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** COMMON VARIABLES SECTION *****/
@@ -557,15 +560,13 @@ void setup() {
 #endif
 
 
-/*
-bool isinit = false;
-if (sdcard.init(SPI_HALF_SPEED, 6)) isinit = true;
-if (isinit) {
+#ifdef SD_TEST
+if (sdcard.init(SPI_HALF_SPEED, CHIP_SELECT_PIN)) {
   Serial.println(F("SD card initialised."));
 }else{
   Serial.println(F("SD card init failed!"));
 }
-*/
+#endif
 
 
 #ifdef SAY_HELLO
@@ -2128,7 +2129,20 @@ void store_h(char *params){
   
   if (keyword != NULL) {
     if (strncmp(keyword, "info", 4)==0) {
-      showSdCardInfo();
+      arSerial->print(F("SDcard initialised:\t"));
+      if (storage.isInit()){
+        arSerial->println(F("YES"));
+        showSDInfo(arSerial);
+        arSerial->print(F("Volume mounted:\t\t"));
+        if (storage.isVolumeMounted()){
+          arSerial->println(F("YES"));
+          showSdVolumeInfo(arSerial);
+        }else{
+          arSerial->println(F("NO"));
+        }
+      }else{
+        arSerial->println(F("NO"));
+      }
     }
 
    if (strncmp(keyword, "list", 4)==0) {
@@ -2156,28 +2170,44 @@ void store_h(char *params){
 }
 
 
-void showSdCardInfo(){
-  arSerial->print(F("SDcard initialised:\t"));
-  if (storage.isInit()) {
+/*
+void showVolumeInfo(){
+  arSerial->print(F("Volume mounted:\t\t"));
+  if (storage.isVolumeMounted()){
     arSerial->println(F("YES"));
-    arSerial->print(F("Card type:\t\t"));
-    switch (storage.sdType()) {
-      case SD_CARD_TYPE_SD1:
-        arSerial->println("SD1");
-        break;
-      case SD_CARD_TYPE_SD2:
-        arSerial->println("SD2");
-        break;
-      case SD_CARD_TYPE_SDHC:
-        arSerial->println("SDHC");
-        break;
-      default:
-        Serial.println("Unknown");
-    }
-    arSerial->print(F("Volume mounted:\t\t"));
-    storage.isVolumeMounted() ? arSerial->println(F("YES")) : arSerial->println(F("NO"));    
+
+    // Type and size of the first FAT-type volume
+//    arSerial->print("Volume type is:\tFAT");
+//    arSerial->println(storage.fatType(), DEC);
+
+   
+      arSerial->print("Clusters:          ");
+      arSerial->println(volume.clusterCount());
+      arSerial->print("Blocks x Cluster:  ");
+      arSerial->println(volume.blocksPerCluster());
+
+      arSerial->print("Total Blocks:      ");
+      arSerial->println(volume.blocksPerCluster() * volume.clusterCount());
+      arSerial->println();
+
+
+      volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+      volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+      volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
+
+      arSerial->print("Volume size (Kb):  ");
+      arSerial->println(volumesize);
+      arSerial->print("Volume size (Mb):  ");
+      volumesize /= 1024;
+      arSerial->println(volumesize);
+      arSerial->print("Volume size (Gb):  ");
+      arSerial->println((float)volumesize / 1024.0);
+ 
+  }else{
+      arSerial->println(F("NO"));
   }
 }
+*/
 
 
 #endif
