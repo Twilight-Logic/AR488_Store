@@ -3,12 +3,10 @@
 #include "AR488_Store_Tek_4924.h"
 
 
-/***** AR488_Store_Tek.cpp, ver. 0.01.09, 03/02/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.02.00, 03/02/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
-
-
 
 
 
@@ -23,11 +21,15 @@ SDstorage::SDstorage(){
 
   // Initialise SD card object
   SD.begin(chipSelect);
-  if (sdcard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
   
   // Attempt to mount volume
-  if (sdvolume.init(sdcard)) isvolmounted = true;
+  if (arSdVolume.init(arSdCard)) isvolmounted = true;
 
+  // Check for the existence of the Tek_4924 directory
+  if (chkTek4924Directory()) {
+    
+  }
 }
 
 
@@ -39,6 +41,25 @@ bool SDstorage::isInit(){
 bool SDstorage::isVolumeMounted(){
   return isvolmounted;
 }
+
+
+
+
+
+/***** Look for Tek_49245 directory *****/
+/*
+ * If it doesn't exist then it will be created
+ */
+
+bool SDstorage::chkTek4924Directory() {
+  if (SD.exists("Tek_4924")){
+    return true; 
+  }else{
+    SD.mkdir("/Tek_4924");
+    return false;
+  }
+}
+
 
 /*
 uint8_t SDstorage::sdType(){

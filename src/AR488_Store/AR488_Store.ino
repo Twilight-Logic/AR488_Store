@@ -40,7 +40,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.01.09, 03/02/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.02.00, 03/02/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -2132,11 +2132,11 @@ void store_h(char *params){
       arSerial->print(F("SDcard initialised:\t"));
       if (storage.isInit()){
         arSerial->println(F("YES"));
-        showSDInfo(arSerial);
+        storage.showSDInfo(arSerial);
         arSerial->print(F("Volume mounted:\t\t"));
         if (storage.isVolumeMounted()){
           arSerial->println(F("YES"));
-          showSdVolumeInfo(arSerial);
+          storage.showSdVolumeInfo(arSerial);
         }else{
           arSerial->println(F("NO"));
         }
@@ -2145,8 +2145,8 @@ void store_h(char *params){
       }
     }
 
-   if (strncmp(keyword, "list", 4)==0) {
-
+    if (strncmp(keyword, "dir", 4)==0) {
+      storage.listSdFiles(arSerial);
     }
 
     if (strncmp(keyword, "fmt", 3)==0) {
@@ -2170,44 +2170,7 @@ void store_h(char *params){
 }
 
 
-/*
-void showVolumeInfo(){
-  arSerial->print(F("Volume mounted:\t\t"));
-  if (storage.isVolumeMounted()){
-    arSerial->println(F("YES"));
 
-    // Type and size of the first FAT-type volume
-//    arSerial->print("Volume type is:\tFAT");
-//    arSerial->println(storage.fatType(), DEC);
-
-   
-      arSerial->print("Clusters:          ");
-      arSerial->println(volume.clusterCount());
-      arSerial->print("Blocks x Cluster:  ");
-      arSerial->println(volume.blocksPerCluster());
-
-      arSerial->print("Total Blocks:      ");
-      arSerial->println(volume.blocksPerCluster() * volume.clusterCount());
-      arSerial->println();
-
-
-      volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-      volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-      volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1KB)
-
-      arSerial->print("Volume size (Kb):  ");
-      arSerial->println(volumesize);
-      arSerial->print("Volume size (Mb):  ");
-      volumesize /= 1024;
-      arSerial->println(volumesize);
-      arSerial->print("Volume size (Gb):  ");
-      arSerial->println((float)volumesize / 1024.0);
- 
-  }else{
-      arSerial->println(F("NO"));
-  }
-}
-*/
 
 
 #endif
