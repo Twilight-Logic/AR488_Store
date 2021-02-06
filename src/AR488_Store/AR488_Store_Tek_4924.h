@@ -5,7 +5,7 @@
 #include <SD.h>
 #include "AR488_Config.h"
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.02.00, 28/01/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.02.02, 06/02/2021 *****/
 /*
  * Tektronix Storage Functions Definitions
  */
@@ -25,12 +25,18 @@ class SDstorage {
     bool isVolumeMounted();
     void listFiles();
     bool chkTek4924Directory();
+    bool chkTapesFile();
+    bool selectTape(uint8_t tnum);
     
-//    void storeExecCmd(uint8_t cmd);
+    void storeExecCmd(uint8_t cmd);
+
     const size_t stgcSize = 10;
     bool isinit = false;
     bool isvolmounted = false;
-
+    uint8_t currentTapeNum = 1;
+    uint8_t currentFileNum = 1;
+    char currentTapeName[35] = {'\0'};
+    char currentFileName[25] = {'\0'};
 
 template<typename T> void showSDInfo(T* output) {
 //  Sd2Card sdcard;
@@ -117,6 +123,8 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
 
   private:
 
+    const char* tapeRoot = "/Tek_4924";
+
     // Chip select pin
     #ifdef SDCARD_CS_PIN
       const uint8_t chipSelect = SDCARD_CS_PIN;
@@ -129,13 +137,6 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     SdVolume arSdVolume;
     SdFile arSdRoot;
 
-
-
-
-
-
-
-/*
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
@@ -158,7 +159,7 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     };
 
     static storeCmdRec storeCmdHidx[STGC_SIZE];
-*/
+
 };
 
 

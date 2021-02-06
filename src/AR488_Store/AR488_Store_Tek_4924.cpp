@@ -3,7 +3,7 @@
 #include "AR488_Store_Tek_4924.h"
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.02.00, 03/02/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.02.02, 06/02/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
@@ -28,7 +28,9 @@ SDstorage::SDstorage(){
 
   // Check for the existence of the Tek_4924 directory
   if (chkTek4924Directory()) {
-    
+    if (chkTapesFile()){
+      selectTape(1);
+    }
   }
 }
 
@@ -50,34 +52,52 @@ bool SDstorage::isVolumeMounted(){
 /*
  * If it doesn't exist then it will be created
  */
-
 bool SDstorage::chkTek4924Directory() {
-  if (SD.exists("Tek_4924")){
+  if (SD.exists(F("/Tek_4924"))){
     return true; 
   }else{
-    SD.mkdir("/Tek_4924");
-    return false;
+    return SD.mkdir(F("/Tek_4924"));
   }
 }
 
 
-/*
-uint8_t SDstorage::sdType(){
-  return sdcard.type();
+/***** Look for "tapes" file *****/
+bool SDstorage::chkTapesFile() {
+  if (SD.exists(tapeRoot)){
+    return true;
+  }else{
+    File tapes = SD.open(tapeRoot, FILE_WRITE);
+    if (tapes) {
+      tapes.println(F("01_tape_default"));
+      tapes.close();
+      return true;
+    }else{
+      return false;
+    }
+  }
 }
 
 
-uint32_t SDstorage::sdSize(){
-  return sdcard.cardSize();
-}
-*/
 
 
-/*
-uint8_t SDstorage::fatType(){
-  return sdvolume.fatType();
+bool SDstorage::selectTape(uint8_t tnum){
+  char tnumstr[2];
+
+  sprintf(tnumstr, "%02d", tnum );
+  memset(currentTapeName, '\0', 35);
+  strcat(currentTapeName, tapeRoot);
+  strcat(currentTapeName, "/");
+  strcat(currentTapeName, tnumstr);
+  strcat(currentTapeName, "_TAPE_");
+
+  if (SD.exists(currentTapeName)){
+    return true;
+  }else{
+    return SD.mkdir(currentTapeName);
+  }
+ 
+ return false;   
 }
-*/
 
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/

@@ -40,7 +40,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.02.00, 03/02/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.02.02, 06/02/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -2119,13 +2119,15 @@ void macro_h(char *params) {
 #ifdef EN_STORAGE
 void store_h(char *params){
   char *keyword;
-  char *param;
+  char *param1;
+  char *param2;
 //  uint8_t mode = 0;
 //  uint8_t val = 0;
   
   // Get first parameter (action)
   keyword = strtok(params, " \t");
-  param = strtok(NULL, " \t");
+  param1 = strtok(NULL, " \t");
+  param2 = strtok(NULL, " \t");
   
   if (keyword != NULL) {
     if (strncmp(keyword, "info", 4)==0) {
@@ -2153,16 +2155,8 @@ void store_h(char *params){
 
     }
 
-    if (strncmp(keyword, "mnt", 3)==0) {
-
-    }
-
-    if (strncmp(keyword, "umnt", 4)==0) {
-
-    }
-
     if (strncmp(keyword, "tape", 4)==0) {
-
+      tape_h(param1, param2);
     }
   }
 
@@ -2170,10 +2164,13 @@ void store_h(char *params){
 }
 
 
-
+void tape_h(char *cmd, char *param){
+  
+}
 
 
 #endif
+
 
 
 
