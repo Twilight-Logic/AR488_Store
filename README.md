@@ -13,7 +13,7 @@ To build an interface, at least one Arduino board will be required to act as the
 
 Arduino boards provide a low cost alternative to other commercial interfaces. Currently the following boards are supported:
 
-<P <p style="color:grey;">
+<P style="color:grey;">
 >[***** to be revised vvvvv]<BR>
 <table>
 <tr><td><i>MCU</i></td><td><i>Board</i></td><td><i>Serial Ports</i></td><td><i>Layouts</i></td></tr>
@@ -31,7 +31,7 @@ Including the SN7516x chipset into the interface design will naturally add to th
 
 To use the sketch, create a new directory, and then unpack the .zip file into this location. Open the main sketch, AR488_Store.ino, in the Arduino IDE. This should also load all of the linked .h and .cpp files. Review Config.h and make any configuration adjustment required (see the 'Configuration' section of the AR488 manual for details), including the selcetion of the board layout selection appropriate to the Arduino board that you are using. Set the target board in Board Manager within the Arduino IDE (Tools => Board:), and then compile and upload the sketch. There should be no need to make any changes to any other files. Once uploaded, the firmware should respond to the ++ver command with its version information.
 
-<P <p style="color:grey;">
+<P style="color:grey;">
 [***** to be revised vvvvv]<BR>
 Please note that Arduino Micro (and other 32u4 boards, e.g. Leonardo) do not automatically reset when a connection is made to the serial port. The Arduino IDE takes care of the programming process via USB which should work normally. Some Micro boards may not have a reset button, in which case the reset pin need to be briefly shorted to ground by some other means. When using the Arduino IDE on Linux (Linux Mint and possibly other Ubuntu derivatives), the modemmanager service must be disabled, otherwise it will interfere with the programming process and the boards will be rendered inaccessible via USB. If this curers, then the board can be returned to normal working by uploading a bootloader to it using an AVR programmer. This issue does not seem to affect Uno, Nano or Mega 2560 boards.
 <BR>[***** to be revised ^^^^^]</P>
@@ -42,7 +42,7 @@ Commands generally adhere closely to the Prologix syntax, however there are some
 
 Once uploaded, the firmware should respond to the ++ver command with its version information.
 
-<P <p style="color:grey;">
+<P style="color:grey;">
 [***** to be revised vvvvv]<BR>
 <b><i>Wireless Communication:</i></b>
 
