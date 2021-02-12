@@ -1,14 +1,20 @@
 #include <Arduino.h>
 
 #include "AR488_Store_Tek_4924.h"
+#include "AR488_GPIB.h"
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.03.01, 10/02/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.03.03, 12/02/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
 
-
+/*
+ * GPIB handling routines included from GPIB.h:
+ * 
+ * void gpibSendDataFromFile(File sdfile);
+ * bool gpibWriteToFile(File sdfile);
+ */
 
 
 
@@ -22,15 +28,17 @@ SDstorage::SDstorage(){
   // Initialise SD card object
   SD.begin(chipSelect);
   if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
-  
+ 
   // Attempt to mount volume
   if (arSdVolume.init(arSdCard)) isvolmounted = true;
 
   // Check for the existence of the Tek_4924 directory
   if (chkTek4924Directory()) {
+
     if (chkTapesFile()){
       selectTape(1);
     }
+
   }
 }
 
@@ -78,13 +86,12 @@ bool SDstorage::chkTapesFile() {
 }
 
 
-
-
 bool SDstorage::selectTape(uint8_t tnum){
   char tnumstr[2];
 
   sprintf(tnumstr, "%02d", tnum );
   memset(currentTapeName, '\0', 35);
+  strcat(currentTapeName, "/");
   strcat(currentTapeName, tapeRoot);
   strcat(currentTapeName, "/");
   strcat(currentTapeName, tnumstr);
