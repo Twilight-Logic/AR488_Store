@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.02.02, 06/02/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.03.01, 10/02/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -49,6 +49,21 @@
   /* Board/layout selection */
   #define AR488_UNO
   //#define AR488_NANO
+  /*** Serial ports ***/
+  //Select HardwareSerial or SoftwareSerial (default = HardwareSerial) ***/
+  // The UNO/NANO default hardware port is 'Serial'
+  // (Comment out #define AR_HW_SERIAL if using SoftwareSerial)
+  #define AR_HW_SERIAL
+  #ifdef AR_HW_SERIAL
+    #define AR_SERIAL_PORT Serial
+  #else
+    // Select software serial port
+    #define AR_SW_SERIAL
+  #endif
+
+#elif __AVR_ATmega328PB__
+  /* Board/layout selection */
+  #define AR488_POLOLU_MICRO
   /*** Serial ports ***/
   //Select HardwareSerial or SoftwareSerial (default = HardwareSerial) ***/
   // The UNO/NANO default hardware port is 'Serial'
@@ -219,6 +234,7 @@
 //#define DEBUG8  // ppoll_h
 //#define DEBUG9  // bluetooth
 //#define DEBUG10 // ID command
+#define DEBUG_STORE // Storage
 
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/

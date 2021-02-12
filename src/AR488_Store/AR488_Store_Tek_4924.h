@@ -5,7 +5,7 @@
 #include <SD.h>
 #include "AR488_Config.h"
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.02.02, 06/02/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.03.01, 10/02/2021 *****/
 /*
  * Tektronix Storage Functions Definitions
  */
