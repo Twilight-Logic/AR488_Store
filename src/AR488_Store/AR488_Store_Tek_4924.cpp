@@ -4,7 +4,7 @@
 #include "AR488_GPIB.h"
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.03.03, 12/02/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.04.02, 23/02/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
@@ -26,19 +26,27 @@
 SDstorage::SDstorage(){
 
   // Initialise SD card object
-  SD.begin(chipSelect);
-  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+//  SD.begin(chipSelect);
+
+  if (arSdCard.begin(sdCardCsPin, SPI_SPEED)) isinit = true;
+//  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
  
   // Attempt to mount volume
-  if (arSdVolume.init(arSdCard)) isvolmounted = true;
+  if (isinit) {
+//  if (arSdVolume.init(arSdCard)) isvolmounted = true;
+    
+
 
   // Check for the existence of the Tek_4924 directory
+/*
   if (chkTek4924Directory()) {
 
     if (chkTapesFile()){
       selectTape(1);
     }
 
+  }
+*/
   }
 }
 
@@ -60,6 +68,7 @@ bool SDstorage::isVolumeMounted(){
 /*
  * If it doesn't exist then it will be created
  */
+/* 
 bool SDstorage::chkTek4924Directory() {
   if (SD.exists(F("/Tek_4924"))){
     return true; 
@@ -67,9 +76,10 @@ bool SDstorage::chkTek4924Directory() {
     return SD.mkdir(F("/Tek_4924"));
   }
 }
-
+*/
 
 /***** Look for "tapes" file *****/
+/*
 bool SDstorage::chkTapesFile() {
   if (SD.exists(tapeRoot)){
     return true;
@@ -84,8 +94,9 @@ bool SDstorage::chkTapesFile() {
     }
   }
 }
+*/
 
-
+/*
 bool SDstorage::selectTape(uint8_t tnum){
   char tnumstr[2];
 
@@ -105,7 +116,7 @@ bool SDstorage::selectTape(uint8_t tnum){
  
  return false;   
 }
-
+*/
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** SD Card handling functions *****/
@@ -120,7 +131,7 @@ bool SDstorage::selectTape(uint8_t tnum){
 
 
 /***** Command handler interface *****/
-
+/*
 void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
 //  int sclsize = sizeof(storeCmdHidx) / sizeof(storeCmdHidx[0]);
@@ -144,12 +155,12 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
   }
 
 }
-
+*/
 
 
 /***** Command handlers *****/
 
-
+/*
 void SDstorage::stgc_0x60_h(){
   
 }
@@ -214,7 +225,7 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x7C, &SDstorage::stgc_0x7C_h },
   { 0x7D, &SDstorage::stgc_0x7D_h }
 };
-
+*/
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** Command handling functions *****/

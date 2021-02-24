@@ -1,11 +1,11 @@
 #ifndef AR488_GPIB_H
 #define AR488_GPIB_H
 
-#include <SD.h>
+//#include <SD.h>
 #include "AR488_Config.h"
 #include "AR488_Layouts.h"
 
-/***** AR488_Eeprom.cpp, ver. 0.03.03, 12/02/2021 *****/
+/***** AR488_Eeprom.cpp, ver. 0.03.03, 23/02/2021 *****/
 
 
 /*********************************************/
@@ -64,8 +64,8 @@ bool gpibWriteByteHandshake(uint8_t db);
 //bool uaddrDev();
 boolean Wait_on_pin_state(uint8_t state, uint8_t pin, int interval);
 void setGpibControls(uint8_t state);
-void gpibSendFromFile(File sdfile);
-bool gpibWriteToFile(File sdfile);
+//void gpibSendFromFile(File sdfile);
+//bool gpibWriteToFile(File sdfile);
 
 
 #endif // AR488_GPIB_H

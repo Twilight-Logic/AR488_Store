@@ -1,15 +1,19 @@
 #ifndef AR488_STORE_TEK_4924_H
 #define AR488_STORE_TEK_4924_H
 
-#include <SPI.h>
-#include <SD.h>
+//#include <SPI.h>
+//#include <SD.h>
+#include "SdFat.h"
+#include "sdios.h"
 #include "AR488_Config.h"
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.03.03, 12/02/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.04.01, 23/02/2021 *****/
 
 // Number of storage GPIB commands
 #define STGC_SIZE 10
-
+//#define SPI_SPEED SD_SCK_MHZ(4)
+#define SPI_SPEED SD_SCK_MHZ(16)
+#define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, DEDICATED_SPI, SPI_SPEED)
 
 class SDstorage {
 
@@ -20,12 +24,12 @@ class SDstorage {
     void showVolumeInfo();
     bool isInit();
     bool isVolumeMounted();
-    void listFiles();
-    bool chkTek4924Directory();
-    bool chkTapesFile();
-    bool selectTape(uint8_t tnum);
+//    void listFiles();
+//    bool chkTek4924Directory();
+//    bool chkTapesFile();
+//    bool selectTape(uint8_t tnum);
     
-    void storeExecCmd(uint8_t cmd);
+//    void storeExecCmd(uint8_t cmd);
 
     const size_t stgcSize = 10;
     bool isinit = false;
@@ -37,6 +41,7 @@ class SDstorage {
 
 template<typename T> void showSDInfo(T* output) {
 //  Sd2Card sdcard;
+/*
   output->print(F("Card type:\t\t"));
   switch (arSdCard.type()) {
     case SD_CARD_TYPE_SD1:
@@ -51,12 +56,14 @@ template<typename T> void showSDInfo(T* output) {
     default:
       output->println("Unknown");
   }
+*/
 }
 
 
-template<typename T> void showSdVolumeInfo(T* output) {
+template<typename T> void showSdVolumeInfo(T* output) { 
 //  Sd2Card sdcard;
 //  SdVolume sdvolume;
+/*
   uint32_t volumesize;
 
   // Type and size of the first FAT-type volume
@@ -84,17 +91,21 @@ template<typename T> void showSdVolumeInfo(T* output) {
       output->println(volumesize);
     }
   }
+*/
 }
 
 template<typename T> void listSdFiles(T* output){
+/*
   if (SD.begin(chipSelect)){
     File root = SD.open("/");
     listDir(root, 0, output);
   }
+*/
 }
 
 
 template<typename T> void listDir(File dir, int numTabs, T* output){
+/*
   while (true) {
     File entry =  dir.openNextFile();
     if (! entry) {
@@ -115,6 +126,7 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     }
     entry.close();
   }
+*/  
 }
     
 
@@ -124,29 +136,32 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
 
     // Chip select pin
     #ifdef SDCARD_CS_PIN
-      const uint8_t chipSelect = SDCARD_CS_PIN;
+      const uint8_t sdCardCsPin = SDCARD_CS_PIN;
     #else
-      const uint8_t chipSelect = 4;
+      const uint8_t sdCardCsPin = 4;
     #endif
-  
-    // SD card objects
-    Sd2Card arSdCard;
-    SdVolume arSdVolume;
-    SdFile arSdRoot;
 
+    // FAT16 + FAT32
+//    SdFat32 arSdCard;
+//    File32 sdFile;
+
+    // FAT16 + FAT32 + ExFAT
+    SdFs arSdCard;
+    ExFile sfFile; 
+    
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
-    void stgc_0x60_h();
-    void stgc_0x61_h();
-    void stgc_0x62_h();
-    void stgc_0x67_h();
-    void stgc_0x69_h();
-    void stgc_0x6C_h();
-    void stgc_0x6F_h();
-    void stgc_0x7B_h();
-    void stgc_0x7C_h();
-    void stgc_0x7D_h();
+//    void stgc_0x60_h();
+//    void stgc_0x61_h();
+//    void stgc_0x62_h();
+//    void stgc_0x67_h();
+//    void stgc_0x69_h();
+//    void stgc_0x6C_h();
+//    void stgc_0x6F_h();
+//    void stgc_0x7B_h();
+//    void stgc_0x7C_h();
+//    void stgc_0x7D_h();
 
 
     // Storage command function record

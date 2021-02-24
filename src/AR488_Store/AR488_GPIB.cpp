@@ -1,9 +1,9 @@
 #include <Arduino.h>
-#include <SD.h>
+//#include <SD.h>
 #include "AR488_Config.h"
 #include "AR488_GPIB.h"
 
-/***** AR488_GPIB.cpp, ver. 0.03.03, 12/02/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.04.01, 23/02/2021 *****/
 
 
 /****** Process status values *****/
@@ -21,7 +21,7 @@
 #ifdef AR_CDC_SERIAL
   extern Serial_ *arSerial;
   #ifndef DB_SERIAL_PORT
-    extern Serial_ *dbSerial = arSerial;
+    extern Serial_ *dbSerial;
   #endif
 #endif
 #ifdef AR_HW_SERIAL
@@ -559,6 +559,7 @@ bool uaddrDev() {
  * FILE_RDONLY
  * FILE_RDWR
  */
+/* 
 void gpibSendDataFromFile(File sdfile) {
 
   bool err = false;
@@ -625,7 +626,7 @@ void gpibSendDataFromFile(File sdfile) {
 #endif
  
 }
-
+*/
 
 /***** Write to a file from the GPIB bus *****/
 /*
@@ -634,6 +635,7 @@ void gpibSendDataFromFile(File sdfile) {
  * FILE_WRITE
  * FILE_APPEND
  */
+/*
 bool gpibWriteToFile(File sdfile) {
 
   uint8_t r = 0; //, db;
@@ -684,6 +686,8 @@ bool gpibWriteToFile(File sdfile) {
 //    if ((AR488.amode==3) || rEoi) lnRdy = serialIn_h();
     
     // Line terminator detected (loop breaks on command being detected or data buffer full)
+*/
+    
 /*    
     if (lnRdy > 0) {
       aRead = false;  // Stop auto read
@@ -691,6 +695,8 @@ bool gpibWriteToFile(File sdfile) {
     }
 */
 
+
+/*
 #ifdef DEBUG12
     if (eoiDetected) dbSerial->println(F("\r\nEOI detected."));
 #endif
@@ -772,7 +778,7 @@ bool gpibWriteToFile(File sdfile) {
 
   return OK;
 }
-
+*/
 
 
 /**********************************/
