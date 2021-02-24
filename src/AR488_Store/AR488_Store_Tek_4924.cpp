@@ -26,33 +26,26 @@
 SDstorage::SDstorage(){
 
   // Initialise SD card object
-//  SD.begin(chipSelect);
-
-  if (arSdCard.begin(sdCardCsPin, SPI_SPEED)) isinit = true;
-//  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+  if (!arSdCard.begin(SD_CONFIG)) return;
+  if (!arSdCard.card()->readCSD(&m_csd)) return;
+  issdinit = true;
+  
+  // Initialise volume object
+  if (arSdCard.vol()->fatType() == 0) return;
+  isvolmounted = true;
  
-  // Attempt to mount volume
-  if (isinit) {
-//  if (arSdVolume.init(arSdCard)) isvolmounted = true;
-    
-
-
-  // Check for the existence of the Tek_4924 directory
+  if (!chkTek4924Directory()) return;
 /*
-  if (chkTek4924Directory()) {
-
     if (chkTapesFile()){
       selectTape(1);
     }
 
-  }
 */
-  }
 }
 
 
-bool SDstorage::isInit(){
-  return isinit;
+bool SDstorage::isSDInit(){
+  return issdinit;
 }
 
 
@@ -61,6 +54,10 @@ bool SDstorage::isVolumeMounted(){
 }
 
 
+bool SDstorage::isStorageInit(){
+  return isstorageinit;
+}
+
 
 
 
@@ -68,15 +65,14 @@ bool SDstorage::isVolumeMounted(){
 /*
  * If it doesn't exist then it will be created
  */
-/* 
 bool SDstorage::chkTek4924Directory() {
-  if (SD.exists(F("/Tek_4924"))){
+  if (arSdCard.exists(F("/Tek_4924"))){
     return true; 
   }else{
-    return SD.mkdir(F("/Tek_4924"));
+    return arSdCard.mkdir(F("/Tek_4924"));
   }
 }
-*/
+
 
 /***** Look for "tapes" file *****/
 /*

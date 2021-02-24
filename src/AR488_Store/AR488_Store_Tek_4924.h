@@ -22,92 +22,85 @@ class SDstorage {
     // Storage management functions
     SDstorage();
     void showVolumeInfo();
-    bool isInit();
+    bool isSDInit();
     bool isVolumeMounted();
+    bool isStorageInit();
 //    void listFiles();
-//    bool chkTek4924Directory();
+    bool chkTek4924Directory();
 //    bool chkTapesFile();
 //    bool selectTape(uint8_t tnum);
     
 //    void storeExecCmd(uint8_t cmd);
 
     const size_t stgcSize = 10;
-    bool isinit = false;
-    bool isvolmounted = false;
     uint8_t currentTapeNum = 1;
     uint8_t currentFileNum = 1;
     char currentTapeName[35] = {'\0'};
     char currentFileName[25] = {'\0'};
 
 template<typename T> void showSDInfo(T* output) {
-//  Sd2Card sdcard;
-/*
   output->print(F("Card type:\t\t"));
-  switch (arSdCard.type()) {
+  switch (arSdCard.card()->type()) {
     case SD_CARD_TYPE_SD1:
-      output->println("MMC");
+      output->println(F("MMC"));
       break;
     case SD_CARD_TYPE_SD2:
-      output->println("SDSC");
+      output->println(F("SDSC"));
       break;
     case SD_CARD_TYPE_SDHC:
-      output->println("SDHC");
+      output->println(F("SDHC"));
       break;
     default:
-      output->println("Unknown");
+      output->println(F("Unknown"));
   }
-*/
+  output->print(F("Card size:\t\t"));
+  output->print(0.000512 * sdCardCapacity(&m_csd));
+  output->println(F("Mb"));
 }
 
 
 template<typename T> void showSdVolumeInfo(T* output) { 
-//  Sd2Card sdcard;
-//  SdVolume sdvolume;
-/*
-  uint32_t volumesize;
+  uint32_t volumesize = arSdCard.card()->sectorCount();
 
   // Type and size of the first FAT-type volume
-
-  if (arSdVolume.init(arSdCard)){
-    output->print("Volume type is:\t\tFAT");
-    output->println(arSdVolume.fatType(), DEC);
-    output->print("Clusters:\t\t");
-    output->println(arSdVolume.clusterCount());
-    output->print("Blocks per cluster:\t");
-    output->println(arSdVolume.blocksPerCluster());
+  if (arSdCard.vol()->fatType()>0){
+    output->print(F("Volume type is:\t\tFAT"));
+    output->println(arSdCard.vol()->fatType(), DEC);
+    output->print(F("Clusters:\t\t"));
+    output->println(arSdCard.clusterCount());
+    output->print(F("Blocks per cluster:\t"));
+    output->println(arSdCard.vol()->sectorsPerCluster());
     output->print("Total blocks:\t\t");
-    output->println(arSdVolume.blocksPerCluster() * arSdVolume.clusterCount());
+    output->println(arSdCard.vol()->sectorsPerCluster() * arSdCard.vol()->clusterCount());
 
-    volumesize = arSdVolume.blocksPerCluster(); // clusters are collections of blocks
-    volumesize *= arSdVolume.clusterCount();    // we'll have a lot of clusters
+    volumesize = arSdCard.vol()->sectorsPerCluster(); // clusters are collections of blocks
+    volumesize *= arSdCard.vol()->clusterCount();    // we'll have a lot of clusters
     volumesize /= 2;                          // SD card blocks are always 512 bytes (2 blocks are 1KB)
     volumesize /= 1024;                       // Convert to Mb
 
     if (volumesize>1024) {
-      output->print("Volume size (Gb):\t");
+      output->print(F("Volume size (Gb):\t"));
       output->println((float)volumesize/1024.0);      
     }else{
-      output->print("Volume size (Mb):\t");
+      output->print(F("Volume size (Mb):\t"));
       output->println(volumesize);
     }
+
   }
-*/
 }
+
 
 template<typename T> void listSdFiles(T* output){
-/*
-  if (SD.begin(chipSelect)){
-    File root = SD.open("/");
+  if (arSdCard.begin(SD_CONFIG)){
+    FsFile root = arSdCard.open("/");
     listDir(root, 0, output);
   }
-*/
 }
 
 
-template<typename T> void listDir(File dir, int numTabs, T* output){
-/*
+template<typename T> void listDir(FsFile dir, int numTabs, T* output){
   while (true) {
-    File entry =  dir.openNextFile();
+    FsFile entry = dir.openNextFile();
     if (! entry) {
       // no more files
       break;
@@ -121,14 +114,13 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
       listDir(entry, numTabs + 1, output);
     } else {
       // files have sizes, directories do not
-      output->print("\t\t");
-      Serial.println(entry.size(), DEC);
+//      output->print("\t\t");
+//      output->println(entry.size(), DEC);
     }
     entry.close();
   }
-*/  
 }
-    
+
 
   private:
 
@@ -148,6 +140,12 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     // FAT16 + FAT32 + ExFAT
     SdFs arSdCard;
     ExFile sfFile; 
+
+    csd_t m_csd;
+
+    bool issdinit = false;
+    bool isvolmounted = false;
+    bool isstorageinit = false;
     
     using stgcHandler = void (SDstorage::*)();
 

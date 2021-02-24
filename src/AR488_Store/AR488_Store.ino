@@ -34,16 +34,9 @@
 #endif
 
 
-#ifdef SD_TEST
-  #include <SPI.h>
-  #include <SD.h>
-  #define CHIP_SELECT_PIN 10
-#endif
 
 
-
-
-/***** FWVER "AR488 GPIB Storage, ver. 0.04.01, 23/02/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.04.03, 23/02/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1463,7 +1456,7 @@ void store_h(char *params){
   if (keyword != NULL) {
     if (strncmp(keyword, "info", 4)==0) {
       arSerial->print(F("SDcard initialised:\t"));
-      if (storage.isInit()){
+      if (storage.isSDInit()){
         arSerial->println(F("YES"));
         storage.showSDInfo(arSerial);
         arSerial->print(F("Volume mounted:\t\t"));
