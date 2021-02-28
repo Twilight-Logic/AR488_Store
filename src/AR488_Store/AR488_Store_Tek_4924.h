@@ -1,19 +1,21 @@
 #ifndef AR488_STORE_TEK_4924_H
 #define AR488_STORE_TEK_4924_H
 
-//#include <SPI.h>
-//#include <SD.h>
-#include "SdFat.h"
-#include "sdios.h"
 #include "AR488_Config.h"
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.04.01, 23/02/2021 *****/
+#ifdef EN_STORAGE
+
+//#include <SPI.h>
+#include "SdFat.h"
+#include "sdios.h"
+
+/***** AR488_Storage_Tek_4924.h, ver. 0.04.05, 28/02/2021 *****/
 
 // Number of storage GPIB commands
 #define STGC_SIZE 10
 //#define SPI_SPEED SD_SCK_MHZ(4)
 #define SPI_SPEED SD_SCK_MHZ(16)
-#define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, DEDICATED_SPI, SPI_SPEED)
+#define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SPI_SPEED)
 
 class SDstorage {
 
@@ -21,12 +23,17 @@ class SDstorage {
 
     // Storage management functions
     SDstorage();
-    void showVolumeInfo();
+//    void showVolumeInfo();
+    void showSDInfo(print_t* output);
+    void showSdVolumeInfo(print_t* output);
+    void listSdFiles(print_t* output);
+    bool chkTek4924Directory();
+
     bool isSDInit();
     bool isVolumeMounted();
     bool isStorageInit();
+
 //    void listFiles();
-    bool chkTek4924Directory();
 //    bool chkTapesFile();
 //    bool selectTape(uint8_t tnum);
     
@@ -38,6 +45,12 @@ class SDstorage {
     char currentTapeName[35] = {'\0'};
     char currentFileName[25] = {'\0'};
 
+/*
+ * Templates: try passing object of type print_t*
+ */
+
+
+/*
 template<typename T> void showSDInfo(T* output) {
   output->print(F("Card type:\t\t"));
   switch (arSdCard.card()->type()) {
@@ -92,35 +105,10 @@ template<typename T> void showSdVolumeInfo(T* output) {
 
 template<typename T> void listSdFiles(T* output){
   if (arSdCard.begin(SD_CONFIG)){
-    FsFile root = arSdCard.open("/");
-    listDir(root, 0, output);
+    arSdCard.ls(output, "/", LS_R|LS_DATE|LS_SIZE );
   }
 }
-
-
-template<typename T> void listDir(FsFile dir, int numTabs, T* output){
-  while (true) {
-    FsFile entry = dir.openNextFile();
-    if (! entry) {
-      // no more files
-      break;
-    }
-    for (uint8_t i = 0; i < numTabs; i++) {
-      output->print('\t');
-    }
-    output->print(entry.name());
-    if (entry.isDirectory()) {
-      output->println("/");
-      listDir(entry, numTabs + 1, output);
-    } else {
-      // files have sizes, directories do not
-//      output->print("\t\t");
-//      output->println(entry.size(), DEC);
-    }
-    entry.close();
-  }
-}
-
+*/
 
   private:
 
@@ -134,12 +122,12 @@ template<typename T> void listDir(FsFile dir, int numTabs, T* output){
     #endif
 
     // FAT16 + FAT32
-//    SdFat32 arSdCard;
-//    File32 sdFile;
+    SdFat32 arSdCard;
+    File32 sdFile;
 
     // FAT16 + FAT32 + ExFAT
-    SdFs arSdCard;
-    ExFile sfFile; 
+//    SdFs arSdCard;
+//    ExFile sfFile; 
 
     csd_t m_csd;
 
@@ -150,16 +138,16 @@ template<typename T> void listDir(FsFile dir, int numTabs, T* output){
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
-//    void stgc_0x60_h();
-//    void stgc_0x61_h();
-//    void stgc_0x62_h();
-//    void stgc_0x67_h();
-//    void stgc_0x69_h();
-//    void stgc_0x6C_h();
-//    void stgc_0x6F_h();
-//    void stgc_0x7B_h();
-//    void stgc_0x7C_h();
-//    void stgc_0x7D_h();
+    void stgc_0x60_h();
+    void stgc_0x61_h();
+    void stgc_0x62_h();
+    void stgc_0x67_h();
+    void stgc_0x69_h();
+    void stgc_0x6C_h();
+    void stgc_0x6F_h();
+    void stgc_0x7B_h();
+    void stgc_0x7C_h();
+    void stgc_0x7D_h();
 
 
     // Storage command function record
@@ -172,6 +160,6 @@ template<typename T> void listDir(FsFile dir, int numTabs, T* output){
 
 };
 
-
+#endif  // EN_STORAGE
 
 #endif // AR488_STORE_TEK_4924_H

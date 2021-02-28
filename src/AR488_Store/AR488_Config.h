@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.04.03, 23/02/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.04.05, 28/02/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -110,6 +110,7 @@
   // and associated SERIALEVENT definition
 */
   #define AR_HW_SERIAL
+  //#define AR_SW_SERIAL
   #define AR_SERIAL_PORT Serial
   //#define AR_SERIAL_PORT Serial1
   //#define AR_SERIAL_PORT Serial3
@@ -125,8 +126,8 @@
  * USE_PINHOOKS
  */
 #ifdef AR_SW_SERIAL
-  #define AR_SW_SERIAL_RX 53
-  #define AR_SW_SERIAL_TX 51
+  #define AR_SW_SERIAL_RX 11
+  #define AR_SW_SERIAL_TX 12
   #define AR_SW_SERIAL_BAUD 57600
 #else
   #define AR_SERIAL_BAUD 115200

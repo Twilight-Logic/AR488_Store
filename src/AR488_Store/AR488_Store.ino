@@ -36,7 +36,7 @@
 
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.04.03, 23/02/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.04.05, 28/02/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -389,7 +389,11 @@ void setup() {
   arSerial->begin(AR_BT_BAUD);
 #else
   // Start the serial port
-  arSerial->begin(AR_SERIAL_BAUD);
+  #ifdef AR_SW_SERIAL
+    arSerial->begin(AR_SW_SERIAL_BAUD);
+  #else
+    arSerial->begin(AR_SERIAL_BAUD);
+  #endif
 #endif
 
 /*
