@@ -6,4 +6,4 @@ I uploaded a drop of my emulator code which has been added to your current AR488
 
 I continued emulator development and have my latest version uploaded into AR488-644-TLIST-continuedDev folder
 
-I also added a folder with the contents of the microSD card I'm testing in Tek4924sd folder
+I also added a folder with the contents of the microSD card I'm testing in Tek4924sd folder and a zip of the contents in this folder.
