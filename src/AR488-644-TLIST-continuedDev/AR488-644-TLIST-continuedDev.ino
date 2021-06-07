@@ -54,8 +54,13 @@ char buffer[line_buffer_size];
 char path[60] = {0};
 char dir[11];
 char buffr[line_buffer_size];
+char buffr2[76];
 const int bin_buffer_size = 65;
 char binary[33]; // output buffer size = bin buffer size / 2 plus NULL
+char *param;
+char rparam = '\0';
+char ibuffr[4];
+char s_input[4] = {0};
 
 const byte numChars = 32;
 char receivedChars[numChars];
@@ -82,14 +87,14 @@ void tek_CD(char *direct) {
     if (direct != NULL) {
 
         param = strtok(direct, " \t");
-        cout << " \n";
+        // cout << " \n";
         // set directory = /param/;
         strcpy(directory, "/");
         strcat(directory, param);
         strcat(directory, "/");
-        //cout << '\n';
+        cout << F("directory= ") << directory << " \r " << endl;
     } else {
-        cout << "Null directory";
+        cout << F("Null directory");
     }
     f_name[0] = 0; // delete any previous filename that was open
 }
@@ -140,91 +145,220 @@ void tek_READ_one() {               // Read one data element from currently open
 
     */
 
-    const int wait = 4;
-    char s_input[4] = {'\0'};
-
+    char incoming = '\0';
+    char CR = '\r';
     strcpy(path, directory);
     strcat(path, f_name);
 
-    // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\n' << '\n';
-    cout << "File type: " << f_type << '\r';
+    ifstream sdin(path);  // initialize stream to beginning of the file
 
-    if (f_type != 'N') {
+    switch (f_type) {
+        case 'P':
+            cout << F("ASCII Program\r");
+            cout << F("Type SPACE for next item, or type q to quit\r \r ");
 
-        ifstream sdin(path); //open the file
+            sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
+            cout << buffr << '\r';                                // send that line to the serial port
 
-        while (wait == 4) {
-            cin.getline(s_input, 4);
-            // read the incoming number from serial:
-            // if incoming is any character then quit
-
-            if ( s_input[0] != '\0') {
-                if ((s_input[0] == 'Q') || (s_input[0] == 'q')) {
-                    return;
-                } else {
-
-                    // read one line from the ASCII file and print
-
-                    if ((f_type == 'P') || (f_type == 'D')) {
-
-                        char buffr[line_buffer_size];
-
-                        sdin.getline(buffr, line_buffer_size, '\r');
-                        cout << buffr << " \r" ;
-                        s_input[0] = '\0'; //clear the input buffer
-
+            while (1) {
+                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
+                    incoming = Serial.read();
+                    if (incoming != 'q') {
+                        incoming = '\0';     // clear the flag
+                        sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
                         if (sdin.eof()) {
-                            cout << "_End of File_\n";
-                            file.close();                //close file as we have reached EOF
-                            f_type = 'N';              //set file type to "File Not Open"
+                            cout << "__EOF__" << endl;
                             return;
                         }
+                        cout << buffr << '\r';                                // send that line to the serial port
+
+                    } else {  // incoming was 'q'
+                        incoming = '\0';  // clear the flag
+                        cout << "__Quit__" << endl;
+                        return;
                     }
                 }
             }
-        }
-    } else {
-        cout << "No file is open" << endl;
+
+            break;
+
+        case 'D':
+            cout << F("ASCII DATA file\r");
+            cout << F("Type SPACE for next item, or type q to quit\r \r ");
+
+            sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
+            cout << buffr << '\r';                                // send that line to the serial port
+
+            while (1) {
+                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
+                    incoming = Serial.read();
+                    if (incoming != 'q') {
+                        incoming = '\0';     // clear the flag
+                        sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
+                        if (sdin.eof()) {
+                            cout << "__EOF__" << endl;
+                            return;
+                        }
+
+                        //no need to parse buffer: 4050 will read a CR terminated buffer and then parse based on BASIC parameter type
+                        cout << buffr << '\r';                                // send that line to the serial port
+
+                    } else {  // incoming was 'q'
+                        incoming = '\0';  // clear the flag
+                        cout << "__Quit__" << endl;
+                        return;
+                    }
+                }
+            }
+            break;
+
+        case 'B':
+            cout << F("BINARY PROGRAM file\r");
+            cout << F("Type SPACE for next item, or type q to quit\r \r");
+
+            while (1) {
+                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
+                    incoming = Serial.read();
+                    if (incoming != 'q') {
+                        incoming = '\0';     // clear the flag
+                        sdin.getline(buffr, bin_buffer_size, '\r');
+                        if (strlen(buffr) == 0) {
+                            cout << "__EOF__" << endl;
+                            return;
+                        } else {
+                            strcpy(buffr2, buffr);
+                            strcat(buffr2, "\r"); //add CR back to buffer, this line was CR terminated;
+                        }
+                        //convert HEX to binary, output HEX then binary for each buffer
+
+                        int i = 0, len = strlen(buffr2), n = 0;
+                        //cout << "Buffer= " << len << " \n";
+                        char byt = {0};
+                        char tmp[3] = {0, 0, 0};
+
+                        //cout << F("\nHEX: ") << buffr << " \n";
+                        //cout << " \n";
+                        for (i = 0; i < len - 1; i += 2)
+                        {
+                            tmp[0] = buffr2[i];
+                            tmp[1] = buffr2[i + 1];
+                            byt = strtoul(tmp, NULL, 16);
+                            cout << byt;
+                            //fputc(byt, stdout);
+                        }
+                        cout << "\r";
+                    } else {  // incoming was 'q'
+                        incoming = '\0';  // clear the flag
+                        cout << "__Quit__" << endl;
+                        return;
+                    }
+                }
+            }
+
+            break;
+
+        case 'H':
+            cout << F("BINARY DATA file\r");
+            cout << F("Type SPACE for next item, or type q to quit\r \r");
+
+            while (1) {
+                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
+                    incoming = Serial.read();
+                    if (incoming != 'q') {
+                        incoming = '\0';     // clear the flag
+                        sdin.getline(buffr, bin_buffer_size, '\r');
+                        if (strlen(buffr) == 0) {
+                            cout << "__EOF__" << endl;
+                            return;
+                        } else {
+                            strcpy(buffr2, buffr);
+                            strcat(buffr2, "\r"); //add CR back to buffer, this line was CR terminated;
+                        }
+                        //convert HEX to binary, output HEX then binary for each buffer
+
+                        int i = 0, len = strlen(buffr2), n = 0;
+                        //cout << "Buffer= " << len << " \n";
+                        char byt = {0};
+                        char tmp[3] = {0, 0, 0};
+
+                        //cout << F("\nHEX: ") << buffr << " \n";
+                        //cout << " \n";
+                        for (i = 0; i < len - 1; i += 2)
+                        {
+                            tmp[0] = buffr2[i];
+                            tmp[1] = buffr2[i + 1];
+                            byt = strtoul(tmp, NULL, 16);
+                            cout << byt;
+                            //fputc(byt, stdout);
+                        }
+                        cout << "\r";
+                    } else {  // incoming was 'q'
+                        incoming = '\0';  // clear the flag
+                        cout << "__Quit__" << endl;
+                        return;
+                    }
+                }
+            }
+
+            break;
+
+        case 'S':
+            cout << F("SECRET ASCII PROGRAM file\r");
+            cout << F("Type SPACE for next item, or type q to quit\r \r");
+
+            while (1) {
+                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
+                    incoming = Serial.read();
+                    if (incoming != 'q') {
+                        incoming = '\0';     // clear the flag
+                        sdin.getline(buffr, bin_buffer_size, '\r');
+                        /*
+                            if (strlen(buffr) == 0) {
+                            cout << "__EOF__" << endl;
+                            return;
+                            } else { */
+
+                        strcpy(buffr2, buffr);
+                        strcat(buffr2, "\r"); //add CR back to buffer, this line was CR terminated;
+
+                        //convert HEX to binary, output HEX then binary for each buffer
+
+                        int i = 0, len = strlen(buffr2), n = 0;
+                        //cout << "Buffer= " << len << " \n";
+                        char byt = {0};
+                        char tmp[3] = {0, 0, 0};
+
+                        //cout << F("\nHEX: ") << buffr << " \n";
+                        //cout << " \n";
+                        for (i = 0; i < len - 1; i += 2)
+                        {
+                            tmp[0] = buffr2[i];
+                            tmp[1] = buffr2[i + 1];
+                            byt = strtoul(tmp, NULL, 16);
+                            cout << byt;
+                            //fputc(byt, stdout);
+                        }
+                        cout << "\r";
+                    } else {  // incoming was 'q'
+                        incoming = '\0';  // clear the flag
+                        cout << "__Quit__" << endl;
+                        return;
+                    }
+                }
+            }
+
+            break;
+
+        case 'L':
+            cout << F("LAST file is EMPTY\n");
+            break;
+
+        case 'N':
+            cout << F("No file is open\n");
+            break;
     }
-
-
-
-    /*
-        } else {
-        char buffr[bin_buffer_size];
-        char binary[33]; // output buffer size = bin buffer size / 2 plus NULL
-
-        while (sdin.getline(buffr, bin_buffer_size, '\r') || sdin.gcount()) {
-          if (sdin.fail()) {
-            //cout << F(" \nPartial long line\n");
-            //sdin.clear(sdin.rdstate() & ~ios_base::failbit);
-          } else if (sdin.eof()) {
-            //cout << F(" \nPartial final line\n");  // sdin.fail() is false
-          } else {
-            //cout << F(" \nCR terminated line\n");
-          }
-          //convert HEX to binary, output HEX then binary for each buffer
-
-          int i = 0, len = strlen(buffr), n = 0;
-          //cout << "Buffer= " << len << " \n";
-          char byt = {0};
-          char tmp[3] = {0, 0, 0};
-
-          //cout << F("\nHEX: ") << buffr << " \n";
-          //cout << " \n";
-          for (i = 0; i < len - 1; i += 2)
-          {
-            tmp[0] = buffr[i];
-            tmp[1] = buffr[i + 1];
-            byt = strtoul(tmp, NULL, 16);
-            cout << byt;
-            //fputc(byt, stdout);
-          }
-          file.close();                //close file as we have reached EOF
-          f_type = "N";              //set file type to "File Not Open"
-          //fputc(' ', stdout);
-          //fputc('\n', stdout);
-    */
+    file.close();              //close file as we have reached EOF
+    f_type = 'N';              //set file type to "File Not Open"
 
 }
 
@@ -234,14 +368,13 @@ void tek_READ_file() {              // Read entire currently open file based on 
     strcpy(path, directory);
     strcat(path, f_name);
 
-    // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\n' << '\n';
-    cout << "File type: " << f_type << endl;
+    cout << F("File type: ") << f_type << endl;
 
     ifstream sdin(path);
 
     switch (f_type) {
         case 'P':
-            cout << "ASCII Program\n";
+            cout << F("ASCII Program\r \r");
 
             while (sdin.getline(buffr, line_buffer_size, '\r')) {
 
@@ -250,7 +383,7 @@ void tek_READ_file() {              // Read entire currently open file based on 
             break;
 
         case 'D':
-            cout << "ASCII DATA file\n";
+            cout << F("ASCII DATA file\r \r");
 
             while (sdin.getline(buffr, line_buffer_size, '\r')) {
 
@@ -259,26 +392,27 @@ void tek_READ_file() {              // Read entire currently open file based on 
             break;
 
         case 'B':
-            cout << "BINARY DATA file\n";
+            cout << F("BINARY PROGRAM file\r \r");
+            //read entire file - convert HEX bytes to Binary
 
             while (sdin.getline(buffr, bin_buffer_size, '\r') || sdin.gcount()) {
                 if (sdin.fail()) {
-                    //cout << F(" \nPartial long line\n");
+                    //cout << F(" \r\nPartial long line\r\n");
                     //sdin.clear(sdin.rdstate() & ~ios_base::failbit);
                 } else if (sdin.eof()) {
-                    //cout << F(" \nPartial final line\n");  // sdin.fail() is false
+                    //cout << F(" \r\nPartial final line\r\n");  // sdin.fail() is false
                 } else {
-                    //cout << F(" \nCR terminated line\n");
+                    //cout << F(" \r\nCR terminated line\r\n");
                 }
                 //convert HEX to binary, output HEX then binary for each buffer
 
                 int i = 0, len = strlen(buffr), n = 0;
-                //cout << "Buffer= " << len << " \n";
+                //cout << "Buffer= " << len << " \r\n";
                 char byt = {0};
                 char tmp[3] = {0, 0, 0};
 
-                //cout << F("\nHEX: ") << buffr << " \n";
-                //cout << " \n";
+                //cout << F("\r\nHEX: ") << buffr << " \r\n";
+                //cout << " \r\n";
                 for (i = 0; i < len - 1; i += 2)
                 {
                     tmp[0] = buffr[i];
@@ -288,31 +422,68 @@ void tek_READ_file() {              // Read entire currently open file based on 
                     //fputc(byt, stdout);
                 }
                 //fputc(' ', stdout);
-                //fputc('\n', stdout);
+                //fputc('\r\n', stdout);
+            }
+            break;
+
+        case 'H':
+            cout << F("BINARY DATA file\r \r");
+            // read a buffer of HEX, possibly no termination
+            // convert HEX buffer to binary buffer
+            // parse for data_type then output the d_type and data
+
+            while (sdin.getline(buffr, bin_buffer_size, '\r') || sdin.gcount()) {
+                if (sdin.fail()) {
+                    //cout << F(" \r\nPartial long line\r\n");
+                    //sdin.clear(sdin.rdstate() & ~ios_base::failbit);
+                } else if (sdin.eof()) {
+                    //cout << F(" \r\nPartial final line\r\n");  // sdin.fail() is false
+                } else {
+                    //cout << F(" \r\nCR terminated line\r\n");
+                }
+                //convert HEX to binary, output HEX then binary for each buffer
+
+                int i = 0, len = strlen(buffr), n = 0;
+                //cout << "Buffer= " << len << " \r\n";
+                char byt = {0};
+                char tmp[3] = {0, 0, 0};
+
+                //cout << F("\r\nHEX: ") << buffr << " \r\n";
+                //cout << " \r\n";
+                for (i = 0; i < len - 1; i += 2)
+                {
+                    tmp[0] = buffr[i];
+                    tmp[1] = buffr[i + 1];
+                    byt = strtoul(tmp, NULL, 16);
+                    cout << byt;
+                    //fputc(byt, stdout);
+                }
+                //fputc(' ', stdout);
+                //fputc('\r\n', stdout);
             }
             break;
 
         case 'S':
-            cout << "SECRET ASCII PROGRAM file\n";
+            cout << F("SECRET ASCII PROGRAM file\r \r");
 
             while (sdin.getline(buffr, bin_buffer_size, '\r') || sdin.gcount()) {
                 if (sdin.fail()) {
-                    //cout << F(" \nPartial long line\n");
+                    //cout << F(" \r\nPartial long line\r\n");
                     //sdin.clear(sdin.rdstate() & ~ios_base::failbit);
                 } else if (sdin.eof()) {
-                    //cout << F(" \nPartial final line\n");  // sdin.fail() is false
+                    //cout << F(" \r\nPartial final line\r\n");  // sdin.fail() is false
                 } else {
-                    //cout << F(" \nCR terminated line\n");
+                    //cout << F(" \r\nCR terminated line\r\n");
                 }
                 //convert HEX to binary, output HEX then binary for each buffer
 
                 int i = 0, len = strlen(buffr), n = 0;
-                //cout << "Buffer= " << len << " \n";
+                //cout << "Buffer= " << len << " \r\n";
                 char byt = {0};
                 char tmp[3] = {0, 0, 0};
 
-                //cout << F("\nHEX: ") << buffr << " \n";
-                //cout << " \n";
+                //cout << F("\r\nHEX: ") << buffr << " \r\n";
+                //cout << " \r\n";
                 for (i = 0; i < len - 1; i += 2)
                 {
                     tmp[0] = buffr[i];
@@ -322,16 +493,16 @@ void tek_READ_file() {              // Read entire currently open file based on 
                     //fputc(byt, stdout);
                 }
                 //fputc(' ', stdout);
-                //fputc('\n', stdout);
+                //fputc('\r\n', stdout);
             }
             break;
 
         case 'L':
-            cout << "LAST file is EMPTY\n";
+            cout << F("LAST file is EMPTY\r \r");
             break;
 
         case 'N':
-            cout << "No file is open\n";
+            cout << F("No file is open\r \r");
             break;
     }
     file.close();              //close file as we have reached EOF
@@ -345,7 +516,7 @@ void tek_OLD() {
     strcpy(path, directory);
     strcat(path, f_name);
 
-    // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\n' << '\n';
+    // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\r\n' << '\r\n';
     ifstream sdin(path);
 
     while (sdin.getline(buffer, line_buffer_size, '\r')) {
@@ -386,15 +557,18 @@ char tek_FIND(int num) {
 
             if (filenumber == num) {
                 // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
-                cout << " " << f_name << '\n';
+                cout << F(" ") << f_name << "\r ";
 
                 // all BINARY files are in HEX format
-                if (f_name[7] == 'B') {
+                if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
                     dirFile.close();  // end of iteration through all files, close directory
-                    return 'B'; // BINARY data
+                    return 'B'; // BINARY PROGRAM file
+                } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
+                    dirFile.close();  // end of iteration through all files, close directory
+                    return 'H'; // BINARY DATA file ** to read - parse the data_type
                 } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
                     dirFile.close();  // end of iteration through all files, close directory
-                    return 'S'; // SECRET file
+                    return 'S'; // SECRET ASCII PROGRAM file
                 } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
                     dirFile.close();  // end of iteration through all files, close directory
                     return 'P'; // ASCII PROGRAM file
@@ -417,7 +591,7 @@ char tek_FIND(int num) {
         file.close();  // end of iteration close **this** file
 
     }
-    cout << "File " << num << " not found" << endl;
+    cout << F("File ") << num << " not found" << endl;
     f_name[0] = '\0';  // clear f_name
     dirFile.close();  // end of iteration through all files, close directory
 
@@ -437,7 +611,7 @@ void tek_TLIST() {
     // match the specific Tek4924 tape file number from f_name
     for (int number = 1; number < nMax; number++) { // find each file in # sequence
 
-        //cout << "Directory: " << directory << '\n';
+        //cout << "Directory: " << directory << '\r\n';
         f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
         file.close();  //  close any file that could be open (from previous FIND for example)
 
@@ -460,11 +634,18 @@ void tek_TLIST() {
                 if (filenumber == number) {
 
                     // print the entire file 'header' with leading space, and CR + DC3 delimiters
-                    cout << " " << f_name << '\r' << '\x019';
+                    cout << F(" ") << f_name << '\r' << '\x019';
 
                 }
+                if ((f_name[7] == 'L') && (filenumber == number)) {
+                    // then this is the LAST file - end of TLIST
+                    file.close();  // end of iteration close **this** file
+                    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+                    f_type = 'N';    // set file type to "N" for NOT OPEN
+                    dirFile.close();  // end of iteration through all files, close directory
+                    return;
 
-                if (file.isDir()) {
+                } else if (file.isDir()) {
                     // Indicate a directory.
                     cout << '/' << endl;
                 }
@@ -1930,19 +2111,19 @@ void cd_h(char *params) {
         param = strtok(params, " \t");
     }
     tek_CD(param);
-    cout << " \n";
+    cout << F(" \r\n");
 }
 //***** end of CD ************************************************
 
 // ***** HELP lists the commands for the Tek4924 emulator *****
 void help_h(char *params) {
-    cout << F("Tek4924 Emulator commands:\n") << endl;
-    cout << F("++tlist     Lists files in current directory\n");
-    cout << F("++find x    Opens file x in current directory\n");
-    cout << F("++old       Sends the opened ASCII PROGRAM file to serial console\n");
-    cout << F("++cd path   Changes directory to path (ex: cd /utilities/)\n");
-    cout << F("++read1     Reads next data item from an opened file (based on d_type)\n");
-    cout << F("++readf     Reads the entire opened file (based on f_type: A,B or D)\n") << endl;
+    cout << F("Tek4924 Emulator commands:\r \r");
+    cout << F("++tlist     Lists files in current directory\r");
+    cout << F("++find x    Opens file x in current directory\r");
+    cout << F("++old       Sends the opened ASCII PROGRAM file to serial console\r");
+    cout << F("++cd path   Changes directory to path (ex: cd /utilities/)\r");
+    cout << F("++read1     Reads next data item from an opened file (based on d_type)\r");
+    cout << F("++readf     Reads the entire opened file (based on f_type: A,B or D)\r ") << endl;
 }
 //***** end of HELP ************************************************
 
@@ -1950,7 +2131,7 @@ void help_h(char *params) {
 void readf_h(char *params) {
     // run the tek_READ_file from current directory and last FIND filename
     tek_READ_file();
-    cout << " \n";
+    cout << F(" \r\n");
 }
 //***** end of READf ************************************************
 
@@ -1958,7 +2139,7 @@ void readf_h(char *params) {
 void read1_h(char *params) {
     // run the tek_READ_one from current directory and last FIND filename
     tek_READ_one();
-    cout << " \n";
+    cout << F(" \r\n");
 }
 //***** end of READ1 ************************************************
 
@@ -1967,10 +2148,10 @@ void old_h(char *params) {
     // run the tek_OLD from current directory and last FIND filename
     if (f_type == 'P') { //file opened is ASCII PROGRAM
         tek_OLD();
-        cout << " \n";
+        cout << F(" \r\n");
     } else
     {   if (f_type != 'N')
-            cout << F("File is not an ASCII Program\n");
+            cout << F("File is not an ASCII Program\r\n");
     }
 }
 //***** end of OLD ************************************************
@@ -1987,7 +2168,7 @@ void find_h(char *params) {
         if (notInRange(param, 1, 99, val)) return;  //assume file numbers limited to 1-99
     }
     f_type = tek_FIND(val);
-    cout << "\n";
+    cout << F("\r\n");
 }
 //***** end of FIND ************************************************
 
@@ -1997,7 +2178,7 @@ void tlist_h(char *params) {
     f_name[0];        //clear previous f_name prior to tlist
     dirFile.close();  // close previous directory
     tek_TLIST();
-    cout << "\n";
+    cout << " \r " << endl;
 }
 //***** end of TLIST ************************************************
 
@@ -2747,7 +2928,7 @@ void repeat_h(char *params) {
         }
 
         // Pointer to remainder of parameters string
-        param = strtok(NULL, "\n\r");
+        param = strtok(NULL, "\r\n");
         if (strlen(param) > 0) {
             for (uint16_t i = 0; i < count; i++) {
                 // Send string to instrument
