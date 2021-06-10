@@ -36,7 +36,7 @@
 
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.04.05, 28/02/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.04.06, 02/03/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -156,9 +156,12 @@
 /*** vvvvvvvvvvvvv ***/
 
 /***** STARTUP MACRO *****/
+/*
 const char startup_macro[] PROGMEM = {MACRO_0};
+*/
 
 /***** Consts holding USER MACROS 1 - 9 *****/
+/*
 const char macro_1 [] PROGMEM = {MACRO_1};
 const char macro_2 [] PROGMEM = {MACRO_2};
 const char macro_3 [] PROGMEM = {MACRO_3};
@@ -168,9 +171,10 @@ const char macro_6 [] PROGMEM = {MACRO_6};
 const char macro_7 [] PROGMEM = {MACRO_7};
 const char macro_8 [] PROGMEM = {MACRO_8};
 const char macro_9 [] PROGMEM = {MACRO_9};
-
+*/
 
 /* Macro pointer array */
+/*
 const char * const macros[] PROGMEM = {
   startup_macro,
   macro_1,
@@ -183,6 +187,7 @@ const char * const macros[] PROGMEM = {
   macro_8,
   macro_9
 };
+*/
 
 /*** ^^^^^^^^^^^^^ ***/
 /*** DO NOT MODIFY ***/
@@ -318,19 +323,19 @@ bool dataBufferFull = false;    // Flag when parse buffer is full
 
 // State flags set by interrupt being triggered
 extern volatile bool isATN;  // has ATN been asserted?
-extern volatile bool isSRQ;  // has SRQ been asserted?
+//extern volatile bool isSRQ;  // has SRQ been asserted?
 
 // SRQ auto mode
-bool isSrqa = false;
+//bool isSrqa = false;
 
 // Interrupt without handler fired
 //volatile bool isBAD = false;
 
 // Whether to run Macro 0 (macros must be enabled)
-uint8_t runMacro = 0;
+//uint8_t runMacro = 0;
 
 // Send response to *idn?
-bool sendIdn = false;
+//bool sendIdn = false;
 
 
 #ifdef EN_STORAGE
@@ -338,11 +343,13 @@ bool sendIdn = false;
 SDstorage storage;
 #endif
 
+/*
 #ifdef SD_TEST
     Sd2Card sdcard;
     SdVolume sdvolume;
     SdFile sdroot;
 #endif
+*/
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** COMMON VARIABLES SECTION *****/
@@ -458,11 +465,12 @@ void setup() {
   isATN = false;
 //  isSRQ = false;
 
+/*
 #if defined(USE_MACROS) && defined(RUN_STARTUP)
   // Run startup macro
   execMacro(0);
 #endif
-
+*/
 
 #ifdef SD_TEST
 if (sdcard.init(SPI_HALF_SPEED, CHIP_SELECT_PIN)) {
@@ -488,6 +496,7 @@ void loop() {
 /*
  * Run the startup macro if enabled
  */
+/* 
 #ifdef USE_MACROS
   // Run user macro if flagged
   if (runMacro > 0) {
@@ -495,8 +504,9 @@ void loop() {
     runMacro = 0;
   }
 #endif
+*/
 
-/*** Pin Hooks ***/
+/*** Are we using interrupts? ***/
 /*
  * Not all boards support interrupts or have PCINTs. In this
  * case, use in-loop checking to detect when SRQ and ATN have 
@@ -504,7 +514,7 @@ void loop() {
  */
 #ifndef USE_INTERRUPTS
   isATN = (digitalRead(ATN)==LOW ? true : false);
-  isSRQ = (digitalRead(SRQ)==LOW ? true : false);
+//  isSRQ = (digitalRead(SRQ)==LOW ? true : false);
 #endif
 
 /*** Process the buffer ***/
@@ -537,11 +547,13 @@ void loop() {
 //  lnRdy = 0;
 
   // IDN query ?
+/*  
   if (sendIdn) {
     if (AR488.idn==1) arSerial->println(AR488.sname);
     if (AR488.idn==2) {arSerial->print(AR488.sname);arSerial->print("-");arSerial->println(AR488.serial);}
     sendIdn = false;
   }
+*/
 
   // Check serial buffer
   lnRdy = serialIn_h();
@@ -649,7 +661,7 @@ uint8_t parseInput(char c) {
               }
             // Buffer contains *idn? query and interface to respond
             }else if (pbPtr>3 && AR488.idn>0 && isIdnQuery(pBuf)){
-              sendIdn = true;
+//              sendIdn = true;
               flushPbuf();
             // Buffer has at least 1 character = instrument data to send to gpib bus
             }else if (pbPtr > 0) {
@@ -720,7 +732,7 @@ bool isCmd(char *buffr) {
 /***** Is this an *idn? query? *****/
 bool isIdnQuery(char *buffr) {
 //  if (buffr[0] == PLUS && buffr[1] == PLUS) {
-  if (strncmp(buffr, "*idn?", 5)==0) {
+  if (strncasecmp(buffr, "*idn?", 5)==0) {
 #ifdef DEBUG1
     dbSerial->println(F("isIdnQuery: Detected IDN query."));
 #endif
@@ -776,7 +788,7 @@ static cmdRec cmdHidx [] = {
   { "id",          id_h        },
   { "idn",         idn_h       },
   { "lon",         lon_h       },
-  { "macro",       macro_h     },
+//  { "macro",       macro_h     },
   { "read",        read_h      },
   { "read_tmo_ms", rtmo_h      },
   { "repeat",      repeat_h    },
@@ -1416,6 +1428,7 @@ void repeat_h(char *params) {
 
 
 /***** Run a macro *****/
+/*
 void macro_h(char *params) {
 #ifdef USE_MACROS
   uint16_t val;
@@ -1441,7 +1454,7 @@ void macro_h(char *params) {
   arSerial->println(F("Disabled"));
 #endif
 }
-
+*/
 
 /***** Storage management *****/
 #ifdef EN_STORAGE

@@ -9,7 +9,7 @@
 #include "SdFat.h"
 #include "sdios.h"
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.04.05, 28/02/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.04.06, 02/03/2021 *****/
 
 // Number of storage GPIB commands
 #define STGC_SIZE 10
@@ -23,18 +23,17 @@ class SDstorage {
 
     // Storage management functions
     SDstorage();
-//    void showVolumeInfo();
     void showSDInfo(print_t* output);
     void showSdVolumeInfo(print_t* output);
     void listSdFiles(print_t* output);
     bool chkTek4924Directory();
+//    bool selectTape(uint8_t tnum);
 
     bool isSDInit();
     bool isVolumeMounted();
     bool isStorageInit();
 
-//    void listFiles();
-//    bool chkTapesFile();
+    bool chkTapesFile();
 //    bool selectTape(uint8_t tnum);
     
 //    void storeExecCmd(uint8_t cmd);
@@ -42,77 +41,13 @@ class SDstorage {
     const size_t stgcSize = 10;
     uint8_t currentTapeNum = 1;
     uint8_t currentFileNum = 1;
-    char currentTapeName[35] = {'\0'};
-    char currentFileName[25] = {'\0'};
-
-/*
- * Templates: try passing object of type print_t*
- */
-
-
-/*
-template<typename T> void showSDInfo(T* output) {
-  output->print(F("Card type:\t\t"));
-  switch (arSdCard.card()->type()) {
-    case SD_CARD_TYPE_SD1:
-      output->println(F("MMC"));
-      break;
-    case SD_CARD_TYPE_SD2:
-      output->println(F("SDSC"));
-      break;
-    case SD_CARD_TYPE_SDHC:
-      output->println(F("SDHC"));
-      break;
-    default:
-      output->println(F("Unknown"));
-  }
-  output->print(F("Card size:\t\t"));
-  output->print(0.000512 * sdCardCapacity(&m_csd));
-  output->println(F("Mb"));
-}
-
-
-template<typename T> void showSdVolumeInfo(T* output) { 
-  uint32_t volumesize = arSdCard.card()->sectorCount();
-
-  // Type and size of the first FAT-type volume
-  if (arSdCard.vol()->fatType()>0){
-    output->print(F("Volume type is:\t\tFAT"));
-    output->println(arSdCard.vol()->fatType(), DEC);
-    output->print(F("Clusters:\t\t"));
-    output->println(arSdCard.clusterCount());
-    output->print(F("Blocks per cluster:\t"));
-    output->println(arSdCard.vol()->sectorsPerCluster());
-    output->print("Total blocks:\t\t");
-    output->println(arSdCard.vol()->sectorsPerCluster() * arSdCard.vol()->clusterCount());
-
-    volumesize = arSdCard.vol()->sectorsPerCluster(); // clusters are collections of blocks
-    volumesize *= arSdCard.vol()->clusterCount();    // we'll have a lot of clusters
-    volumesize /= 2;                          // SD card blocks are always 512 bytes (2 blocks are 1KB)
-    volumesize /= 1024;                       // Convert to Mb
-
-    if (volumesize>1024) {
-      output->print(F("Volume size (Gb):\t"));
-      output->println((float)volumesize/1024.0);      
-    }else{
-      output->print(F("Volume size (Mb):\t"));
-      output->println(volumesize);
-    }
-
-  }
-}
-
-
-template<typename T> void listSdFiles(T* output){
-  if (arSdCard.begin(SD_CONFIG)){
-    arSdCard.ls(output, "/", LS_R|LS_DATE|LS_SIZE );
-  }
-}
-*/
+//    char currentTapeName[35] = {'\0'};
+    char currentFileName[48] = {'\0'};
 
   private:
 
     const char* tapeRoot = "/Tek_4924";
+    const char* tapeList = "tapes";
 
     // Chip select pin
     #ifdef SDCARD_CS_PIN
@@ -124,11 +59,6 @@ template<typename T> void listSdFiles(T* output){
     // FAT16 + FAT32
     SdFat32 arSdCard;
     File32 sdFile;
-
-    // FAT16 + FAT32 + ExFAT
-//    SdFs arSdCard;
-//    ExFile sfFile; 
-
     csd_t m_csd;
 
     bool issdinit = false;

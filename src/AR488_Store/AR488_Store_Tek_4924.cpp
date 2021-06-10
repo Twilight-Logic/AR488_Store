@@ -6,7 +6,7 @@
 #ifdef EN_STORAGE
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.04.05, 28/02/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.04.06, 02/03/2021 *****/
 /*
  * Tektronix Storage functions implementation
  */
@@ -26,23 +26,23 @@
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
 SDstorage::SDstorage(){
-
+  // Function fails on error
   // Initialise SD card object
   if (!arSdCard.begin(SD_CONFIG)) return;
+//  if (!arSdCard.begin(SDCARD_CS_PIN, SPI_SPEED)) return;
   if (!arSdCard.card()->readCSD(&m_csd)) return;
   issdinit = true;
   
   // Initialise volume object
   if (arSdCard.vol()->fatType() == 0) return;
   isvolmounted = true;
- 
-  if (!chkTek4924Directory()) return;
-/*
-    if (chkTapesFile()){
-      selectTape(1);
-    }
 
-*/
+  // Check for presence of Tek4924 directory, create if required
+  if (!chkTek4924Directory()) return;
+  // Check for tapes list, create if required
+  if (!chkTapesFile()) return;
+  
+//      selectTape(1);
 }
 
 
@@ -85,8 +85,8 @@ void SDstorage::showSDInfo(print_t* output) {
 
 /***** Show information about the volume on the SD card *****/
 void SDstorage::showSdVolumeInfo(print_t* output) { 
-  uint32_t volumesize = arSdCard.card()->sectorCount();
-
+//  uint32_t volumesize = arSdCard.card()->sectorCount();
+uint32_t volumesize = 0;
   // Type and size of the first FAT-type volume
   if (arSdCard.vol()->fatType()>0){
     output->print(F("Volume type is:\t\tFAT"));
@@ -128,31 +128,37 @@ void SDstorage::listSdFiles(print_t* output){
  * If it doesn't exist then it will be created
  */
 bool SDstorage::chkTek4924Directory() {
-  if (arSdCard.exists(F("/Tek_4924"))){
+  if (arSdCard.exists(tapeRoot)){
     return true; 
   }else{
-    return arSdCard.mkdir(F("/Tek_4924"));
+    return arSdCard.mkdir(tapeRoot);
   }
 }
 
 
 /***** Look for "tapes" file *****/
-/*
 bool SDstorage::chkTapesFile() {
-  if (SD.exists(tapeRoot)){
+  File tapeListFile;
+
+  char tapeListFileName[20];
+  memset (tapeListFileName, '\0', 20);
+  strcat(tapeListFileName, tapeRoot);
+  strcat(tapeListFileName, "/");
+  strcat(tapeListFileName, tapeList);
+  strcat(tapeListFileName, ".lst");
+  
+  if (arSdCard.exists(tapeListFileName)){
     return true;
   }else{
-    File tapes = SD.open(tapeRoot, FILE_WRITE);
-    if (tapes) {
-      tapes.println(F("01_tape_default"));
-      tapes.close();
+    tapeListFile = arSdCard.open(tapeListFileName, FILE_WRITE);
+    if (tapeListFile) {
+      tapeListFile.close();
       return true;
-    }else{
-      return false;
     }
   }
+  return false;
 }
-*/
+
 
 /*
 bool SDstorage::selectTape(uint8_t tnum){
@@ -166,10 +172,10 @@ bool SDstorage::selectTape(uint8_t tnum){
   strcat(currentTapeName, tnumstr);
   strcat(currentTapeName, "_TAPE_");
 
-  if (SD.exists(currentTapeName)){
+  if (arSdCard.exists(currentTapeName)){
     return true;
   }else{
-    return SD.mkdir(currentTapeName);
+    return arSdCard.mkdir(currentTapeName);
   }
  
  return false;   
