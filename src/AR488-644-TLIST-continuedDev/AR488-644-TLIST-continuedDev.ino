@@ -38,7 +38,7 @@ ArduinoInStream cin(Serial, cinBuf, sizeof(cinBuf));
 uint16_t n = 0;
 
 // Max of 99 files assumed in a single directory
-const uint16_t nMax = 99;
+const uint16_t nMax = 120;
 
 // Position of file's directory entry.
 uint16_t dirIndex[nMax];
@@ -47,7 +47,7 @@ char directory[13] = "/root/";  //allow up to ten character directory names plus
 
 char f_name[46];                     //the filename variable
 char f_type;              //the filetype
-//enum fType {'P','D','B','S','L','N'}; // file types: Program, Data, Binary, Secret, Last, No file open
+//enum fType {'P','D','B','S','L','N','O'}; // file types: ASCII Program, ASCII Data, Binary Program or Data, Secret ASCII Program, Last, New (just created), nO file open
 
 const int line_buffer_size = 74;  // 72 char line max in Tek plus CR plus NULL
 char buffer[line_buffer_size];
@@ -354,11 +354,15 @@ void tek_READ_one() {               // Read one data element from currently open
             break;
 
         case 'N':
+            cout << F("New file - no data\n");
+            break;
+
+        case 'O':
             cout << F("No file is open\n");
             break;
     }
     sdin.close();              //close input stream as we have reached EOF
-    f_type = 'N';              //set file type to "File Not Open"
+    f_type = 'O';              //set file type to "File Not Open"
 
 }
 
@@ -502,11 +506,15 @@ void tek_READ_file() {              // Read entire currently open file based on 
             break;
 
         case 'N':
+            cout << F("New file - no data\n");
+            break;
+
+        case 'O':
             cout << F("No file is open\r \r");
             break;
     }
     sdin.close();              //close file as we have reached EOF
-    f_type = 'N';              //set file type to "File Not Open"
+    f_type = 'O';              //set file type to "File Not Open"
 }
 
 
@@ -523,7 +531,7 @@ void tek_OLD() {
 
         cout << buffer << '\r';
     }
-    f_type = 'N';  // set file type to NOT OPEN
+    f_type = 'O';  // set file type to NOT OPEN
     file.close();    // and close the current file
 
     // cout << '\r'; //add one CR to last line processed to end Tek BASIC program output
@@ -572,6 +580,9 @@ char tek_FIND(int num) {
                 } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
                     dirFile.close();  // end of iteration through all files, close directory
                     return 'P'; // ASCII PROGRAM file
+                } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
+                    dirFile.close();  // end of iteration through all files, close directory
+                    return 'N'; // ASCII LAST file
                 } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
                     dirFile.close();  // end of iteration through all files, close directory
                     return 'L'; // ASCII LAST file
@@ -595,7 +606,7 @@ char tek_FIND(int num) {
     f_name[0] = '\0';  // clear f_name
     dirFile.close();  // end of iteration through all files, close directory
 
-    return 'N'; // File num NOT OPEN (or NOT FOUND)
+    return 'O'; // File num NOT OPEN (or NOT FOUND)
 }
 
 //------------------------------------------------------------------------------
@@ -641,7 +652,7 @@ void tek_TLIST() {
                     // then this is the LAST file - end of TLIST
                     file.close();  // end of iteration close **this** file
                     f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-                    f_type = 'N';    // set file type to "N" for NOT OPEN
+                    f_type = 'O';    // set file type to "O" for NOT OPEN
                     dirFile.close();  // end of iteration through all files, close directory
                     return;
 
@@ -654,7 +665,7 @@ void tek_TLIST() {
             file.close();  // end of iteration close **this** file
         }
         f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-        f_type = 'N';    // set file type to "N" for NOT OPEN
+        f_type = 'O';    // set file type to "O" for NOT OPEN
         dirFile.close();  // end of iteration through all files, close directory
     }
 }
@@ -2150,7 +2161,7 @@ void old_h(char *params) {
         tek_OLD();
         cout << F(" \r\n");
     } else
-    {   if (f_type != 'N')
+    {   if (f_type != 'P')
             cout << F("File is not an ASCII Program\r\n");
     }
 }
