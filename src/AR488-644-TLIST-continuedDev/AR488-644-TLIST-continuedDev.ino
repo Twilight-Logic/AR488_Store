@@ -357,7 +357,7 @@ void tek_READ_one() {               // Read one data element from currently open
             cout << F("No file is open\n");
             break;
     }
-    file.close();              //close file as we have reached EOF
+    sdin.close();              //close input stream as we have reached EOF
     f_type = 'N';              //set file type to "File Not Open"
 
 }
@@ -505,7 +505,7 @@ void tek_READ_file() {              // Read entire currently open file based on 
             cout << F("No file is open\r \r");
             break;
     }
-    file.close();              //close file as we have reached EOF
+    sdin.close();              //close file as we have reached EOF
     f_type = 'N';              //set file type to "File Not Open"
 }
 
