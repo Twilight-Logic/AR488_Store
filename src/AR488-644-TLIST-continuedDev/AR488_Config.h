@@ -219,25 +219,25 @@
 /***** vvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_CUSTOM
 
-// AR488_CUSTOM defs for Pandauino 644-Narrow plugged into artag's AR488 v3 GPIB connector PCB
-#define DIO1  11   /* GPIB 1  */
-#define DIO2  24   /* GPIB 2  */
-#define DIO3  26   /* GPIB 3  */
-#define DIO4  25   /* GPIB 4  */
-#define DIO5  16   /* GPIB 13 */
-#define DIO6  17   /* GPIB 14 */
-#define DIO7  27   /* GPIB 15 */
-#define DIO8  14   /* GPIB 16 */
+// AR488_CUSTOM defs for Pandauino 644-Narrow in Monty's Tektronix 4924 Tape Emulator PCB connector
+#define DIO1  10   /* GPIB 1  */
+#define DIO2  11   /* GPIB 2  */
+#define DIO3  12   /* GPIB 3  */
+#define DIO4  13   /* GPIB 4  */
+#define DIO5  14   /* GPIB 13 */
+#define DIO6  15   /* GPIB 14 */
+#define DIO7  16   /* GPIB 15 */
+#define DIO8  17   /* GPIB 16 */
 
-#define IFC   12   /* GPIB 9  */
-#define NDAC  3    /* GPIB 8  */
-#define NRFD  2    /* GPIB 7  */
-#define DAV   1    /* GPIB 6  */
-#define EOI   0    /* GPIB 5  */
+#define IFC   22   /* GPIB 9  */
+#define NDAC  21   /* GPIB 8  */
+#define NRFD  20   /* GPIB 7  */
+#define DAV   19   /* GPIB 6  */
+#define EOI   18   /* GPIB 5  */
 
-#define SRQ   15   /* GPIB 10 */
-#define REN   13   /* GPIB 17 */
-#define ATN   10   /* GPIB 11 */
+#define SRQ   23   /* GPIB 10 */
+#define REN   24   /* GPIB 17 */
+#define ATN   31   /* GPIB 11 */
 
 #endif
 /***** ^^^^^^^^^^^^^^^^^^^ *****/
