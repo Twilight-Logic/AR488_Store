@@ -7,8 +7,8 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.03.04, 06/05/2021"
-// Custom Pandauino 644-Narrow layout 06/05/2021"
+#define FWVER "Prologix GPIB-USB Controller version 5.1"
+//, AR488 ver. 0.48.28,                                 Custom Pandauino 644-Narrow layout 03/13/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -44,6 +44,7 @@
   //#define AR_SERIAL_PORT Serial3
   //#define AR_CDC_SERIAL
   //#define AR_SW_SERIAL
+  //#define AR_SERIAL_BAUD 57600
 
 /*** UNO and NANO boards ***/
 #elif __AVR_ATmega328P__
@@ -58,21 +59,6 @@
   #ifdef AR_HW_SERIAL
     #define AR_SERIAL_PORT Serial
     #define USE_SERIALEVENT
-  #else
-    // Select software serial port
-    #define AR_SW_SERIAL
-  #endif
-
-#elif __AVR_ATmega328PB__
-  /* Board/layout selection */
-  #define AR488_POLOLU_MICRO
-  /*** Serial ports ***/
-  //Select HardwareSerial or SoftwareSerial (default = HardwareSerial) ***/
-  // The UNO/NANO default hardware port is 'Serial'
-  // (Comment out #define AR_HW_SERIAL if using SoftwareSerial)
-  #define AR_HW_SERIAL
-  #ifdef AR_HW_SERIAL
-    #define AR_SERIAL_PORT Serial
   #else
     // Select software serial port
     #define AR_SW_SERIAL
@@ -99,18 +85,14 @@
 /*** MEGA 2560 board ***/
 #elif __AVR_ATmega2560__
   /*** Board/layout selection ***/
-  //#define AR488_MEGA2560_D
+  #define AR488_MEGA2560_D
   //#define AR488_MEGA2560_E1
   //#define AR488_MEGA2560_E2
-  //#define AR488_MEGA2560_S1
-  //#define AR488_MEGA2560_S2
   /*** Serial ports ***/
   // Mega 2560 supports Serial, Serial1, Serial2, Serial3. Since the pins 
   // associated with Serial2 are used in the default pin layout, Serial2
-  // is unavailable. The default port is 'Serial'. Choose ONE port only.
-/*  
-  // and associated SERIALEVENT definition
-*/
+  // is unavailable. The default port is 'Serial'. Choose ONE port and
+  // associated SERIALEVENT definition
   #define AR_HW_SERIAL
   #define AR_SERIAL_PORT Serial
   #define USE_SERIALEVENT
@@ -162,6 +144,7 @@
   #define USE_PINHOOKS
 #endif
 
+
 /***** Enable Macros *****/
 /*
  * Uncomment to enable macro support. The Startup macro allows the
@@ -185,7 +168,7 @@
  */
 //#define SN7516X
 #ifdef SN7516X
-  #define SN7516X_TE 7
+  #define SN7516X_TE 6
 //  #define SN7516X_DC 13
 //  #define SN7516X_SC 12
 #endif
@@ -202,23 +185,6 @@
   #define AR_BT_CODE "488488"   // Bluetooth pairing code
 #endif
 
-
-/***** Storage devices *****/
-/*
- * Only ONE storage device can be used at a time!
- */
-#define EN_STORAGE
-#ifdef EN_STORAGE
-  #define SDCARD_CS_PIN 4  // SS pin on Pandauino 644-Narrow
-  #define EN_TEK_4924
-//  #define EN_PET_9060
-#endif
-
-//#define SD_TEST 10
-
-
-/***** Acknowledge interface is ready *****/
-#define SAY_HELLO
 
 /***** Debug options *****/
 // Uncomment to send debug messages to another port
@@ -241,9 +207,7 @@
 //#define DEBUG8  // ppoll_h
 //#define DEBUG9  // bluetooth
 //#define DEBUG10 // ID command
-#define DEBUG_11  // GpibSendFromFile
-#define DEBUG_12  // GpibWriteToFile
-#define DEBUG_STORE // Storage
+
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** AR488 GLOBAL CONFIGURATION HEADER *****/
@@ -255,25 +219,26 @@
 /***** vvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_CUSTOM
 
-// AR488_CUSTOM defs for Pandauino 644-Narrow plugged into Monty's Tektronix 4924 Emulator GPIB PCB
-#define DIO1  11   /* GPIB 1  */
-#define DIO2  24   /* GPIB 2  */
-#define DIO3  26   /* GPIB 3  */
-#define DIO4  25   /* GPIB 4  */
-#define DIO5  16   /* GPIB 13 */
-#define DIO6  17   /* GPIB 14 */
-#define DIO7  27   /* GPIB 15 */
-#define DIO8  14   /* GPIB 16 */
+// AR488_CUSTOM defs for Pandauino 644-Narrow in Monty's Tektronix 4924 Tape Emulator PCB connector
+#define DIO1  10   /* GPIB 1  */
+#define DIO2  11   /* GPIB 2  */
+#define DIO3  12   /* GPIB 3  */
+#define DIO4  13   /* GPIB 4  */
+#define DIO5  14   /* GPIB 13 */
+#define DIO6  15   /* GPIB 14 */
+#define DIO7  16   /* GPIB 15 */
+#define DIO8  17   /* GPIB 16 */
 
-#define IFC   12   /* GPIB 9  */
-#define NDAC  3    /* GPIB 8  */
-#define NRFD  2    /* GPIB 7  */
-#define DAV   1    /* GPIB 6  */
-#define EOI   0    /* GPIB 5  */
+#define IFC   22   /* GPIB 9  */
+#define NDAC  21   /* GPIB 8  */
+#define NRFD  20   /* GPIB 7  */
+#define DAV   19   /* GPIB 6  */
+#define EOI   18   /* GPIB 5  */
 
-#define SRQ   15   /* GPIB 10 */
-#define REN   13   /* GPIB 17 */
-#define ATN   10   /* GPIB 11 */
+#define SRQ   23   /* GPIB 10 */
+#define REN   24   /* GPIB 17 */
+#define ATN   31   /* GPIB 11 */
+
 #endif
 /***** ^^^^^^^^^^^^^^^^^^^ *****/
 /***** AR488 CUSTOM LAYOUT *****/
@@ -377,8 +342,8 @@ M3\n\
   #endif
 #endif
 
+
 /***** Debug Port *****/
-/*
 #ifdef DB_SERIAL_PORT
   #ifdef DB_CDC_SERIAL
     extern Serial_ *dbSerial;
@@ -409,31 +374,7 @@ M3\n\
 /*********************************************/
 
 
-/***** Controller configuration *****/
-/*   
- * Default values set for controller mode
- */
-union AR488conf{
-  struct{
-    bool eot_en;      // Enable/disable append EOT char to string received from GPIB bus before sending to USB
-    bool eoi;         // Assert EOI on last data char written to GPIB - 0-disable, 1-enable
-    uint8_t caddr;    // Controller address
-    uint8_t paddr;    // Primary device address
-    uint8_t saddr;    // Secondary device address
-    uint8_t eos;      // EOS (end of send to GPIB) characters [0=CRLF, 1=CR, 2=LF, 3=None]
-    uint8_t stat;     // Status byte to return in response to a serial poll
-    uint8_t amode;    // Auto mode setting (0=off; 1=Prologix; 2=onquery; 3=continuous);
-    int rtmo;         // Read timout (read_tmo_ms) in milliseconds - 0-3000 - value depends on instrument
-    char eot_ch;      // EOT character to append to USB output when EOI signal detected
-    char vstr[48];    // Custom version string
-    uint16_t tmbus;   // Delay to allow the bus control/data lines to settle (1-30,000 microseconds)
-    uint8_t eor;      // EOR (end of receive from GPIB instrument) characters [0=CRLF, 1=CR, 2=LF, 3=None, 4=LFCR, 5=ETX, 6=CRLF+ETX, 7=SPACE]
-    char sname[16];   // Interface short name
-    uint32_t serial;  // Serial number
-    uint8_t idn;      // Send ID in response to *idn? 0=disable, 1=send name; 2=send name+serial
-  };
-  uint8_t db[AR_CFG_SIZE];
-};
+
 
 
 #endif // AR488_CONFIG_H
