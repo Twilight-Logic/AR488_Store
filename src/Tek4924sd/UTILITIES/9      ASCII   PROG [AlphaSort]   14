@@ -1,0 +1,3 @@
+1000 REM  *----------------------------*ALPHABETIC STRING SORT*------*1010 REM  *-------------------------------------*INPUT SECTION*------*1020 PRINT "	** ALPHABETIC STRING SORT **
+
+"1030 INIT 1040 PRINT "ENTER THE LENGTH OF THE LONGEST ITEM (UP TO 72 CHARS)  = ";1050 INPUT J1
