@@ -17,7 +17,7 @@ volatile bool isSRQ = false;  // has SRQ been asserted?
 /***** vvvvvvvvvvvvvvvvvvvvv *****/
 #if defined(AR488_UNO) || defined(AR488_NANO)
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
   DDRD &= 0b11001111 ;
@@ -28,13 +28,15 @@ void readyGpibDbus() {
   PORTC |= 0b00111111; // PORTC bits 5,4,3,2,1,0 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   // Read the byte of data on the bus
   return ~((PIND << 2 & 0b11000000) + (PINC & 0b00111111));
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   // Set data pins as outputs
   DDRD |= 0b00110000;
@@ -152,7 +154,7 @@ ISR(PCINT2_vect) {
 /***** vvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_328P_S1
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
   DDRB &= 0b11111100;
@@ -161,13 +163,15 @@ void readyGpibDbus() {
   PORTC |= 0b00111111; // PORTC bits 5,4,3,2,1,0 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   // Read the byte of data on the bus
   return ~((PINB << 6 & 0b11000000) + (PINC & 0b00111111));
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   // Set data pins as outputs
   DDRB |= 0b00000011;
@@ -289,7 +293,7 @@ ISR(PCINT2_vect) {
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_D
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
 //  DDRD &= 0b11001111 ;
@@ -301,13 +305,15 @@ void readyGpibDbus() {
   PORTF |= 0b11111111; // set PORTC bits to input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   // Read the byte of data on the bus
   return ~(PINF & 0b11111111);
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   // Set data pins as outputs
 //  DDRD |= 0b00110000;
@@ -419,12 +425,13 @@ ISR(PCINT0_vect) {
 /*******************************************/
 
 
+
 /************************************/
 /***** MEGA2560 BOARD LAYOUT E1 *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_E1
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
   DDRA &= 0b10101010 ;
@@ -434,6 +441,8 @@ void readyGpibDbus() {
   PORTC |= 0b10101010; // PORTC bits 7,5,3,1 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   uint8_t db = 0;
   uint8_t val = 0;
@@ -455,7 +464,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   uint8_t val = 0;
   
@@ -590,12 +599,13 @@ ISR(PCINT0_vect) {
 /************************************/
 
 
+
 /************************************/
 /***** MEGA2560 BOARD LAYOUT E2 *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_E2
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
 
   // Set data pins to input
@@ -606,6 +616,8 @@ void readyGpibDbus() {
   PORTC |= 0b01010101; // PORTA bits 6,4,2,0 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   uint8_t db = 0;
   uint8_t val = 0;
@@ -627,7 +639,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   uint8_t val = 0;
   
@@ -762,7 +774,7 @@ ISR(PCINT0_vect) {
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_S1
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
   DDRA &= 0b10101010 ;
@@ -772,6 +784,8 @@ void readyGpibDbus() {
   PORTC |= 0b10101010; // PORTC bits 7,5,3,1 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   uint8_t db = 0;
   uint8_t val = 0;
@@ -793,7 +807,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   uint8_t val = 0;
   
@@ -933,7 +947,7 @@ ISR(PCINT0_vect) {
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA2560_S2
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
 
   // Set data pins to input
@@ -944,6 +958,8 @@ void readyGpibDbus() {
   PORTC |= 0b01010101; // PORTA bits 6,4,2,0 input_pullup
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   uint8_t db = 0;
   uint8_t val = 0;
@@ -965,7 +981,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
   uint8_t val = 0;
   
@@ -1100,6 +1116,7 @@ ISR(PCINT0_vect) {
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA32U4_MICRO
 
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
   DDRB  &= 0b10000001 ;
@@ -1122,12 +1139,14 @@ void readyGpibDbus() {
 #endif
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   return ~((PIND & 0b10000001) | (PINB & 0b01111110)) ;
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of data *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
 
   //Serial.print("dbus 0x");
@@ -1280,7 +1299,7 @@ void interruptsEn(){
 /***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
 #ifdef AR488_MEGA32U4_LR3
 
-/***** Ready the GPIB data bus wires to receive data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   // Set data pins to input
 
@@ -1292,7 +1311,9 @@ void readyGpibDbus() {
   PORTD |= 0b00010000; // PORTD bit 6 input_pullup
   PORTF |= 0b11110011; // PORTC bits 7,6,5,4,1,0 input_pullup
 }
-/***** Collect a byte of data from the GPIB bus *****/
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   // Read the byte of data on the bus
   uint8_t portf = reverseBits( (PINF & 0b11110000) + ((PINF & 0b00000011) << 2) );
@@ -1300,7 +1321,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
 //  uint8_t rdb;
   uint8_t portf;
@@ -1411,6 +1432,466 @@ void interruptsEn(){
 
 
 
+/******************************************/
+/***** MCP23S17 EXPANDER (SPI) LAYOUT *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_MCP23S17
+
+
+// MCP23S17 hardware config
+const uint8_t chipSelect = MCP_SELECTPIN;
+const uint8_t mcpAddr = MCP_ADDRESS;      // Must be between 0 and 7
+
+
+/***** Arduino interrput handler *****/
+/*
+ * Signals that IntA was asserted on the MCP chip
+ */
+bool mcpIntA = false;
+
+
+/***** Set the GPIB data bus to input pullup *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  mcpByteWrite(MCPDIRB, 0b11111111);  // Port direction: 0 = output; 1 = input;
+  mcpByteWrite(MCPPUB, 0b11111111);   // 1 = Pullup resistors enabled
+}
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  return ~mcpByteRead(MCPPORTB);
+}
+
+
+/***** Set the GPIB data bus to output and with the requested byte *****/
+void setGpibDbus(uint8_t db) {
+  // Set data pins as outputs
+  mcpByteWrite(MCPDIRB, 0b00000000);  // Port direction: 0 = output; 1 = input;
+
+  // GPIB states are inverted
+  db = ~db;
+
+  // Set data bus
+  mcpByteWrite(MCPPORTB, db);
+}
+
+
+/***** Set the direction and state of the GPIB control lines ****/
+/*
+   Bits control lines as follows: 7-ATN, 6-SRQ, 5-REN, 4-EOI, 3-DAV, 2-NRFD, 1-NDAC, 0-IFC
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+    mode (mode)     : 0=set pin state, 1=set pin direction
+   MCP23S17 pin to Port/bit to direction/state byte map:
+   IFC   0   PORTA bit 0 byte bit 0
+   NDAC  1   PORTA bit 1 byte bit 1
+   NRFD  2   PORTA bit 2 byte bit 2
+   DAV   3   PORTA bit 3 byte bit 3
+   EOI   4   PORTA bit 4 byte bit 4
+   REN   5   PORTA bit 5 byte bit 5
+   SRQ   6   PORTA bit 6 byte bit 6
+   ATN   7   PORTA bit 7 byte bit 7
+*/
+
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+
+  uint8_t portAb = bits;
+  uint8_t portAm = mask;
+
+  uint8_t regByte = 0;
+  uint8_t regMod = 0; 
+
+
+  // Set registers: register = (register & ~bitmask) | (value & bitmask)
+  // Mask: 0=unaffected; 1=to be changed
+
+  switch (mode) {
+    case 0:
+
+      // Set pin states using mask
+      regByte = mcpByteRead(MCPPORTA);
+      regMod = (regByte & ~portAm) | (portAb & portAm);
+      mcpByteWrite(MCPPORTA, regMod);
+      break;
+
+    case 1:
+      // Set pin direction registers using mask
+      regByte = ~mcpByteRead(MCPDIRA);   // Note: on MCP23S17 0 = output, 1 = input
+      regMod = (regByte & ~portAm) | (portAb & portAm);
+      mcpByteWrite(MCPDIRA, ~regMod);    // Note: on MCP23S17 0 = output, 1 = input
+      break;
+
+  }
+}
+
+
+/***** MCP23S17 interrupt handler *****/
+/*
+ * Interrput pin on Arduino configure with attachInterrupt
+ */
+void mcpIntHandler() {
+  mcpIntA = true;
+//  Serial.println(F("MCP Interrupt triggered"));
+}
+
+
+/***** Read from the MCP23S17 *****/
+/*
+ * reg : register we want to read , e.g. MCPPORTA or MCPPORTB
+ */
+uint8_t mcpByteRead(uint8_t reg){
+  uint8_t db;
+  digitalWrite(chipSelect, LOW);            // Enable MCP communication
+  SPI.transfer(MCPREAD | (mcpAddr << 1));   // Write opcode + chip address + write bit
+  SPI.transfer(reg);                        // Write the register we want to read
+  db = SPI.transfer(0x00);                  // Send any byte. Function returns low byte (port A value) which is ignored
+  digitalWrite(chipSelect, HIGH);           // Enable MCP communication
+  return db;
+}
+
+
+/***** Write to the MCP23S17 *****/
+void mcpByteWrite(uint8_t reg, uint8_t db){
+  digitalWrite(chipSelect, LOW);            // Enable MCP communication
+  SPI.transfer(MCPWRITE | (mcpAddr << 1));  // Write opcode (with write bit set) + chip address
+  SPI.transfer(reg);                        // Write register we want to change
+  SPI.transfer(db);                         // Write data byte
+  digitalWrite(chipSelect, HIGH);           // Stop MCP communication
+}
+
+
+/***** Read status of control port pins *****/
+/*
+ * Pin value between 0 and 7
+ * Control bus = port A)
+ */
+uint8_t mcpDigitalRead(uint8_t pin) {
+  // If the pin value is larger than 7 then do nothing and return
+  // Zero or larger value is implied by the variable type
+  if (pin > 7) return 0x0;
+  // Read the port A pin state, extract and return HIGH/LOW state for the requested pin
+  return mcpByteRead(MCPPORTA) & (1 << pin) ? HIGH : LOW;
+}
+
+
+/***** Get the status of an MCP23S17 pin) *****/
+uint8_t getGpibPinState(uint8_t pin){
+  return mcpDigitalRead(pin);
+}
+
+
+/***** Get the status of the MCP interrupt A pin *****/
+uint8_t getMcpIntAPinState(){
+  return mcpByteRead(MCPINTCAPA);
+}
+
+
+/***** Configure pins that will generate an interrupt *****/
+void mcpInterruptsEn(){
+  // Set to interrupt mode for compare to previous
+  mcpByteWrite(MCPINTCONA, 0b00000000);
+  // Enable interrupt to detect pin state change on pins 4, 6 and 7 (EOI, SRQ and ATN)
+  mcpByteWrite(MCPINTENA, 0b11010000);
+}
+
+#endif //AR488_MCP23S17
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** MCP23S17 EXPANDER (SPI) LAYOUT *****/
+/******************************************/
+
+
+
+/******************************************/
+/***** MCP23017 EXPANDER (I2C) LAYOUT *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_MCP23017
+
+
+// MCP23017 hardware config
+//const uint8_t chipSelect = MCP_SELECTPIN;
+const uint8_t mcpHwAddr = MCP_ADDRESS;        // MCP hardware address (must be between 0 and 7)
+const uint8_t mcpI2Caddr = 0x20 | mcpHwAddr;  // MCP I2C address
+
+
+/***** Arduino interrput handler *****/
+/*
+ * Signals that IntA was asserted on the MCP chip
+ */
+bool mcpIntA = false;
+
+
+/***** Set the GPIB data bus to input pullup *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  mcpByteWrite(MCPDIRB, 0b11111111);  // Port direction: 0 = output; 1 = input;
+  mcpByteWrite(MCPPUB, 0b11111111);   // 1 = Pullup resistors enabled
+}
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  return ~mcpByteRead(MCPPORTB);
+}
+
+
+/***** Set the GPIB data bus to output and with the requested byte *****/
+void setGpibDbus(uint8_t db) {
+  // Set data pins as outputs
+  mcpByteWrite(MCPDIRB, 0b00000000);  // Port direction: 0 = output; 1 = input;
+
+  // GPIB states are inverted
+  db = ~db;
+
+  // Set data bus
+  mcpByteWrite(MCPPORTB, db);
+}
+
+
+/***** Set the direction and state of the GPIB control lines ****/
+/*
+   Bits control lines as follows: 7-ATN, 6-SRQ, 5-REN, 4-EOI, 3-DAV, 2-NRFD, 1-NDAC, 0-IFC
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+    mode (mode)     : 0=set pin state, 1=set pin direction
+   MCP23S17 pin to Port/bit to direction/state byte map:
+   IFC   0   PORTA bit 0 byte bit 0
+   NDAC  1   PORTA bit 1 byte bit 1
+   NRFD  2   PORTA bit 2 byte bit 2
+   DAV   3   PORTA bit 3 byte bit 3
+   EOI   4   PORTA bit 4 byte bit 4
+   REN   5   PORTA bit 5 byte bit 5
+   SRQ   6   PORTA bit 6 byte bit 6
+   ATN   7   PORTA bit 7 byte bit 7
+*/
+
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+
+  uint8_t portAb = bits;
+  uint8_t portAm = mask;
+
+  uint8_t regByte = 0;
+  uint8_t regMod = 0; 
+
+
+  // Set registers: register = (register & ~bitmask) | (value & bitmask)
+  // Mask: 0=unaffected; 1=to be changed
+
+  switch (mode) {
+    case 0:
+      // Set pin states using mask
+      regByte = mcpByteRead(MCPPORTA);
+      regMod = (regByte & ~portAm) | (portAb & portAm);
+      mcpByteWrite(MCPPORTA, regMod);
+      break;
+
+    case 1:
+      // Set pin direction registers using mask
+      regByte = ~mcpByteRead(MCPDIRA);   // Note: on MCP23S17 0 = output, 1 = input
+      regMod = (regByte & ~portAm) | (portAb & portAm);
+      mcpByteWrite(MCPDIRA, ~regMod);    // Note: on MCP23S17 0 = output, 1 = input
+      break;
+
+  }
+}
+
+
+/***** MCP23017 interrupt handler *****/
+/*
+ * Interrput pin on Arduino configure with attachInterrupt
+ */
+void mcpIntHandler() {
+  mcpIntA = true;
+//  Serial.println(F("MCP Interrupt triggered"));
+}
+
+
+/***** Arduino backward compatibility *****/
+static inline void wiresend(uint8_t db, TwoWire *theWire) {
+#if ARDUINO >= 100
+  theWire->write((uint8_t)db);
+#else
+  theWire->send(db);
+#endif
+}
+
+static inline uint8_t wirerecv(TwoWire *theWire) {
+#if ARDUINO >= 100
+  return theWire->read();
+#else
+  return theWire->receive();
+#endif
+}
+/***** Arduino backward compatibility *****/
+
+
+/***** Read from the MCP23017 *****/
+/*
+ * reg : register we want to read , e.g. MCPPORTA or MCPPORTB
+ */
+uint8_t mcpByteRead(uint8_t reg){
+  Wire.beginTransmission(mcpI2Caddr);
+//Serial.print(F("Tx to addr: "));
+//Serial.println(mcpI2Caddr);
+  wiresend(reg, &Wire);
+  Wire.endTransmission();
+  Wire.requestFrom(mcpI2Caddr, (uint8_t)1);
+  return wirerecv(&Wire);
+}
+
+
+/***** Write to the MCP23017 *****/
+void mcpByteWrite(uint8_t reg, uint8_t db){
+  Wire.beginTransmission(mcpI2Caddr);
+//Serial.print(F("Tx to addr: "));
+//Serial.println(mcpI2Caddr);
+  wiresend(reg, &Wire);
+  wiresend(db, &Wire);
+  Wire.endTransmission();
+}
+
+
+/***** Read status of control port pins *****/
+/*
+ * Pin value between 0 and 7
+ * Control bus = port A)
+ */
+uint8_t mcpDigitalRead(uint8_t pin) {
+  // If the pin value is larger than 7 then do nothing and return
+  // Zero or larger value is implied by the variable type
+  if (pin > 7) return 0x0;
+  // Read the port A pin state, extract and return HIGH/LOW state for the requested pin
+  return mcpByteRead(MCPPORTA) & (1 << pin) ? HIGH : LOW;
+}
+
+
+/***** Get the status of an MCP23017 pin) *****/
+uint8_t getGpibPinState(uint8_t pin){
+  return mcpDigitalRead(pin);
+}
+
+
+/***** Get the status of the MCP interrupt A pin *****/
+uint8_t getMcpIntAPinState(){
+  return mcpByteRead(MCPINTCAPA);
+}
+
+
+/***** Configure pins that will generate an interrupt *****/
+void mcpInterruptsEn(){
+  // Set to interrupt mode for compare to previous
+  mcpByteWrite(MCPINTCONA, 0b00000000);
+  // Enable interrupt to detect pin state change on pins 4, 6 and 7 (EOI, SRQ and ATN)
+  mcpByteWrite(MCPINTENA, 0b11010000);
+}
+
+#endif //AR488_MCP23017
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** MCP23017 EXPANDER (I2C) LAYOUT *****/
+/******************************************/
+
+
+
+/***************************************************/
+/***** PANDUINO/MIGHTYCORE MCGRAW BOARD LAYOUT *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_MEGA644P_MCGRAW
+
+/***** Set the GPIB data bus to input pullup *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  DDRD &= 0b00000011;  
+  DDRC &= 0b11111100;  
+  
+  PORTD |= 0b11111100; // PORTD bits 7, 6, 5, 4, 3, 2 input_pullup
+  PORTC |= 0b00000011; // PORTC bits 1, 0 input_pullup
+}
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  return ~((PIND >> 2 & 0b00111111) + (PINC << 6 & 0b11000000));
+}
+
+
+/***** Set the GPIB data bus to output and with the requested byte *****/
+void setGpibDbus(uint8_t db) {
+  // Set data pins as outputs
+  DDRD |= 0b11111100;
+  DDRC |= 0b00000011;
+
+  // GPIB states are inverted
+  db = ~db;
+
+  // Set data bus
+  PORTC = (PORTC & ~0b00000011) | ((db & 0b11000000) >> 6);
+  PORTD = (PORTD & ~0b11111100) | ((db & 0b00111111) << 2);
+}
+
+
+/***** Reverse the order of the bits in a byte *****/
+uint8_t reverseBits(uint8_t dbyte) {
+   dbyte = (dbyte & 0xF0) >> 4 | (dbyte & 0x0F) << 4;
+   dbyte = (dbyte & 0xCC) >> 2 | (dbyte & 0x33) << 2;
+   dbyte = (dbyte & 0xAA) >> 1 | (dbyte & 0x55) << 1;
+   return dbyte;
+}
+
+
+/***** Set the direction and state of the GPIB control lines ****/
+/*
+   Bits control lines as follows: 7-ATN, 6-SRQ, 5-REN, 4-EOI, 3-DAV, 2-NRFD, 1-NDAC, 0-IFC
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+    mode (mode)     : 0=set pin state, 1=set pin direction
+   Arduino Uno/Nano pin to Port/bit to direction/state byte map:
+   IFC   22  PORTC bit 6 byte bit 0
+   NDAC  21  PORTC bit 5 byte bit 1
+   NRFD  20  PORTC bit 4 byte bit 2
+   DAV   19  PORTC bit 3 byte bit 3
+   EOI   18  PORTC bit 2 byte bit 4
+   SRQ   23  PORTC bit 7 byte bit 6
+   REN   24  PORTA bit 0 byte bit 5
+   ATN   31  PORTA bit 7 byte bit 7
+*/
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+
+  // PORT A - use bits 5 and 7. Map to port A bits 0 and 7
+  uint8_t portAb = ((bits & 0x20) >> 5) + (bits &  0x80);
+  uint8_t portAm = ((mask & 0x20) >> 5) + (mask &  0x80);
+
+  // PORT C- use the 5 right-most bits (bits 0 - 4) and bit 6
+  // Reverse bits 0-4 and map to bits 2-6. Map bit 6 to bit 7
+  uint8_t portCb = (reverseBits(bits & 0x1F) >> 1) + ((bits & 0x40) << 1);
+  uint8_t portCm = (reverseBits(mask & 0x1F) >> 1) + ((mask & 0x40) << 1);
+
+  // Set registers: register = (register & ~bitmask) | (value & bitmask)
+  // Mask: 0=unaffected; 1=to be changed
+
+  switch (mode) {
+    case 0:
+      // Set pin states using mask
+      PORTA = ( (PORTA & ~portAm) | (portAb & portAm) );
+      PORTC = ( (PORTC & ~portCm) | (portCb & portCm) );
+      break;
+    case 1:
+      // Set pin direction registers using mask
+      DDRA = ( (DDRA & ~portAm) | (portAb & portAm) );
+      DDRC = ( (DDRC & ~portCm) | (portCb & portCm) );
+      break;
+  }
+}
+
+#endif // AR488_MEGA644P_MCGRAW
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** PANDUINO/MIGHTYCORE MCGRAW BOARD LAYOUT *****/
+/***************************************************/
+
+
+
 
 /*************************************/
 /***** CUSTOM PIN LAYOUT SECTION *****/
@@ -1422,7 +1903,7 @@ uint8_t databus[8] = { DIO1, DIO2, DIO3, DIO4, DIO5, DIO6, DIO7, DIO8 };
 uint8_t ctrlbus[8] = { IFC, NDAC, NRFD, DAV, EOI, REN, SRQ, ATN };
 
 
-/***** Read the status of the GPIB data bus wires and collect the byte of data *****/
+/***** Set the GPIB data bus to input pullup *****/
 void readyGpibDbus() {
   uint8_t db = 0;
   for (uint8_t i=0; i<8; i++){
@@ -1430,6 +1911,8 @@ void readyGpibDbus() {
   }
 }
 
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
 uint8_t readGpibDbus() {
   uint8_t db = 0;
   for (uint8_t i=0; i<8; i++){
@@ -1439,7 +1922,7 @@ uint8_t readGpibDbus() {
 }
 
 
-/***** Set the status of the GPIB data bus wires with a byte of datacd ~/test *****/
+/***** Set the GPIB data bus to output and with the requested byte *****/
 void setGpibDbus(uint8_t db) {
 
   for (uint8_t i=0; i<8; i++){
@@ -1480,3 +1963,19 @@ void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** CUSTOM PIN LAYOUT SECTION *****/
 /*************************************/
+
+
+
+/************************************/
+/***** COMMON FUNCTIONS SECTION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvv *****/
+
+#if not defined(AR488_MCP23S17) && not defined(AR488_MCP23017)
+uint8_t getGpibPinState(uint8_t pin){
+  return digitalRead(pin);
+}
+#endif
+
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** COMMON FUNCTIONS SECTION *****/
+/************************************/

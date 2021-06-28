@@ -1,23 +1,27 @@
 #include <Arduino.h>
 
 #include "AR488_Store_Tek_4924.h"
-#include "AR488_GPIB.h"
-
-#ifdef EN_STORAGE
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.04.06, 02/03/2021 *****/
+
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.12, 25/06/2021 *****/
 /*
- * Tektronix Storage functions implementation
+ * Tektronix 4924 Tape Storage functions implementation
  */
 
-/*
- * GPIB handling routines included from GPIB.h:
- * 
- * void gpibSendDataFromFile(File sdfile);
- * bool gpibWriteToFile(File sdfile);
- */
 
+extern Stream& debugStream;
+
+extern GPIBbus gpibBus;
+
+extern ArduinoOutStream cout;
+
+char streamBuffer[LINELENGTH];
+CharStream charStream(streamBuffer, LINELENGTH);
+ArduinoOutStream gpibout(charStream);
+
+//#define CR   0xD    // Carriage return
+//#define LF   0xA    // Newline/linefeed
 
 
 
@@ -26,28 +30,36 @@
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
 SDstorage::SDstorage(){
-  // Function fails on error
+/*
   // Initialise SD card object
-  if (!arSdCard.begin(SD_CONFIG)) return;
-//  if (!arSdCard.begin(SDCARD_CS_PIN, SPI_SPEED)) return;
-  if (!arSdCard.card()->readCSD(&m_csd)) return;
-  issdinit = true;
-  
-  // Initialise volume object
-  if (arSdCard.vol()->fatType() == 0) return;
-  isvolmounted = true;
+  SD.begin(chipSelect);
+  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
+ 
+  // Attempt to mount volume
+  if (arSdVolume.init(arSdCard)) isvolmounted = true;
 
-  // Check for presence of Tek4924 directory, create if required
-  if (!chkTek4924Directory()) return;
-  // Check for tapes list, create if required
-  if (!chkTapesFile()) return;
+  // Check for the existence of the Tek_4924 directory
+  if (chkTek4924Directory()) {
+
+    if (chkTapesFile()){
+      selectTape(1);
+    }
+
+  }
+ */
+  pinMode(chipSelect, OUTPUT);
+  digitalWrite(chipSelect, HIGH);
+  if (!sd.cardBegin(SD_CONFIG)) {
+#ifdef DEBUG_STORE
+    debugStream.println(F("SD card initialisation failed!"));
+#endif
+  }
   
-//      selectTape(1);
 }
 
 
-bool SDstorage::isSDInit(){
-  return issdinit;
+bool SDstorage::isInit(){
+  return isinit;
 }
 
 
@@ -55,71 +67,96 @@ bool SDstorage::isVolumeMounted(){
   return isvolmounted;
 }
 
-
-bool SDstorage::isStorageInit(){
-  return isstorageinit;
-}
-
-
-/***** Show information about the SD card *****/
-void SDstorage::showSDInfo(print_t* output) {
-  output->print(F("Card type:\t\t"));
-  switch (arSdCard.card()->type()) {
+/***** Showe information about the SD card *****/
+void SDstorage::showSDInfo(Stream& outputStream) {
+//  Sd2Card sdcard;
+  outputStream.print(F("Card type:\t\t"));
+  switch (arSdCard.type()) {
     case SD_CARD_TYPE_SD1:
-      output->println(F("MMC"));
+      outputStream.println("MMC");
       break;
     case SD_CARD_TYPE_SD2:
-      output->println(F("SDSC"));
+      outputStream.println("SDSC");
       break;
     case SD_CARD_TYPE_SDHC:
-      output->println(F("SDHC"));
+      outputStream.println("SDHC");
       break;
     default:
-      output->println(F("Unknown"));
+      outputStream.println("Unknown");
   }
-  output->print(F("Card size:\t\t"));
-  output->print(0.000512 * sdCardCapacity(&m_csd));
-  output->println(F("Mb"));
 }
 
 
-/***** Show information about the volume on the SD card *****/
-void SDstorage::showSdVolumeInfo(print_t* output) { 
-//  uint32_t volumesize = arSdCard.card()->sectorCount();
-uint32_t volumesize = 0;
-  // Type and size of the first FAT-type volume
-  if (arSdCard.vol()->fatType()>0){
-    output->print(F("Volume type is:\t\tFAT"));
-    output->println(arSdCard.vol()->fatType(), DEC);
-    output->print(F("Clusters:\t\t"));
-    output->println(arSdCard.clusterCount());
-    output->print(F("Blocks per cluster:\t"));
-    output->println(arSdCard.vol()->sectorsPerCluster());
-    output->print(F("Total blocks:\t\t"));
-    output->println(arSdCard.vol()->sectorsPerCluster() * arSdCard.vol()->clusterCount());
+/***** Show information about the SD volume *****/
+void SDstorage::showSdVolumeInfo(Stream& outputStream) {
+//  Sd2Card sdcard;
+//  SdVolume sdvolume;
+//  uint32_t volumesize;
 
-    volumesize = arSdCard.vol()->sectorsPerCluster(); // clusters are collections of blocks
-    volumesize *= arSdCard.vol()->clusterCount();    // we'll have a lot of clusters
+  // Type and size of the first FAT-type volume
+/*
+  if (arSdVolume.init(arSdCard)){
+    output->print("Volume type is:\t\tFAT");
+    output->println(arSdVolume.fatType(), DEC);
+    output->print("Clusters:\t\t");
+    output->println(arSdVolume.clusterCount());
+    output->print("Blocks per cluster:\t");
+    output->println(arSdVolume.blocksPerCluster());
+    output->print("Total blocks:\t\t");
+    output->println(arSdVolume.blocksPerCluster() * arSdVolume.clusterCount());
+
+    volumesize = arSdVolume.blocksPerCluster(); // clusters are collections of blocks
+    volumesize *= arSdVolume.clusterCount();    // we'll have a lot of clusters
     volumesize /= 2;                          // SD card blocks are always 512 bytes (2 blocks are 1KB)
     volumesize /= 1024;                       // Convert to Mb
 
     if (volumesize>1024) {
-      output->print(F("Volume size (Gb):\t"));
+      output->print("Volume size (Gb):\t");
       output->println((float)volumesize/1024.0);      
     }else{
-      output->print(F("Volume size (Mb):\t"));
+      output->print("Volume size (Mb):\t");
       output->println(volumesize);
     }
-
   }
+*/
 }
 
 
-/***** List files on the SD card *****/
-void SDstorage::listSdFiles(print_t* output){
-  if (arSdCard.begin(SD_CONFIG)){
-    arSdCard.ls(output, "/", LS_R|LS_DATE|LS_SIZE );
+/***** List files on SD card *****/
+void SDstorage::listSdFiles(Stream& outputStream){
+/*  
+  if (SD.begin(chipSelect)){
+    File root = SD.open("/");
+    listDir(root, 0, outputStream);
   }
+*/
+}
+
+
+/***** Recursive directory listing functuioon *****/
+void SDstorage::listDir(Stream& outputStream, File dir, int numTabs){
+/*  
+  while (true) {
+    File entry =  dir.openNextFile();
+    if (! entry) {
+      // no more files
+      break;
+    }
+    for (uint8_t i = 0; i < numTabs; i++) {
+      outputStream.print('\t');
+    }
+    outputStream.print(entry.name());
+    if (entry.isDirectory()) {
+      outputStream.println("/");
+      listDir(outputStream, entry, numTabs + 1);
+    } else {
+      // files have sizes, directories do not
+      outputStream.print("\t\t");
+      outputStream.println(entry.size(), DEC);
+    }
+    entry.close();
+  }
+*/
 }
 
 
@@ -127,40 +164,34 @@ void SDstorage::listSdFiles(print_t* output){
 /*
  * If it doesn't exist then it will be created
  */
+/*
 bool SDstorage::chkTek4924Directory() {
-  if (arSdCard.exists(tapeRoot)){
+  if (SD.exists(F("/Tek_4924"))){
     return true; 
   }else{
-    return arSdCard.mkdir(tapeRoot);
+    return SD.mkdir(F("/Tek_4924"));
   }
 }
-
+*/
 
 /***** Look for "tapes" file *****/
+/*
 bool SDstorage::chkTapesFile() {
-  File tapeListFile;
-
-  char tapeListFileName[20];
-  memset (tapeListFileName, '\0', 20);
-  strcat(tapeListFileName, tapeRoot);
-  strcat(tapeListFileName, "/");
-  strcat(tapeListFileName, tapeList);
-  strcat(tapeListFileName, ".lst");
-  
-  if (arSdCard.exists(tapeListFileName)){
+  if (SD.exists(tapeRoot)){
     return true;
   }else{
-    tapeListFile = arSdCard.open(tapeListFileName, FILE_WRITE);
-    if (tapeListFile) {
-      tapeListFile.close();
+    File tapes = SD.open(tapeRoot, FILE_WRITE);
+    if (tapes) {
+      tapes.println(F("01_tape_default"));
+      tapes.close();
       return true;
+    }else{
+      return false;
     }
   }
-  return false;
 }
 
 
-/*
 bool SDstorage::selectTape(uint8_t tnum){
   char tnumstr[2];
 
@@ -172,10 +203,10 @@ bool SDstorage::selectTape(uint8_t tnum){
   strcat(currentTapeName, tnumstr);
   strcat(currentTapeName, "_TAPE_");
 
-  if (arSdCard.exists(currentTapeName)){
+  if (SD.exists(currentTapeName)){
     return true;
   }else{
-    return arSdCard.mkdir(currentTapeName);
+    return SD.mkdir(currentTapeName);
   }
  
  return false;   
@@ -195,83 +226,219 @@ bool SDstorage::selectTape(uint8_t tnum){
 
 
 /***** Command handler interface *****/
-/*
 void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
-//  int sclsize = sizeof(storeCmdHidx) / sizeof(storeCmdHidx[0]);
-//  int sclsize = std::size(storeCmdHidx);
-  size_t sclsize = STGC_SIZE; 
-
-  
-  // Check whether the command byte is valid
-  do {
-    if (storeCmdHidx[i].cmdByte == cmd) break;
-    i++;
-  } while (i < sclsize);
-
-  // If valid then call handler
-  if (i<sclsize){
-#ifdef DEBUG_STORE
-    Serial.print(F("Executing command "));
-    Serial.println(cmd, HEX);
+  while (storeCmdHidx[i].cmdByte) {
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(storeCmdHidx[i].cmdByte, HEX);
+    debugStream.print(" ");
 #endif
-    if (i < sclsize) (this->*storeCmdHidx[i].handler)();
+    if (storeCmdHidx[i].cmdByte == cmd) {
+#ifdef DEBUG_STORE
+      debugStream.print(F("Executing secondary address command: "));
+      debugStream.println(cmd, HEX);
+#endif
+      (this->*storeCmdHidx[i].handler)();
+      return;
+    }
+    i++;
   }
-
+#ifdef DEBUG_STORE
+  debugStream.print(F("Secondary command: "));
+  debugStream.print(cmd, HEX);
+  debugStream.println(F(" not found!"));
+#endif
 }
-*/
+
 
 
 /***** Command handlers *****/
 
+/***** STATUS command *****/
 void SDstorage::stgc_0x60_h(){
   
 }
 
 
-void SDstorage::stgc_0x61_h() {
+/***** SAVE command *****/
+void SDstorage::stgc_0x61_h(){
   
 }
 
 
-void SDstorage::stgc_0x62_h() {
+/***** CLOSE command *****/
+void SDstorage::stgc_0x62_h(){
   
 }
 
 
+/***** OPEN command *****/
+void SDstorage::stgc_0x63_h(){
+  
+}
+
+
+/***** OLD/APPEND command *****/
+void SDstorage::stgc_0x64_h() {
+  
+}
+
+
+/***** TYPE command *****/
+void SDstorage::stgc_0x66_h() {
+  
+}
+
+
+/***** KILL command *****/
 void SDstorage::stgc_0x67_h(){
   
 }
 
 
+// DIRECTORY command
 void SDstorage::stgc_0x69_h() {
-  
+
 }
 
 
+/***** PRINT command *****/
 void SDstorage::stgc_0x6C_h() {
   
 }
 
 
-void SDstorage::stgc_0x6F_h(){
+/***** INPUT command *****/
+void SDstorage::stgc_0x6D_h() {
   
 }
 
 
+/***** READ command *****/
+void SDstorage::stgc_0x6E_h() {
+  
+}
+
+
+/***** WRITE command *****/
+void SDstorage::stgc_0x6F_h() {
+  
+}
+
+
+/***** TLIST command *****/
+void SDstorage::stgc_0x73_h(){
+  // Set GPIB bus for talking (output)
+  gpibBus.setControls(DTAS);
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("Started TLIST handler..."));
+#endif
+
+  // match the specific Tek4924 tape file number from f_name
+//  for (int number = 1; number < nMax; number++) { // find each file in # sequence
+  for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
+
+    //cout << "Directory: " << directory << '\r\n';
+    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+    file.close();  //  close any file that could be open (from previous FIND for example)
+
+    if (!dirFile.open(directory, O_RDONLY)) {
+      sd.errorHalt("Open directory failed - possible invalid directory name");
+    }
+    file.rewind();
+
+//    for (int index = 0; index < nMax; index++) { //SdFat file index number
+    for (uint8_t index = 0; index < nMax; index++) { //SdFat file index number
+
+      // while (n < nMax ) {
+      file.openNext(&dirFile, O_RDONLY);
+      // Skip directories, hidden files, and null files
+      if (!file.isSubDir() && !file.isHidden()) {
+
+        file.getName(f_name, 46);
+
+//        int filenumber = atoi(f_name);
+        uint8_t filenumber = atoi(f_name);
+
+        if (filenumber == number) {
+          // print the entire file 'header' with leading space, and CR + DC3 delimiters
+          // Note \x019 = end of medium
+//          cout << F(" ") << f_name << '\r' << '\x019';
+
+          // Stream info to buffer 
+          charStream.flush();
+          gpibout << F(" ") << f_name << '\r' << '\x019';
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+        
+        }
+        
+        if ((f_name[7] == 'L') && (filenumber == number)) {
+          // then this is the LAST file - end of TLIST
+          file.close();  // end of iteration close **this** file
+          f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+          f_type = 'O';    // set file type to "O" for NOT OPEN
+          dirFile.close();  // end of iteration through all files, close directory
+          return;
+
+        } else if (file.isDir()) {
+          // Indicate a directory.
+//          cout << '/' << endl;
+
+          // Stream info to buffer
+          charStream.flush();
+          gpibout << '/' << endl;
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+
+        }
+
+      }
+      file.close();  // end of iteration close **this** file
+    }
+
+    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+    f_type = 'O';    // set file type to "O" for NOT OPEN
+    dirFile.close();  // end of iteration through all files, close directory
+  } 
+
+  // Send EOI to end transmission
+  gpibBus.sendEOI();
+
+  // Return GPIB bus to listening idle state
+  gpibBus.setControls(DIDS);
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("End TLIST handler."));  
+#endif
+
+}
+
+
+/***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
   
 }
 
 
+/***** MARK command *****/
 void SDstorage::stgc_0x7C_h(){
   
 }
 
 
+/***** SECRET command *****/
 void SDstorage::stgc_0x7D_h(){
   
 }
+
+
+/***** ERROR command *****/
+void SDstorage::stgc_0x7E_h(){
+  
+}
+
 
 
 
@@ -280,18 +447,23 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x60, &SDstorage::stgc_0x60_h }, 
   { 0x61, &SDstorage::stgc_0x61_h },
   { 0x62, &SDstorage::stgc_0x62_h },
+  { 0x63, &SDstorage::stgc_0x63_h },
+  { 0x64, &SDstorage::stgc_0x64_h },
+  { 0x66, &SDstorage::stgc_0x66_h },
   { 0x67, &SDstorage::stgc_0x67_h },
   { 0x69, &SDstorage::stgc_0x69_h },
   { 0x6C, &SDstorage::stgc_0x6C_h },
+  { 0x6D, &SDstorage::stgc_0x6D_h },
+  { 0x6E, &SDstorage::stgc_0x6E_h },
   { 0x6F, &SDstorage::stgc_0x6F_h },
+  { 0x73, &SDstorage::stgc_0x73_h },
   { 0x7B, &SDstorage::stgc_0x7B_h },
   { 0x7C, &SDstorage::stgc_0x7C_h },
-  { 0x7D, &SDstorage::stgc_0x7D_h }
+  { 0x7D, &SDstorage::stgc_0x7D_h },
+  { 0x7E, &SDstorage::stgc_0x7E_h }
 };
 
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** Command handling functions *****/
 /**************************************/
-
-#endif  // EN_STORAGE

@@ -19,7 +19,7 @@
 // (We don't know which pin interrupts will be required)
 #ifdef USE_INTERRUPTS
   #undef USE_INTERRUPTS
-//  #define USE_PINHOOKS
+  #define USE_PINHOOKS
 #endif
 
 #endif
@@ -430,6 +430,37 @@ uint8_t reverseBits(uint8_t dbyte);
 
 
 
+/********************************************************/
+/***** PANDUINO/MIGHTYCORE MCGRAW LAYOUT DEFINITION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef AR488_MEGA644P_MCGRAW
+
+#define DIO1  10   /* GPIB 1  */
+#define DIO2  11   /* GPIB 2  */
+#define DIO3  12   /* GPIB 3  */
+#define DIO4  13   /* GPIB 4  */
+#define DIO5  14   /* GPIB 13 */
+#define DIO6  15   /* GPIB 14 */
+#define DIO7  16   /* GPIB 15 */
+#define DIO8  17   /* GPIB 16 */
+
+#define IFC   22   /* GPIB 9  */
+#define NDAC  21   /* GPIB 8  */
+#define NRFD  20   /* GPIB 7  */
+#define DAV   19   /* GPIB 6  */
+#define EOI   18   /* GPIB 5  */
+
+#define SRQ   23   /* GPIB 10 */
+#define REN   24   /* GPIB 17 */
+#define ATN   31   /* GPIB 11 */
+
+#endif // AR488_MEGA644P_MCGRAW
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** PANDUINO/MIGHTYCORE MCGRAW LAYOUT DEFINITION *****/
+/********************************************************/
+
+
+
 /**************************************/
 /***** GLOBAL DEFINITIONS SECTION *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvv *****/
@@ -438,6 +469,7 @@ void readyGpibDbus();
 uint8_t readGpibDbus();
 void setGpibDbus(uint8_t db);
 void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode);
+uint8_t getGpibPinState(uint8_t pin);
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
 /***** GLOBAL DEFINITIONS SECTION *****/
