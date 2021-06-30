@@ -22,7 +22,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.12, 25/06/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.17, 30/06/2021 *****/
 
 #define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(20))
 
@@ -129,6 +129,7 @@ class SDstorage {
     uint8_t currentFileNum = 1;
     char currentTapeName[35] = {'\0'};
     char currentFileName[25] = {'\0'};
+    uint8_t errorCode = 0;
 
     void showSDInfo(Stream& outputStream);
     void showSdVolumeInfo(Stream& outputStream);
@@ -256,9 +257,9 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     #endif
   
     // SD card objects
-    SdCard arSdCard;
-    FsVolume arSdVolume;
-    SdFile arSdRoot;
+//    SdCard arSdCard;
+//    FsVolume arSdVolume;
+//    SdFile arSdRoot;
 
     SdFat sd;
     SdFile file;
@@ -268,22 +269,37 @@ template<typename T> void listDir(File dir, int numTabs, T* output){
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
+    // STATUS
     void stgc_0x60_h();
+    // SAVE
     void stgc_0x61_h();
+    // CLOSE
     void stgc_0x62_h();
     void stgc_0x63_h();
+    // OLD
     void stgc_0x64_h();
+    // TYPE
     void stgc_0x66_h();
+    // KILL
     void stgc_0x67_h();
+    // HEADER
     void stgc_0x69_h();
+    // PRINT
     void stgc_0x6C_h();
     void stgc_0x6D_h();
+    // READ
     void stgc_0x6E_h();
+    // WRITE
     void stgc_0x6F_h();
+    // TLIST
     void stgc_0x73_h();
+    // FIND
     void stgc_0x7B_h();
+    // MARK
     void stgc_0x7C_h();
+    // SECRET
     void stgc_0x7D_h();
+    // ERROR
     void stgc_0x7E_h();
 
     // Storage command function record

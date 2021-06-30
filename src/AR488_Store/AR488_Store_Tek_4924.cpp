@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.12, 25/06/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.17, 30/06/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -67,7 +67,9 @@ bool SDstorage::isVolumeMounted(){
   return isvolmounted;
 }
 
+
 /***** Showe information about the SD card *****/
+/*
 void SDstorage::showSDInfo(Stream& outputStream) {
 //  Sd2Card sdcard;
   outputStream.print(F("Card type:\t\t"));
@@ -85,6 +87,7 @@ void SDstorage::showSDInfo(Stream& outputStream) {
       outputStream.println("Unknown");
   }
 }
+*/
 
 
 /***** Show information about the SD volume *****/
@@ -229,15 +232,16 @@ bool SDstorage::selectTape(uint8_t tnum){
 void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
   while (storeCmdHidx[i].cmdByte) {
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(storeCmdHidx[i].cmdByte, HEX);
-    debugStream.print(" ");
+#ifdef DEBUG_STORE
+//    debugStream.print(storeCmdHidx[i].cmdByte, HEX);
+//    debugStream.print(" ");
 #endif
     if (storeCmdHidx[i].cmdByte == cmd) {
 #ifdef DEBUG_STORE
       debugStream.print(F("Executing secondary address command: "));
       debugStream.println(cmd, HEX);
 #endif
+      // Call handler
       (this->*storeCmdHidx[i].handler)();
       return;
     }
@@ -249,7 +253,6 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
   debugStream.println(F(" not found!"));
 #endif
 }
-
 
 
 /***** Command handlers *****/
@@ -328,6 +331,11 @@ void SDstorage::stgc_0x6F_h() {
 
 /***** TLIST command *****/
 void SDstorage::stgc_0x73_h(){
+
+  uint8_t number = 1;
+  uint8_t index = 0;
+  bool lastfile = false;
+  
   // Set GPIB bus for talking (output)
   gpibBus.setControls(DTAS);
 
@@ -337,7 +345,8 @@ void SDstorage::stgc_0x73_h(){
 
   // match the specific Tek4924 tape file number from f_name
 //  for (int number = 1; number < nMax; number++) { // find each file in # sequence
-  for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
+//  for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
+  while ((!lastfile) && (number < nMax)) {
 
     //cout << "Directory: " << directory << '\r\n';
     f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
@@ -349,10 +358,12 @@ void SDstorage::stgc_0x73_h(){
     file.rewind();
 
 //    for (int index = 0; index < nMax; index++) { //SdFat file index number
-    for (uint8_t index = 0; index < nMax; index++) { //SdFat file index number
+//    for (uint8_t index = 0; index < nMax; index++) { //SdFat file index number
+
+    while ((file.openNext(&dirFile, O_RDONLY)) && index < nMax) {
 
       // while (n < nMax ) {
-      file.openNext(&dirFile, O_RDONLY);
+//      file.openNext(&dirFile, O_RDONLY);
       // Skip directories, hidden files, and null files
       if (!file.isSubDir() && !file.isHidden()) {
 
@@ -376,11 +387,16 @@ void SDstorage::stgc_0x73_h(){
         
         if ((f_name[7] == 'L') && (filenumber == number)) {
           // then this is the LAST file - end of TLIST
-          file.close();  // end of iteration close **this** file
-          f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-          f_type = 'O';    // set file type to "O" for NOT OPEN
-          dirFile.close();  // end of iteration through all files, close directory
-          return;
+//          file.close();  // end of iteration close **this** file
+//          f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+//          f_type = 'O';    // set file type to "O" for NOT OPEN
+//          dirFile.close();  // end of iteration through all files, close directory
+
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.println(F("Reached last file."));  
+#endif    
+          lastfile = true;
+//          return;
 
         } else if (file.isDir()) {
           // Indicate a directory.
@@ -395,9 +411,11 @@ void SDstorage::stgc_0x73_h(){
         }
 
       }
+      index++;
       file.close();  // end of iteration close **this** file
     }
 
+    number++;
     f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
     f_type = 'O';    // set file type to "O" for NOT OPEN
     dirFile.close();  // end of iteration through all files, close directory
@@ -418,7 +436,128 @@ void SDstorage::stgc_0x73_h(){
 
 /***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
-  
+  char receiveBuffer[82];
+  uint8_t paramLen = 0;
+  uint8_t num = 0;
+  char ftype = '\0';
+
+  paramLen = gpibBus.receiveParams(false, receiveBuffer, 82);
+
+  // If we have received parameter data
+  if (paramLen > 0) {
+
+    num = atoi(receiveBuffer);
+
+    // Set GPIB bus for talking (output)
+    gpibBus.setControls(DTAS);
+ 
+
+    // char f_name[46];  //the filename variable
+    /*  FINDs and OPENs file (num)
+         Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
+
+         FIND iterates through each file in a directory until filenumber matches num
+         since SdFat file index is not sequential with Tek 4050 filenames
+    */
+
+    if (!dirFile.open(directory, O_RDONLY)) {
+        sd.errorHalt("Open directory failed");
+    }
+
+    for (int index = 0; index < nMax; index++) { //SdFat file index number
+
+        // while (n < nMax ) {
+        file.openNext(&dirFile, O_RDONLY);
+        // Skip directories, hidden files, and null files
+        if (!file.isSubDir() && !file.isHidden()) {
+
+            file.getName(f_name, 46);
+
+            int filenumber = atoi(f_name);
+
+            if (filenumber == num) {
+                // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
+//                cout << F(" ") << f_name << "\r ";
+
+          charStream.flush();
+          gpibout << F(" ") << f_name << "\r ";
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+
+
+                // all BINARY files are in HEX format
+                if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'B'; // BINARY PROGRAM file
+                    ftype = 'B';
+                } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'H'; // BINARY DATA file ** to read - parse the data_type
+                    ftype = 'H';
+                } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'S'; // SECRET ASCII PROGRAM file
+                      ftype = 'S';
+                } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'P'; // ASCII PROGRAM file
+                      ftype = 'P';
+                } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'N'; // ASCII LAST file
+                      // ftype = 'N';
+                } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'L'; // ASCII LAST file
+                      ftype = 'L';
+                } else {
+                    dirFile.close();  // end of iteration through all files, close directory
+//                    return 'D'; // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
+                    ftype = 'D';
+                }
+                if (ftype) {
+                  gpibBus.sendRawData(&ftype, 1);
+                  gpibBus.sendEOI();
+                  gpibBus.setControls(DIDS);
+                  return;
+                }
+            }
+            //f_name[0]=0; // clear f_name
+
+            if (file.isDir()) {
+                // Indicate a directory.
+//                cout << '/' << endl;
+
+          charStream.flush();
+          gpibout << '/' << endl;
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+                
+            }
+
+        }
+        file.close();  // end of iteration close **this** file
+
+    }
+//    cout << F("File ") << num << " not found" << endl;
+
+    charStream.flush();
+    gpibout << F("File ") << num << " not found" << endl;
+    // Send info to GPIB bus
+    gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+    // Send EOI
+    gpibBus.sendEOI();
+    // Return bus to idle
+    gpibBus.setControls(DIDS);
+
+    
+    f_name[0] = '\0';  // clear f_name
+    dirFile.close();  // end of iteration through all files, close directory
+
+//    return 'O'; // File num NOT OPEN (or NOT FOUND)
+
+  }
+
 }
 
 
@@ -435,8 +574,29 @@ void SDstorage::stgc_0x7D_h(){
 
 
 /***** ERROR command *****/
-void SDstorage::stgc_0x7E_h(){
-  
+/*
+ *  1 - Domain error / invalid argument
+ *  2 - File not found
+ *  3 - Mag tape format error
+ *  4 - Illegal access
+ *  5 - File not open
+ *  6 - Read error
+ *  7 - No cartridge inserted
+ *  8 - Over read (illegal tape length)
+ *  9 - Write protected
+ * 10 - Read after write error
+ * 11 - End of medium
+ * 12 - End of file
+ */
+void SDstorage::stgc_0x7E_h(){  
+  gpibBus.setControls(DTAS);
+  charStream.flush();
+  gpibout << errorCode << "\r" << endl;
+  // Send info to GPIB bus
+  gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+  // Send all clear (for test only)
+  gpibBus.sendEOI();
+  gpibBus.setControls(DIDS);
 }
 
 

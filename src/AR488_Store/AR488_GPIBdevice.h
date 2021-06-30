@@ -11,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.08, 18/06/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.16, 29/06/2021 *****/
 
 
 /*********************************************/
@@ -144,6 +144,7 @@ class GPIBbus {
 
 #ifdef EN_STORAGE
     bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
+    uint8_t receiveParams(bool detectEoi, char * receiveBuffer, uint8_t bufSize);
     void sendData(ifstream& fileStream);
 #endif
 

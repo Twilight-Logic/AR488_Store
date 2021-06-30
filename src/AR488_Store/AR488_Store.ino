@@ -674,7 +674,7 @@ void tek_TLIST() {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.14, 27/06/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.17, 30/06/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki

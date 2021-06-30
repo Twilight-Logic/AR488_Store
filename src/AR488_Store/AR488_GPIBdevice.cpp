@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.08, 18/06/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.16, 29/06/2021 *****/
 
 
 /****** Process status values *****/
@@ -107,8 +107,10 @@ void GPIBbus::setStatus(uint8_t statusByte){
 
 /***** Send EOI signal *****/
 void GPIBbus::sendEOI(){
+  setGpibState(0b00010000, 0b00010000, 1);
   setGpibState(0b00000000, 0b00010000, 0);
   delayMicroseconds(40);
+  setGpibState(0b00000000, 0b00010000, 1);
   setGpibState(0b00010000, 0b00010000, 0);
 }
 
@@ -124,6 +126,15 @@ bool GPIBbus::sendCmd(uint8_t cmdByte){
   return stat ? ERR : OK;
 }
 */
+
+
+
+
+
+
+
+
+
 
 
 
@@ -296,37 +307,6 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
 
 
 /***** Send a series of characters as data to the GPIB bus *****/
-/*
- * This function does not set line states, implement EOI or filter terminators
- */
-bool GPIBbus::sendRawData(char *databuffer, size_t dsize) {
-
-  bool err = false;
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.print(F("Send->"));
-#endif
-
-  // Write the data string
-  for (size_t i = 0; i < dsize; i++) {
-    // Send all characters
-    err = writeByte(databuffer[i]);
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.print(data[i]);
-#endif
-    if (err) break;
-  }
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.println("<-End.");
-#endif
-
-  // return error state
-  return err;
-}
-
-
-/***** Send a series of characters as data to the GPIB bus *****/
 void GPIBbus::sendData(char *databuffer, size_t dsize) {
 
   bool err = false;
@@ -461,6 +441,150 @@ void GPIBbus::sendData(char *databuffer, size_t dsize) {
 
 #ifdef EN_STORAGE
 
+
+/***** Receive parameters from the GPIB bus ****/
+/*
+ * Readbreak:
+ * 7 - command received via serial
+ */
+uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t bufSize) {
+
+  uint8_t r = 0; //, db;
+  uint8_t bytes[3] = {0};
+//  uint8_t eor = cfg.eor&7;
+  int x = 0;
+  bool readWithEoi = false;
+  bool eoiDetected = false;
+  uint8_t pos = 0;
+
+//  endByte = endByte;  // meaningless but defeats vcompiler warning!char * buffer, size_t bsize
+
+  // Reset transmission break flag
+  txBreak = 0;
+
+  // EOI detection required ?
+//  if (cfg.eoi || detectEoi || (cfg.eor==7)) readWithEoi = true;    // Use EOI as terminator
+  if (cfg.eoi || detectEoi) readWithEoi = true;    // Use EOI as terminator
+
+  // Set GPIB controls to device read mode
+  setControls(DLAS);
+//  readWithEoi = true;  // In device mode we read with EOI by default
+  
+#ifdef DEBUG_GPIBbus_READ
+  debugStream.println(F("gpibReceiveData: Start listen ->"));
+  debugStream.println(F("Before loop flags:"));
+  debugStream.print(F("TRNb: "));
+  debugStream.println(txBreak);
+  debugStream.print(F("rEOI: "));
+  debugStream.println(readWithEoi);
+  debugStream.print(F("ATN:  "));
+  debugStream.println(isAsserted(ATN) ? 1 : 0);
+#endif
+
+  // Ready the data bus
+  readyGpibDbus();
+
+  // Perform read of data (r=0: data read OK; r>0: GPIB read error);
+  while ((r == 0) && (pos < bufSize)) {
+
+    // Tranbreak > 0 indicates break condition
+    if (txBreak) break;
+
+    // ATN asserted
+    if (isAsserted(ATN)) break;
+
+    // Read the next character on the GPIB bus
+    r = readByte(&bytes[0], readWithEoi, &eoiDetected);
+    receiveBuffer[pos] = bytes[0];
+    pos++;
+    
+    // If ATN asserted then break here
+    if (isAsserted(ATN)) break;
+
+#ifdef DEBUG_GPIBbus_READ
+    debugStream.print(bytes[0], HEX), debugStream.print(' ');
+#else
+    // Output the character to the serial port
+    dataStream.print((char)bytes[0]);
+#endif
+
+    // Byte counter
+    x++;
+
+    // EOI detection enabled and EOI detected?
+    if (readWithEoi) {
+      if (eoiDetected) break;
+/*      
+    }else{
+      // Has a termination sequence been found ?
+      if (detectEndByte) {
+        if (r == endByte) break;
+      }else{
+        if (isTerminatorDetected(bytes, eor)) break;
+      }
+*/
+    }
+    
+    // Stop on timeout
+    if (r > 0) break;
+
+    // Shift last three bytes in memory
+    bytes[2] = bytes[1];
+    bytes[1] = bytes[0];
+  }
+
+#ifdef DEBUG_GPIBbus_READ
+  debugStream.println();
+  debugStream.println(F("After loop flags:"));
+  debugStream.print(F("ATN: "));
+  debugStream.println(isAsserted(ATN));
+  debugStream.print(F("TMO:  "));
+  debugStream.println(r);
+  debugStream.print(F("Bytes read: "));
+  debugStream.println(x);
+  debugStream.println(F("GPIBbus::receiveData: <- End listen."));
+#endif
+
+  // Detected that EOI has been asserted
+  if (eoiDetected) {
+#ifdef DEBUG_GPIBbus_RECEIVE
+    dataStream.println(F("GPIBbus::receiveData: EOI detected!"));
+#endif
+    // If eot_enabled then add EOT character
+//    if (cfg.eot_en) dataStream.print(cfg.eot_ch);
+  }
+
+  // Verbose timeout error
+#ifdef DEBUG_GPIBbus_RECEIVE
+  if (r > 0) {
+    debugStream.println(F("GPIBbus::receiveData: Timeout waiting for sender!"));
+    debugStream.println(F("GPIBbus::receiveData: Timeout waiting for transfer to complete!"));
+  }
+#endif
+
+  // Set device back to idle state
+  setControls(DIDS);
+
+#ifdef DEBUG_GPIBbus_READ
+  debugStream.println(F("<- End listen."));
+#endif
+
+  // Reset break flag
+  if (txBreak) txBreak = false;
+
+#ifdef DEBUG_GPIBbus_RECEIVE
+  debugStream.println(F("GPIBbus::receiveData: done."));
+#endif
+
+//  if (r > 0) return ERR;
+
+//  return OK;
+
+  return pos;
+
+}
+
+
 bool GPIBbus::receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte){
 
   uint8_t r = 0; //, db;
@@ -478,29 +602,9 @@ bool GPIBbus::receiveData(ofstream& outputFile, bool detectEoi, bool detectEndBy
   // EOI detection required ?
   if (cfg.eoi || detectEoi || (cfg.eor==7)) readWithEoi = true;    // Use EOI as terminator
 
-/*
-  // Set up for reading in Controller mode
-  if (cfg.cmode == 2) {   // Controler mode
-    // Address device to talk
-    if (addressDevice(cfg.paddr, 1)) {
-      if (isVerb) {
-        arSerial->print(F("Failed to address device "));
-        arSerial->print(AR488.paddr);
-        arSerial->println(F(" to talk"));
-      }
-    }
-    // Wait for instrument ready
-    waitOnPinState(HIGH, NRFD, cfg.rtmo);
-    // Set GPIB control lines to controller read mode
-    setControls(CLAS);
-*/    
-  // Set up for reading in Device mode
-//  } else {  // Device mode
-    // Set GPIB controls to device read mode
-    if (!dataContinuity) setControls(DLAS);
-    readWithEoi = true;  // In device mode we read with EOI by default
-//  }
-
+  // Set GPIB controls to device read mode
+  if (!dataContinuity) setControls(DLAS);
+  readWithEoi = true;  // In device mode we read with EOI by default
   
 #ifdef DEBUG_GPIBbus_RECEIVE
   debugStream.println(F("gpibReceiveData: Start listen ->"));
@@ -593,22 +697,6 @@ bool GPIBbus::receiveData(ofstream& outputFile, bool detectEoi, bool detectEndBy
   }
 #endif
 
-  // Return controller to idle state
-/*
-  if (cfg.cmode == 2) {
-
-    // Untalk bus and unlisten controller
-    if (uaddrDev()) {
-      if (isVerb) arSerial->print(F("gpibSendData: Failed to untalk bus"));
-    }
-    // Set controller back to idle state
-    setControls(CIDS);
-*/
-//  } else {
-    // Set device back to idle state
-    if (!dataContinuity) setControls(DIDS);
-//  }
-
 #ifdef DEBUG_GPIBbus_RECEIVE
   debugStream.println(F("<- End listen."));
 #endif
@@ -623,8 +711,38 @@ bool GPIBbus::receiveData(ofstream& outputFile, bool detectEoi, bool detectEndBy
   if (r > 0) return ERR;
 
   return OK;
-
        
+}
+
+
+/***** Send a series of characters as data to the GPIB bus *****/
+/*
+ * This function does not set line states, implement EOI or filter terminators
+ */
+bool GPIBbus::sendRawData(char *databuffer, size_t dsize) {
+
+  bool err = false;
+
+#ifdef DEBUG_GPIBbus_SEND
+  debugStream.print(F("Send->"));
+#endif
+
+  // Write the data string
+  for (size_t i = 0; i < dsize; i++) {
+    // Send all characters
+    err = writeByte(databuffer[i]);
+#ifdef DEBUG_GPIBbus_SEND
+    debugStream.print(data[i]);
+#endif
+    if (err) break;
+  }
+
+#ifdef DEBUG_GPIBbus_SEND
+  debugStream.println("<-End.");
+#endif
+
+  // return error state
+  return err;
 }
 
 
@@ -633,39 +751,8 @@ void GPIBbus::sendData(ifstream& fileToSend){
   bool err = false;
   uint8_t db = 0;
 
-/* Should not ge here!
-  // If lon is turned on we cannot send data so exit
-  if (isRO) return;
-*/
+  setControls(DTAS);
 
-  // Controler can unlisten bus and address devices
-/*  
-  if (cfg.cmode == 2) {
-    if (deviceAddressing) {
-      // Address device to listen
-      if (addrDev(cfg.paddr, 0)) {
-        if (isVerb) {
-          arSerial->print(F("gpibSendData: failed to address device "));
-          arSerial->print(AR488.paddr);
-          arSerial->println(F(" to listen"));
-        }
-        return;
-      }
-    }
-
-    deviceAddressing = dataBufferFull ? false : true;
-
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Device addressed."));
-#endif
-
-    // Set control lines to write data (ATN unasserted)
-    setControls(CTAS);
-*/
-
-//  } else {
-    setControls(DTAS);
-//  }
 #ifdef DEBUG_GPIBbus_SEND
   debugStream.println(F("Set write data mode."));
   debugStream.print(F("Send->"));
@@ -723,34 +810,12 @@ void GPIBbus::sendData(ifstream& fileToSend){
 #endif
   }
 
-/*
-  if (cfg.cmode == 2) {   // Controller mode
-    if (!err) {
-      if (deviceAddressing) {
-        // Untalk controller and unlisten bus
-        if (uaddrDev()) {
-          if (isVerb) arSerial->println(F("gpibSendData: Failed to unlisten bus"));
-        }
-
-#ifdef DEBUG_GPIBbus_SEND
-        debugStream.println(F("Unlisten done"));
-#endif
-      }
-    }
-
-    // Controller - set lines to idle?
-    setControls(CIDS);
-*/
-
-//  }else{    // Device mode
-    // Set control lines to idle
-    setControls(DIDS);
-//  }
+  // Set control lines to idle
+  setControls(DIDS);
 
 #ifdef DEBUG_GPIBbus_SEND
     debugStream.println(F("<- End of send."));
 #endif
-
     
   }
 
