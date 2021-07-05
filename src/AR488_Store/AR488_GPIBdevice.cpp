@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.16, 29/06/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.20, 05/07/2021 *****/
 
 
 /****** Process status values *****/
@@ -451,26 +451,23 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
 
   uint8_t r = 0; //, db;
   uint8_t bytes[3] = {0};
-//  uint8_t eor = cfg.eor&7;
   int x = 0;
   bool readWithEoi = false;
   bool eoiDetected = false;
   uint8_t pos = 0;
-
-//  endByte = endByte;  // meaningless but defeats vcompiler warning!char * buffer, size_t bsize
+  uint8_t savedstate = cstate;
 
   // Reset transmission break flag
   txBreak = 0;
 
   // EOI detection required ?
-//  if (cfg.eoi || detectEoi || (cfg.eor==7)) readWithEoi = true;    // Use EOI as terminator
   if (cfg.eoi || detectEoi) readWithEoi = true;    // Use EOI as terminator
 
   // Set GPIB controls to device read mode
   setControls(DLAS);
 //  readWithEoi = true;  // In device mode we read with EOI by default
   
-#ifdef DEBUG_GPIBbus_READ
+#ifdef DEBUG_GPIBbus_RECEIVE
   debugStream.println(F("gpibReceiveData: Start listen ->"));
   debugStream.println(F("Before loop flags:"));
   debugStream.print(F("TRNb: "));
@@ -501,7 +498,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
     // If ATN asserted then break here
     if (isAsserted(ATN)) break;
 
-#ifdef DEBUG_GPIBbus_READ
+#ifdef DEBUG_GPIBbus_RECEIVE
     debugStream.print(bytes[0], HEX), debugStream.print(' ');
 #else
     // Output the character to the serial port
@@ -533,7 +530,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
     bytes[1] = bytes[0];
   }
 
-#ifdef DEBUG_GPIBbus_READ
+#ifdef DEBUG_GPIBbus_RECEIVE
   debugStream.println();
   debugStream.println(F("After loop flags:"));
   debugStream.print(F("ATN: "));
@@ -562,12 +559,8 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   }
 #endif
 
-  // Set device back to idle state
-  setControls(DIDS);
-
-#ifdef DEBUG_GPIBbus_READ
-  debugStream.println(F("<- End listen."));
-#endif
+  // Set device back to previous state
+  setControls(savedstate);
 
   // Reset break flag
   if (txBreak) txBreak = false;
