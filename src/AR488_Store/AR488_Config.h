@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.20, 05/07/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.05.23, 08/07/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -137,7 +137,7 @@
 #define GPIB_ADDRESS 5          // Interface address
 #define GPIB_EOT_ENABLE false   // Enable/disable append EOT char to string received from GPIB bus before sending to USB
 #define GPIB_EOT_CHAR 0         // EOT character to append to USB output when EOI signal detected (character ASCII code)
-#define GPIB_EOI_ENABLE false   // Assert EOI on last data char written to GPIB - false-disable, true-enable
+#define GPIB_EOI_ENABLE true    // Enable sending EOI with last character of data written to GPIB - false-disable, true-enable
 #define GPIB_EOS_MODE 1         // EOS (end of send to GPIB) characters [0=CRLF, 1=CR, 2=LF, 3=None]
 #define GPIB_AUTO_MODE 0        // Auto mode setting (0=off; 1=Prologix; 2=onquery; 3=continuous);
 #define GPIB_RTMO 5000          // Read timout (read_tmo_ms) in milliseconds - 0-30000 - value may depend on instrument

@@ -679,7 +679,7 @@ void tek_TLIST() {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.20, 05/07/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.23, 08/07/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -881,7 +881,6 @@ bool aTt = false;
 bool aTl = false;
 
 // Data send mode flags
-bool deviceAddressing = true;   // Suppress sending commands to address the instrument
 bool dataBufferFull = false;    // Flag when parse buffer is full
 
 // State flags set by interrupt being triggered
@@ -1095,21 +1094,21 @@ void initGpibCfg(){
   // Set default values from Config_h
   // ({'\0'} sets version string array to null)
   gpibBus.cfg = { GPIB_EOT_ENABLE,
-          GPIB_EOI_ENABLE,
-          1,                // Device mode
-          GPIB_ADDRESS,     // This interface address
-          GPIB_ADDRESS,     // Primary address to use when addressing instrument
-          0,                // Secondary address to use when addressing instrument
-          GPIB_EOS_MODE,
-          0,                // Status byte
-          GPIB_AUTO_MODE,
-          GPIB_RTMO,
-          GPIB_EOT_CHAR,
-          {'\0'},           // Custom version string
-          GPIB_EOR_MODE,
-          {'\0'},           // Interface short name
-          0,                // Interface serial
-          0                 // Send IDN (0-disable, 1-yes,name or 2-yes,name+serial)?
+                  GPIB_EOI_ENABLE,
+                  1,                // Device mode
+                  GPIB_ADDRESS,     // This interface address
+                  GPIB_ADDRESS,     // Primary address to use when addressing instrument
+                  0,                // Secondary address to use when addressing instrument
+                  GPIB_EOS_MODE,
+                  0,                // Status byte
+                  GPIB_AUTO_MODE,
+                  GPIB_RTMO,
+                  GPIB_EOT_CHAR,
+                  {'\0'},           // Custom version string
+                  GPIB_EOR_MODE,
+                  {'\0'},           // Interface short name
+                  0,                // Interface serial
+                  0                 // Send IDN (0-disable, 1-yes,name or 2-yes,name+serial)?
         }; 
 }
 
@@ -1244,9 +1243,9 @@ uint8_t parseInput(char c) {
 */      
       flushPbuf();
     }else{  // Buffer contains data and is full, so process the buffer (send data via GPIB)
-//      dataBufferFull = true;
+      dataBufferFull = true;
       // Signal to GPIB object that more data will follow (suppress GPIB addressing)
-      gpibBus.setDataContinuity(true);
+//      gpibBus.setDataContinuity(true);
 
       r = 2;
     }
@@ -1391,17 +1390,28 @@ void showPrompt() {
 void sendToInstrument(char *buffr, uint8_t dsize) {
 
 #ifdef DEBUG_SEND_TO_INSTR
-  debugStream.print(F("sendToInstrument: Received for sending: ")); printHex(buffr, dsize);
+  if (buffr[dsize] != LF) debugStream.println();
+  debugStream.print(F("sendToInstrument: Received for sending: "));
+  printHex(buffr, dsize);
 #endif
 
   // Is this an instrument query command (string ending with ?)
   if (buffr[dsize-1] == '?') isQuery = true;
 
+  // Address device
+//  if (!gpibBus.isDeviceAddressed()) gpibBus.addressDevice(gpibBus.cfg.paddr, LISTEN);
+
   // Send string to instrument
-  gpibBus.sendData(buffr, dsize);
-  // Clear data buffer full flag
-  if (dataBufferFull) dataBufferFull = false;
-  gpibBus.setDataContinuity(false);
+  gpibBus.sendData(buffr, dsize, true);
+
+  // Address device
+/*  
+  if (dataBufferFull) {
+    dataBufferFull = false;
+  }else{
+    gpibBus.unAddressDevice();
+  }
+*/
 
 #ifdef DEBUG_SEND_TO_INSTR
   debugStream.println(F("sendToInstrument: Sent."));
@@ -1410,7 +1420,6 @@ void sendToInstrument(char *buffr, uint8_t dsize) {
   // Show a prompt on completion?
 /*  
   if (isVerb) {
-      dataStream.println();
       showPrompt();
   }
 */
@@ -1961,7 +1970,7 @@ void repeat_h(char *params) {
     if (strlen(param) > 0) {
       for (uint16_t i = 0; i < count; i++) {
         // Send string to instrument
-        gpibBus.sendData(param, strlen(param));
+        gpibBus.sendData(param, strlen(param), true);
         delay(tmdly);
         gpibBus.receiveData(dataStream, gpibBus.cfg.eoi, false, 0);
       }

@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.20, 05/07/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.23, 08/07/2021 *****/
 
 
 /****** Process status values *****/
@@ -83,7 +83,7 @@ bool GPIBbus::isAsserted(uint8_t gpibsig){
 void GPIBbus::sendStatus() {
   // Have been addressed and polled so send the status byte
   if (!(cstate==DTAS)) setControls(DTAS);
-  writeByte(cfg.stat);
+  writeByte(cfg.stat, true);
   setControls(DIDS);
   // Clear the SRQ bit
   cfg.stat = cfg.stat & ~0x40;
@@ -307,57 +307,35 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
 
 
 /***** Send a series of characters as data to the GPIB bus *****/
-void GPIBbus::sendData(char *databuffer, size_t dsize) {
+void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
   bool err = false;
+  const size_t lastbyte = dsize - 1;
 
-/* Should not get here!
-  // If lon is turned on we cannot send data so exit
-  if (isRO) return;
-*/
+  if (cstate != DTAS) setControls(DTAS);
 
-  // Controler can unlisten bus and address devices
-/*  
-  if (cfg.cmode == 2) {
-    if (deviceAddressing) {
-      // Address device to listen
-      if (addrDev(cfg.paddr, 0)) {
-        if (isVerb) {
-          arSerial->print(F("gpibSendData: failed to address device "));
-          arSerial->print(AR488.paddr);
-          arSerial->println(F(" to listen"));
-        }
-        return;
-      }
-    }
-
-    deviceAddressing = dataBufferFull ? false : true;
-
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Device addressed."));
-#endif
-
-    // Set control lines to write data (ATN unasserted)
-    setControls(CTAS);
-*/
-
-//  } else {
-    if (!dataContinuity) setControls(DTAS);
-//  }
 #ifdef DEBUG_GPIBbus_SEND
   debugStream.println(F("Set write data mode."));
   debugStream.print(F("Send->"));
 #endif
 
   // Write the data string
-  for (size_t i = 0; i < dsize; i++) {
+  for (size_t i=0; i<dsize; i++) {
     // If EOI asserting is on
     if (cfg.eoi) {
-      // Send all characters
-      err = writeByte(databuffer[i]);
+      // If EOI asserting is on
+      if ((lastChunk) && (i == lastbyte)) {
+//debugStream.println(F("Send EOI"));
+        // Send character with EOI (if enabled)
+        err = writeByte(databuffer[i], true);
+      }else{
+//debugStream.println(F("Send"));
+        // Send character
+        err = writeByte(databuffer[i], false);
+      }
     } else {
       // Otherwise ignore non-escaped CR, LF and ESC
-      if ((databuffer[i] != CR) || (databuffer[i] != LF) || (databuffer[i] != ESC)) err = writeByte(databuffer[i]);
+      if ((databuffer[i] != CR) || (databuffer[i] != LF) || (databuffer[i] != ESC)) err = writeByte(databuffer[i], false);
     }
 #ifdef DEBUG_GPIBbus_SEND
     debugStream.print(data[i]);
@@ -370,62 +348,28 @@ void GPIBbus::sendData(char *databuffer, size_t dsize) {
 #endif
 
 
-  if (!err  && !dataContinuity) {
+  if (!err  && !cfg.eoi) {
     // Write terminators according to EOS setting
     // Do we need to write a CR?
     if ((cfg.eos & 0x2) == 0) {
-      writeByte(CR);
+      writeByte(CR, false);
 #ifdef DEBUG_GPIBbus_SEND
       debugStream.println(F("Appended CR"));
 #endif
     }
     // Do we need to write an LF?
     if ((cfg.eos & 0x1) == 0) {
-      writeByte(LF);
+      writeByte(LF, false);
 #ifdef DEBUG_GPIBbus_SEND
       debugStream.println(F("Appended LF"));
 #endif
     }
   }
 
-
-  // If EOI enabled and no more data to follow then assert EOI
-
-  if (cfg.eoi && !dataContinuity) {
-    sendEOI();
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Asserted EOI"));
-#endif
+  if (lastChunk){
+    if (lastChunk) setControls(DIDS);
+    readyGpibDbus();
   }
-
-
-/*
-  if (cfg.cmode == 2) {   // Controller mode
-    if (!err) {
-      if (deviceAddressing) {
-        // Untalk controller and unlisten bus
-        if (uaddrDev()) {
-          if (isVerb) arSerial->println(F("gpibSendData: Failed to unlisten bus"));
-        }
-
-#ifdef DEBUG_GPIBbus_SEND
-        debugStream.println(F("Unlisten done"));
-#endif
-      }
-    }
-
-    // Controller - set lines to idle?
-    setControls(CIDS);
-*/
-
-//  }else{    // Device mode
-    if (!dataContinuity) {
-      // Set control lines to idle
-      setControls(DIDS);
-      // Set data bus to listen
-      readyGpibDbus();
-    }
-//  }
 
 #ifdef DEBUG_GPIBbus_SEND
     debugStream.println(F("<- End of send."));
@@ -452,7 +396,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   uint8_t r = 0; //, db;
   uint8_t bytes[3] = {0};
   int x = 0;
-  bool readWithEoi = false;
+//  bool readWithEoi = false;
   bool eoiDetected = false;
   uint8_t pos = 0;
   uint8_t savedstate = cstate;
@@ -461,7 +405,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   txBreak = 0;
 
   // EOI detection required ?
-  if (cfg.eoi || detectEoi) readWithEoi = true;    // Use EOI as terminator
+//  if (detectEoi) readWithEoi = true;    // Detect EOI as terminator
 
   // Set GPIB controls to device read mode
   setControls(DLAS);
@@ -491,7 +435,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
     if (isAsserted(ATN)) break;
 
     // Read the next character on the GPIB bus
-    r = readByte(&bytes[0], readWithEoi, &eoiDetected);
+    r = readByte(&bytes[0], detectEoi, &eoiDetected);
     receiveBuffer[pos] = bytes[0];
     pos++;
     
@@ -509,17 +453,11 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
     x++;
 
     // EOI detection enabled and EOI detected?
-    if (readWithEoi) {
+    if (detectEoi) {
       if (eoiDetected) break;
-/*      
     }else{
       // Has a termination sequence been found ?
-      if (detectEndByte) {
-        if (r == endByte) break;
-      }else{
-        if (isTerminatorDetected(bytes, eor)) break;
-      }
-*/
+      if (isTerminatorDetected(bytes, cfg.eor)) break;
     }
     
     // Stop on timeout
@@ -715,15 +653,25 @@ bool GPIBbus::receiveData(ofstream& outputFile, bool detectEoi, bool detectEndBy
 bool GPIBbus::sendRawData(char *databuffer, size_t dsize) {
 
   bool err = false;
+  uint8_t lastchar = dsize - 1;
 
 #ifdef DEBUG_GPIBbus_SEND
   debugStream.print(F("Send->"));
 #endif
 
-  // Write the data string
+  // Send the data string to the GPIB bus
   for (size_t i = 0; i < dsize; i++) {
-    // Send all characters
-    err = writeByte(databuffer[i]);
+/*
+    if (cfg.eoi) {
+      // EOI enabled and last chaarcter so send with an EOI
+      if (i == (dsize-1)) {
+        err = writeByte(databuffer[i], true);
+      }
+    }else{
+      // Send character
+*/      
+      err = writeByte(databuffer[i], false);
+//    }
 #ifdef DEBUG_GPIBbus_SEND
     debugStream.print(data[i]);
 #endif
@@ -758,10 +706,10 @@ void GPIBbus::sendData(ifstream& fileToSend){
     // If EOI asserting is on
     if (cfg.eoi) {
       // Send all characters
-      err = writeByte(db);
+//      err = writeByte(db);
     } else {
       // Otherwise ignore non-escaped CR, LF and ESC
-      if ((db != CR) || (db != LF) || (db != ESC)) err = writeByte(db);
+//      if ((db != CR) || (db != LF) || (db != ESC)) err = writeByte(db, false);
     }
 #ifdef DEBUG_GPIBbus_SEND
     debugStream.print(db);
@@ -773,24 +721,25 @@ void GPIBbus::sendData(ifstream& fileToSend){
   debugStream.println("<-End.");
 #endif
 
-  if (!err  && !dataContinuity) {
+  if (!err && !cfg.eoi) {
     // Write terminators according to EOS setting
     // Do we need to write a CR?
     if ((cfg.eos & 0x2) == 0) {
-      writeByte(CR);
+      writeByte(CR, false);
 #ifdef DEBUG_GPIBbus_SEND
       debugStream.println(F("Appended CR"));
 #endif
     }
     // Do we need to write an LF?
     if ((cfg.eos & 0x1) == 0) {
-      writeByte(LF);
+      writeByte(LF, false);
 #ifdef DEBUG_GPIBbus_SEND
       debugStream.println(F("Appended LF"));
 #endif
     }
   }
 
+/*
   // If EOI enabled and no more data to follow then assert EOI
   if (cfg.eoi && !dataContinuity) {
     setGpibState(0b00000000, 0b00010000, 0);
@@ -802,6 +751,7 @@ void GPIBbus::sendData(ifstream& fileToSend){
     debugStream.println(F("Asserted EOI"));
 #endif
   }
+*/
 
   // Set control lines to idle
   setControls(DIDS);
@@ -951,8 +901,8 @@ void GPIBbus::setControls(uint8_t state) {
 #ifdef SN7516X
       digitalWrite(SN7516X_TE,LOW);
 #endif      
-      setGpibState(0b00000110, 0b00001110, 1);
-      setGpibState(0b11111001, 0b00001110, 0);
+      setGpibState(0b00000110, 0b00011110, 1);
+      setGpibState(0b11111001, 0b00011110, 0);
 #ifdef GPIBbus_CONTROL
       debugStream.println(F("Set GPIB lines to idle state"));
 #endif
@@ -962,8 +912,8 @@ void GPIBbus::setControls(uint8_t state) {
 #ifdef SN7516X
       digitalWrite(SN7516X_TE,HIGH);
 #endif      
-      setGpibState(0b00001000, 0b00001110, 1);
-      setGpibState(0b11111001, 0b00001110, 0);
+      setGpibState(0b00011000, 0b00011110, 1);
+      setGpibState(0b11111001, 0b00011110, 0);
 #ifdef GPIBbus_CONTROL
       debugStream.println(F("Set GPIB lines for listening as addresed device"));
 #endif
@@ -996,11 +946,12 @@ void GPIBbus::setDataVal(uint8_t value){
 }
 
 
-/***** Flag more data to come - suppress addressing *****/ 
+/***** Flag more data to come - suppress addressing *****/
+/*
 void GPIBbus::setDataContinuity(bool flag){
   dataContinuity = flag;
 }
-
+*/
 
 /********** PRIVATE FUNCTIONS **********/
 
@@ -1067,11 +1018,12 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 /*
  * (- this function is called in a loop to send data )
  */
-bool GPIBbus::writeByte(uint8_t db) {
+/*
+bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
   bool err;
 
-  err = writeByteHandshake(db);
+  err = writeByteHandshake(db, isLastByte);
 
   // Unassert DAV
   setGpibState(0b00001000, 0b00001000, 0);
@@ -1085,10 +1037,12 @@ bool GPIBbus::writeByte(uint8_t db) {
   // Exit successfully
   return err;
 }
+*/
 
 
 /***** GPIB send byte handshake *****/
-bool GPIBbus::writeByteHandshake(uint8_t db) {
+//bool GPIBbus::writeByteHandshake(uint8_t db, bool isLastByte) {
+bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   
     // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
@@ -1104,8 +1058,23 @@ bool GPIBbus::writeByteHandshake(uint8_t db) {
   // Place data on the bus
   setGpibDbus(db);
 
-  // Assert DAV (data is valid - ready to collect)
-  setGpibState(0b00000000, 0b00001000, 0);
+/*
+debugStream.print(F("cfgEOI:     "));
+debugStream.println(cfg.eoi);
+debugStream.print(F("isLastByte: "));
+debugStream.println(isLastByte);
+*/
+
+  if (cfg.eoi && isLastByte) {
+    // If EOI enabled and this is the last byte then assert DAV and EOI
+
+debugStream.println(F("Asserting EOI..."));    
+
+    setGpibState(0b00000000, 0b00011000, 0);
+  }else{
+    // Assert DAV (data is valid - ready to collect)
+    setGpibState(0b00000000, 0b00001000, 0);
+  }
 
   // Wait for NRFD to go LOW (receiver accepting data)
   if (waitOnPinState(LOW, NRFD, cfg.rtmo))  {
@@ -1118,6 +1087,17 @@ bool GPIBbus::writeByteHandshake(uint8_t db) {
 //    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
     return true;
   }
+
+  if (cfg.eoi && isLastByte) {
+    // If EOI enabled and this is the last byte then un-assert both DAV and EOI
+    if (cfg.eoi && isLastByte) setGpibState(0b00011000, 0b00011000, 0);
+  }else{
+    // Unassert DAV
+    setGpibState(0b00001000, 0b00001000, 0);
+  }
+  
+  // Reset the data bus
+  setGpibDbus(0);
 
   return false;
 }

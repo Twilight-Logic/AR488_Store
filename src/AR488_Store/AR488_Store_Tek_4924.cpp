@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.20, 05/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.23, 08/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -27,201 +27,35 @@ ArduinoOutStream gpibout(charStream);
 
 
 
+void printHex2(char *buffr, int dsize) {
+#ifdef DB_SERIAL_ENABLE
+  for (int i = 0; i < dsize; i++) {
+    debugStream.print(buffr[i], HEX); debugStream.print(" ");
+  }
+  debugStream.println();
+#endif
+}
+
+
+
 /**************************************/
 /***** SD Card handling functions *****/
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
 SDstorage::SDstorage(){
-/*
-  // Initialise SD card object
-  SD.begin(chipSelect);
-  if (arSdCard.init(SPI_HALF_SPEED, chipSelect)) isinit = true;
- 
-  // Attempt to mount volume
-  if (arSdVolume.init(arSdCard)) isvolmounted = true;
-
-  // Check for the existence of the Tek_4924 directory
-  if (chkTek4924Directory()) {
-
-    if (chkTapesFile()){
-      selectTape(1);
-    }
-
-  }
- */
+  // Set up CS pin
   pinMode(SDCARD_CS_PIN, OUTPUT);
   digitalWrite(SDCARD_CS_PIN, HIGH);
 //  if (!sd.cardBegin(SD_CONFIG)) {
+  // Initialise SD card object
   if (!sd.begin(SD_CONFIG)) {
     errorCode = 7;
 #ifdef DEBUG_STORE
     debugStream.println(F("SD card initialisation failed!"));
 #endif
   }
-  
 }
 
-/*
-bool SDstorage::isInit(){
-  return isinit;
-}
-*/
-
-/*
-bool SDstorage::isVolumeMounted(){
-  return isvolmounted;
-}
-*/
-
-
-/***** Showe information about the SD card *****/
-/*
-void SDstorage::showSDInfo(Stream& outputStream) {
-//  Sd2Card sdcard;
-  outputStream.print(F("Card type:\t\t"));
-  switch (arSdCard.type()) {
-    case SD_CARD_TYPE_SD1:
-      outputStream.println("MMC");
-      break;
-    case SD_CARD_TYPE_SD2:
-      outputStream.println("SDSC");
-      break;
-    case SD_CARD_TYPE_SDHC:
-      outputStream.println("SDHC");
-      break;
-    default:
-      outputStream.println("Unknown");
-  }
-}
-*/
-
-
-/***** Show information about the SD volume *****/
-/*
-void SDstorage::showSdVolumeInfo(Stream& outputStream) {
-//  Sd2Card sdcard;
-//  SdVolume sdvolume;
-//  uint32_t volumesize;
-
-  // Type and size of the first FAT-type volume
-
-  if (arSdVolume.init(arSdCard)){
-    output->print("Volume type is:\t\tFAT");
-    output->println(arSdVolume.fatType(), DEC);
-    output->print("Clusters:\t\t");
-    output->println(arSdVolume.clusterCount());
-    output->print("Blocks per cluster:\t");
-    output->println(arSdVolume.blocksPerCluster());
-    output->print("Total blocks:\t\t");
-    output->println(arSdVolume.blocksPerCluster() * arSdVolume.clusterCount());
-
-    volumesize = arSdVolume.blocksPerCluster(); // clusters are collections of blocks
-    volumesize *= arSdVolume.clusterCount();    // we'll have a lot of clusters
-    volumesize /= 2;                          // SD card blocks are always 512 bytes (2 blocks are 1KB)
-    volumesize /= 1024;                       // Convert to Mb
-
-    if (volumesize>1024) {
-      output->print("Volume size (Gb):\t");
-      output->println((float)volumesize/1024.0);      
-    }else{
-      output->print("Volume size (Mb):\t");
-      output->println(volumesize);
-    }
-  }
-}
-*/
-
-
-/***** List files on SD card *****/
-/*  
-void SDstorage::listSdFiles(Stream& outputStream){
-  if (SD.begin(chipSelect)){
-    File root = SD.open("/");
-    listDir(root, 0, outputStream);
-  }
-}
-*/
-
-
-/***** Recursive directory listing functuioon *****/
-/*  
-void SDstorage::listDir(Stream& outputStream, File dir, int numTabs){
-  while (true) {
-    File entry =  dir.openNextFile();
-    if (! entry) {
-      // no more files
-      break;
-    }
-    for (uint8_t i = 0; i < numTabs; i++) {
-      outputStream.print('\t');
-    }
-    outputStream.print(entry.name());
-    if (entry.isDirectory()) {
-      outputStream.println("/");
-      listDir(outputStream, entry, numTabs + 1);
-    } else {
-      // files have sizes, directories do not
-      outputStream.print("\t\t");
-      outputStream.println(entry.size(), DEC);
-    }
-    entry.close();
-  }
-}
-*/
-
-
-/***** Look for Tek_49245 directory *****/
-/*
- * If it doesn't exist then it will be created
- */
-/*
-bool SDstorage::chkTek4924Directory() {
-  if (SD.exists(F("/Tek_4924"))){
-    return true; 
-  }else{
-    return SD.mkdir(F("/Tek_4924"));
-  }
-}
-*/
-
-/***** Look for "tapes" file *****/
-/*
-bool SDstorage::chkTapesFile() {
-  if (SD.exists(tapeRoot)){
-    return true;
-  }else{
-    File tapes = SD.open(tapeRoot, FILE_WRITE);
-    if (tapes) {
-      tapes.println(F("01_tape_default"));
-      tapes.close();
-      return true;
-    }else{
-      return false;
-    }
-  }
-}
-
-
-bool SDstorage::selectTape(uint8_t tnum){
-  char tnumstr[2];
-
-  sprintf(tnumstr, "%02d", tnum );
-  memset(currentTapeName, '\0', 35);
-  strcat(currentTapeName, "/");
-  strcat(currentTapeName, tapeRoot);
-  strcat(currentTapeName, "/");
-  strcat(currentTapeName, tnumstr);
-  strcat(currentTapeName, "_TAPE_");
-
-  if (SD.exists(currentTapeName)){
-    return true;
-  }else{
-    return SD.mkdir(currentTapeName);
-  }
- 
- return false;   
-}
-*/
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** SD Card handling functions *****/
@@ -293,24 +127,37 @@ void SDstorage::stgc_0x64_h() {
   char path[60] = {0};
   char linebuffer[line_buffer_size];
 
+  // line_buffer_size = 72 char line max in Tek plus CR plus NULL
+
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: started OLD/APPEND handler..."));
+  debugStream.println(F("stgc_0x64_h: started OLD/APPEND handler..."));
 #endif
 
   strncpy(path, directory, strlen(directory));
   strncat(path, f_name, strlen(f_name));
 
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x64_h: reading "));
+  debugStream.println(path);
+  debugStream.println(F("..."));
+#endif
+
   // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\r\n' << '\r\n';
   ifstream sdin(path);
 
-  // Set GPIB bus for talking (output)
-  gpibBus.setControls(DTAS);
-
   while (sdin.getline(linebuffer, line_buffer_size, '\r')) {
 
+    // getline() discards CR so add it back on
+    strncat(linebuffer, "\r\0", 2);
+    
+    if (sdin.peek() == EOF) {
+      // Read last line and send data with EOI on last character
+      gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+    }else{
 //    cout << buffer << '\r';
-      gpibBus.sendRawData(linebuffer, strlen(linebuffer));
-
+      // Read line and send data to GPIB bus
+      gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+    }
   }
 
   f_type = 'O';  // set file type to NOT OPEN
@@ -318,11 +165,8 @@ void SDstorage::stgc_0x64_h() {
 
     // cout << '\r'; //add one CR to last line processed to end Tek BASIC program output
 
-  // Send EOI to end transmission
-  gpibBus.sendEOI();
-
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: done."));
+  debugStream.println(F("stgc_0x64_h: done."));
 #endif
 
 }
@@ -403,11 +247,11 @@ void SDstorage::stgc_0x6E_h() {
   char buffr2[bin_buffer_size];
 
 
-    char incoming = '\0';
-    char CR = '\r';
+  char incoming = '\0';
+//  char CR = '\r';
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: started READ handler..."));
+  debugStream.println(F("stgc_0x6E_h: started READ handler..."));
 #endif
     
     strcpy(path, directory);
@@ -650,22 +494,207 @@ void SDstorage::stgc_0x6E_h() {
 
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: done."));
+  debugStream.println(F("stgc_0x6E_h: done."));
 #endif
 
 
 }
 
 
-/***** TLIST command *****/
 /***** WRITE command *****/
 void SDstorage::stgc_0x6F_h() {
+
+}
+
+
+/***** DIRECTORY (CD) command *****/
+void SDstorage::stgc_0x73_h(){
+  // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
+  char dnbuffer[13] = {0};
+  uint8_t j = 1;
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_073_h: started CD handler..."));
+#endif
+  
+  // Read the directory name data
+  gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x73_h: received directory name: "));
+  debugStream.println(dnbuffer);
+//  printHex2(dnbuffer, 12);
+#endif
+  
+  // set global directory = dir
+  // directory = dir;
+
+  // Set directory path
+  directory[0] = '/';
+  for (uint8_t i=0; i<strlen(dnbuffer); i++) {
+    // Ignore slashes and line terminators (CR or LF)
+    if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
+      // Add character to directory name
+      if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
+      j++;
+    }
+  }
+  // Add terminating slash and NULL
+  directory[j] = '/';
+  directory[j+1] = '\0';
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x73_h: set directory name: "));
+  debugStream.println(directory);
+//  printHex2(directory, 12);
+#endif
+  
+  f_name[0] = 0; // delete any previous filename that was open
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x73_h: end CD handler."));  
+#endif
+
+}
+
+
+/***** FIND command *****/
+void SDstorage::stgc_0x7B_h(){
+  char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
+  uint8_t paramLen = 0;
+  uint8_t num = 0;
+  char fname[46];
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x7B_h: started FIND handler..."));
+#endif
+
+  paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
+
+  // If we have received parameter data
+  if (paramLen > 0) {
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x7B_h: received parameter: "));
+    debugStream.println(receiveBuffer);
+#endif
+
+    num = atoi(receiveBuffer);
+
+    /*  FINDs and OPENs file (num)
+        Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
+        FIND iterates through each file in a directory until filenumber matches num
+        since SdFat file index is not sequential with Tek 4050 filenames
+    */
+
+    if (!dirFile.open(directory, O_RDONLY)) {
+//        sd.errorHalt("Open directory failed");
+      errorCode = 3;
+      return;    
+    }
+
+    for (int index = 0; index < nMax; index++) { //SdFat file index number
+
+      // while (n < nMax ) {
+      file.openNext(&dirFile, O_RDONLY);
+    
+      // Skip directories, hidden files, and null files
+      if (!file.isSubDir() && !file.isHidden()) {
+
+        file.getName(fname, 46);
+
+        int filenumber = atoi(fname);
+
+        if (filenumber == num) {
+          // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
+//          cout << F(" ") << f_name << "\r ";
+          strncpy(f_name, fname, 46);
+          // all BINARY files are in HEX format
+          if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'B';
+          } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'H';
+          } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'S';
+          } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'P';
+          } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'N';
+          } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'L';
+          } else {
+            dirFile.close();  // end of iteration through all files, close directory
+            f_type = 'D';
+          }
+
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.print(F("stgc_0x7B_h: found: "));
+          debugStream.println(f_name);
+          debugStream.print(F("stgc_0x7B_h: type:  "));
+          debugStream.println(f_type);
+          debugStream.print(F("stgc_0x7B_h: done."));
+#endif
+
+          return;
+        }
+
+        //f_name[0]=0; // clear f_name
+
+/*
+        if (file.isDir()) {
+          
+//          cout << '/' << endl;
+        }
+*/
+
+#ifdef DEBUG_STORE_COMMANDS
+        // Indicate a directory.
+        if (file.isDir()) {
+          debugStream.println(F("stgc_0x7B_h: /"));
+          return;
+        }
+#endif
+
+      }
+      file.close();  // end of iteration close **this** file
+
+    }
+    
+//    cout << F("File ") << num << " not found" << endl;
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x7B_h: file "));
+    debugStream.print(num);
+    debugStream.println(F(" not found!"));
+#endif
+
+    f_name[0] = '\0';  // clear f_name
+    dirFile.close();  // end of iteration through all files, close directory
+
+  }
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x7B_h: done."));
+#endif  
+}
+
+
+/***** MARK command *****/
+void SDstorage::stgc_0x7C_h(){
+
+  
+/***** TLIST command *****/
+
   uint8_t number = 1;
   uint8_t index = 0;
   bool lastfile = false;
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: started TLIST handler..."));
+  debugStream.println(F("stgc_0x7C_h: started TLIST handler..."));
 #endif
 
   // match the specific Tek4924 tape file number from f_name
@@ -681,7 +710,7 @@ void SDstorage::stgc_0x6F_h() {
 //      sd.errorHalt("Open directory failed - possible invalid directory name");
       errorCode = 1;
 #ifdef DEBUG_STORE_COMMANDS
-      debugStream.print(F("stgc_0x73_h: open directory '"));
+      debugStream.print(F("stgc_0x7C_h: open directory '"));
       debugStream.print(directory);
       debugStream.println(F("' failed - name may be invalid"));
 #endif
@@ -725,7 +754,7 @@ void SDstorage::stgc_0x6F_h() {
 //          dirFile.close();  // end of iteration through all files, close directory
 
 #ifdef DEBUG_STORE_COMMANDS
-          debugStream.println(F("stgc_0x73_h: reached last file."));  
+          debugStream.println(F("stgc_0x7C_h: reached last file."));  
 #endif    
           lastfile = true;
           break;
@@ -758,223 +787,12 @@ void SDstorage::stgc_0x6F_h() {
   gpibBus.sendEOI();
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: end TLIST handler."));  
+  debugStream.println(F("stgc_0x7C_h: end TLIST handler."));  
 #endif
 
-}
+/***** TLIST command *****/
 
 
-/***** FIND command *****/
-void SDstorage::stgc_0x7B_h(){
-  char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
-  uint8_t paramLen = 0;
-  uint8_t num = 0;
-  char fname[46];
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x7B_h: started FIND handler..."));
-#endif
-
-  paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
-
-  // If we have received parameter data
-  if (paramLen > 0) {
-
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x7B_h: received parameter: "));
-    debugStream.println(receiveBuffer);
-#endif
-
-    num = atoi(receiveBuffer);
-
-    // char f_name[46];  //the filename variable
-    /*  FINDs and OPENs file (num)
-        Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
-        FIND iterates through each file in a directory until filenumber matches num
-        since SdFat file index is not sequential with Tek 4050 filenames
-    */
-
-    if (!dirFile.open(directory, O_RDONLY)) {
-//        sd.errorHalt("Open directory failed");
-      errorCode = 3;
-      return;    
-    }
-
-    // Set GPIB bus for talking (output)
-//    gpibBus.setControls(DTAS);
-
-    for (int index = 0; index < nMax; index++) { //SdFat file index number
-
-      // while (n < nMax ) {
-      file.openNext(&dirFile, O_RDONLY);
-    
-      // Skip directories, hidden files, and null files
-      if (!file.isSubDir() && !file.isHidden()) {
-
-        file.getName(fname, 46);
-
-        int filenumber = atoi(fname);
-
-        if (filenumber == num) {
-          // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
-//          cout << F(" ") << f_name << "\r ";
-          strncpy(f_name, fname, 46);
-#ifdef DEBUG_STORE_COMMANDS
-          debugStream.print(F("stgc_0x7B_h: found: "));
-          debugStream.println(f_name);
-#endif
-          // all BINARY files are in HEX format
-          if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'B'; // BINARY PROGRAM file
-            f_type = 'B';
-          } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'H'; // BINARY DATA file ** to read - parse the data_type
-            f_type = 'H';
-          } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'S'; // SECRET ASCII PROGRAM file
-            f_type = 'S';
-          } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'P'; // ASCII PROGRAM file
-            f_type = 'P';
-          } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'N'; // ASCII LAST file
-            f_type = 'N';
-          } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'L'; // ASCII LAST file
-            f_type = 'L';
-          } else {
-            dirFile.close();  // end of iteration through all files, close directory
-//            return 'D'; // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
-            f_type = 'D';
-          }
- /*
-          if (ftype) {
-            gpibout << f_type << "\r";
-            gpibBus.sendRawData(charStream.toCharArray(), 2);
-            gpibBus.sendEOI();
-            gpibBus.setControls(DIDS);
-            return;
-          }
-*/
-
-          return;
-        }
-
-        //f_name[0]=0; // clear f_name
-/*        
-        charStream.flush();
-        if (ftype) gpibout << ftype;
-        if (file.isDir()) gpibout << '/';
-        gpibout << "\r";
-*/
-/*
-        if (file.isDir()) {
-          // Indicate a directory.
-//          cout << '/' << endl;
-        }
-*/
-
-#ifdef DEBUG_STORE_COMMANDS
-        if (file.isDir()) {
-          debugStream.println(F("stgc_0x7B_h: /"));
-          return;
-        }
-#endif
-
-/*
-        // Send info to GPIB bus
-        gpibBus.sendRawData(charStream.toCharArray(), charStream.length());        
-*/
-      }
-      file.close();  // end of iteration close **this** file
-
-    }
-//    cout << F("File ") << num << " not found" << endl;
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x7B_h: file "));
-    debugStream.print(num);
-    debugStream.println(F(" not found!"));
-#endif
-
-/*
-    charStream.flush();
-    gpibout << F("File ") << num << " not found" << endl;
-    // Send info to GPIB bus
-    gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
-    // Send EOI
-    gpibBus.sendEOI();
-    // Return bus to idle
-    gpibBus.setControls(DIDS);
-*/    
-    f_name[0] = '\0';  // clear f_name
-    dirFile.close();  // end of iteration through all files, close directory
-
-//   return 'O'; // File num NOT OPEN (or NOT FOUND)
-  }
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x7B_h: done."));
-#endif  
-}
-
-
-/***** DIRECTORY (CD) command *****/
-void SDstorage::stgc_0x73_h(){
-  // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
-  char dnbuffer[13] = {0};
-  uint8_t j = 1;
-  
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_069_h: started CD handler..."));
-#endif
-  
-  // Read the directory name data
-  gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x69_h: received directory name: "));
-  debugStream.println(dnbuffer);
-#endif
-  
-  // set global directory = dir
-  // directory = dir;
-
-  // Set directory path
-  directory[0] = '/';
-  for (uint8_t i=0; i<strlen(dnbuffer); i++) {
-    // Ignore slashes and line terminators (CR or LF)
-    if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
-      // Add character to directory name
-      if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
-      j++;
-    }
-  }
-  // Add terminating slash and NULL
-  directory[j] = '/';
-  directory[j+1] = '\0';
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x69_h: set directory name: "));
-  debugStream.println(directory);
-#endif
-  
-  f_name[0] = 0; // delete any previous filename that was open
-  
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x69_h: end CD handler."));  
-#endif
-
-}
-
-
-/***** MARK command *****/
-void SDstorage::stgc_0x7C_h(){
-  
 }
 
 
@@ -1007,12 +825,13 @@ void SDstorage::stgc_0x7E_h(){
 #endif
 //  charStream.flush();
 //  gpibout << errorCode;
-  itoa(errorCode, errstr, 2);
+  itoa(errorCode, errstr, 10);
   // Send info to GPIB bus
 //  gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
-  gpibBus.sendRawData(errstr, strlen(errstr));
+//  gpibBus.sendRawData(errstr, strlen(errstr));
+  gpibBus.sendData(errstr, strlen(errstr), DATA_COMPLETE);
   // Signal end of data
-  gpibBus.sendEOI();
+//  gpibBus.sendEOI();
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7E_h: done."));
 #endif

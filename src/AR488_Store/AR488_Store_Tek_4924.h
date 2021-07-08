@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.20, 05/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.23, 08/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN
@@ -30,6 +30,10 @@
 #define STGC_SIZE 17
 // Length of character stream buffer
 #define LINELENGTH 82
+
+
+#define DATA_CONTINUE false
+#define DATA_COMPLETE true
 
 
 /***** Character stream buffer *****/
@@ -164,5 +168,6 @@ class SDstorage {
 };
 
 
+void printHex2(char *buffr, int dsize);
 
 #endif // AR488_STORE_TEK_4924_H

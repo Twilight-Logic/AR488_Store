@@ -11,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.20, 05/07/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.23, 08/07/2021 *****/
 
 
 /*********************************************/
@@ -137,7 +137,7 @@ class GPIBbus {
 //    bool sendCmd(uint8_t cmdByte);
     uint8_t readByte(uint8_t *db, bool readWithEoi, bool *eoi);  
     bool receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte, uint8_t endByte);
-    void sendData(char *databuffer, size_t dsize);
+    void sendData(char *databuffer, size_t dsize, bool lastChunk);
     bool sendRawData(char *databuffer, size_t dsize);
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);
     void setDataVal(uint8_t);
@@ -149,7 +149,7 @@ class GPIBbus {
 #endif
 
     void signalBreak();
-    void setDataContinuity(bool flag);
+//    void setDataContinuity(bool flag);
 
   private:
 
@@ -159,8 +159,8 @@ class GPIBbus {
 //    bool addressDevice(uint8_t addr, bool dir);
 //    bool unAddressDevice();
 
-    bool writeByte(uint8_t db);
-    bool writeByteHandshake(uint8_t db);
+    bool writeByte(uint8_t db, bool isLastByte);
+//    bool writeByteHandshake(uint8_t db, bool isLastByte);
     boolean waitOnPinState(uint8_t state, uint8_t pin, int interval);  
     bool isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence);
     void setSrqSig();
