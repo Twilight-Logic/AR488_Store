@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.23, 08/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.26, 12/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -18,8 +18,10 @@ extern GPIBbus gpibBus;
 
 extern ArduinoOutStream cout;
 
-char streamBuffer[LINELENGTH];
-CharStream charStream(streamBuffer, LINELENGTH);
+//char streamBuffer[LINELENGTH];
+//CharStream charStream(streamBuffer, LINELENGTH);
+//CharStream charStream(LINELENGTH);
+CharStream charStream(LINELENGTH);
 ArduinoOutStream gpibout(charStream);
 
 //#define CR   0xD    // Carriage return
@@ -100,7 +102,17 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
 
 /***** STATUS command *****/
 void SDstorage::stgc_0x60_h(){
-  
+  char statstr[5] = {0};
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x60_h: sending status byte..."));
+  debugStream.println(errorCode);
+#endif
+  itoa(gpibBus.cfg.stat, statstr, 10);
+  // Send info to GPIB bus
+  gpibBus.sendData(statstr, strlen(statstr), DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x60_h: done."));
+#endif  
 }
 
 
@@ -112,7 +124,20 @@ void SDstorage::stgc_0x61_h(){
 
 /***** CLOSE command *****/
 void SDstorage::stgc_0x62_h(){
-  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x62_h: started CLOSE handler..."));
+  debugStream.print(F("stgc_0x62_h: closing: "));
+  debugStream.print(f_name);
+  debugStream.println(F("..."));
+#endif
+  // Close file handle
+  sdinout.close();
+  // Clear f_name and f_type
+  memset(f_name, '\0', file_header_size);
+  f_type = '\0';
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x62_h: done."));
+#endif
 }
 
 
@@ -126,6 +151,8 @@ void SDstorage::stgc_0x63_h(){
 void SDstorage::stgc_0x64_h() {
   char path[60] = {0};
   char linebuffer[line_buffer_size];
+  char c;
+  uint8_t i = 0;
 
   // line_buffer_size = 72 char line max in Tek plus CR plus NULL
 
@@ -133,59 +160,127 @@ void SDstorage::stgc_0x64_h() {
   debugStream.println(F("stgc_0x64_h: started OLD/APPEND handler..."));
 #endif
 
-  strncpy(path, directory, strlen(directory));
-  strncat(path, f_name, strlen(f_name));
+  if (f_type == 'P') {
+
+    strncpy(path, directory, strlen(directory));
+    strncat(path, f_name, strlen(f_name));
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x64_h: reading "));
-  debugStream.println(path);
-  debugStream.println(F("..."));
+    debugStream.print(F("stgc_0x64_h: reading "));
+    debugStream.print(path);
+    debugStream.println(F("..."));
 #endif
 
-  // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\r\n' << '\r\n';
-  ifstream sdin(path);
+    ifstream sdin(path);
 
-  while (sdin.getline(linebuffer, line_buffer_size, '\r')) {
-
-    // getline() discards CR so add it back on
-    strncat(linebuffer, "\r\0", 2);
+    while (sdin.getline(linebuffer, line_buffer_size, '\r')) {
+      // getline() discards CR so add it back on
+      strncat(linebuffer, "\r\0", 2);
     
-    if (sdin.peek() == EOF) {
-      // Read last line and send data with EOI on last character
-      gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
-    }else{
-//    cout << buffer << '\r';
-      // Read line and send data to GPIB bus
-      gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+      if (sdin.peek() == EOF) {
+        // Last line was read so send data with EOI on last character
+        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+      }else{
+        // Send line of data to the GPIB bus
+        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+      }
     }
-  }
 
-  f_type = 'O';  // set file type to NOT OPEN
-  file.close();    // and close the current file
+    f_type = 'O';   // set file type to NOT OPEN
+    sdin.close();   // and close the current file
+    
+  }else{
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x64_h: incorrect file type!"));
+#endif
+  }
 
     // cout << '\r'; //add one CR to last line processed to end Tek BASIC program output
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x64_h: done."));
+    debugStream.println(F("stgc_0x64_h: done."));
 #endif
+
 
 }
 
 
 /***** TYPE command *****/
+/*
+ * 0 = Empty file or file not open 
+ * 1 = End of file
+ * 2 = ASCII data
+ * 3 = Binary numeric data
+ * 4 = Binary character string
+ */
 void SDstorage::stgc_0x66_h() {
-  
+  char dtype = 0;
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x66_h: sending data type..."));
+  debugStream.println(errorCode);
+#endif
+
+// Extract type
+
+// Extract type
+
+  // Send info to GPIB bus
+  gpibBus.sendData(&dtype, 1, DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x66_h: done."));
+#endif    
 }
 
 
 /***** KILL command *****/
 void SDstorage::stgc_0x67_h(){
+  char kbuffer[5] = {0};
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x67_h: started KILL handler..."));
+#endif
   
+  // Read the directory name data
+  gpibBus.receiveParams(false, kbuffer, 12);   // Limit to 12 characters
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x67_h: received parameters: "));
+  debugStream.println(kbuffer);
+//  printHex2(mpbuffer, 12);
+#endif
+
+/*
+
+- find the file to kill (or report file not found error)
+  - delete file contents (delete and recreate?)
+  - mark file as NEW 
+
+ */
+
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x67_h: done."));
+#endif
 }
 
 
 /***** HEADER command *****/
 void SDstorage::stgc_0x69_h() {
+  char path[60] = {0};
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x69_h: started HEADER handler..."));
+#endif   
+//  strcpy(path, directory);
+//  strcat(path, f_name);
+  gpibBus.sendData(f_name, strlen(f_name), DATA_COMPLETE);
+
+//  Extract filetype and datatype to use for subsequent Tektronix commands.
+
+//  Extract filetype and datatype to use for subsequent Tektronix commands.
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x69_h: done."));
+#endif
 
 }
 
@@ -197,9 +292,44 @@ void SDstorage::stgc_0x6C_h() {
 
 
 /***** INPUT command *****/
+/*
+ * Reads text files and returns the next item (line at present)
+ */
 void SDstorage::stgc_0x6D_h() {
-  
+  char path[60] = {0};
+  char linebuffer[line_buffer_size];
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6D_h: started INPUT handler..."));
+#endif
+  if (f_type == 'D') {
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x6D_h: reading line from "));
+    debugStream.print(path);
+    debugStream.println(F("..."));
+#endif
+    if (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
+      // getline() discards CR so add it back on
+      strncat(linebuffer, "\r\0", 2);
+        // Line was read so send data with EOI on last character
+        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_0x6D_h: sent:"));
+      debugStream.println(linebuffer);
+    }else{
+      debugStream.println(F("stgc_0x6D_h: reached EOF!"));
+#endif
+    }
+  }
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6D_h: done."));
+#endif
 }
+
+
+#ifdef DEBUG_STORE_COMMANDS
+#endif
+
 
 
 /***** READ command (tek_READ_one) *****/
@@ -254,22 +384,43 @@ void SDstorage::stgc_0x6E_h() {
   debugStream.println(F("stgc_0x6E_h: started READ handler..."));
 #endif
     
-    strcpy(path, directory);
-    strcat(path, f_name);
-
-    ifstream sdin(path);  // initialize stream to beginning of the file
-    switch (f_type) {
-        case 'P':
+  strcpy(path, directory);
+  strcat(path, f_name);
 
 #ifdef DEBUG_STORE_COMMANDS
-//            cout << F("ASCII Program\r");
-//            cout << F("Type SPACE for next item, or type q to quit\r \r ");
-        debugStream.println(F("ASCII PROGRAM"));
-        debugStream.println(F("Type SPACE for next item, or type q to quit\r"));
+  debugStream.print(F("stgc_0x6E_h: reading "));
+  debugStream.print(path);
+  debugStream.println(F("..."));
 #endif
 
-            sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
-            cout << buffr << '\r';                                // send that line to the serial port
+  ifstream sdin(path);  // initialize stream to beginning of the file
+  switch (f_type) {
+    case 'P':
+    case 'D':
+
+#ifdef DEBUG_STORE_COMMANDS
+//            cout << F("ASCII Data or Program\r");
+//            cout << F("Type SPACE for next item, or type q to quit\r \r ");
+        debugStream.println(F("stgc_0x6E_h:  ASCII data or program [type P or D]"));
+#endif
+
+        while (sdin.getline(buffr, line_buffer_size, '\r')) {
+          // getline() discards CR so add it back on
+          strncat(buffr, "\r\0", 2);
+    
+          if (sdin.peek() == EOF) {
+            // Last line was read so send data with EOI on last character
+            gpibBus.sendData(buffr, strlen(buffr), DATA_COMPLETE);
+          }else{
+            // Send line of data to the GPIB bus
+            gpibBus.sendData(buffr, strlen(buffr), DATA_CONTINUE);
+          }
+        }
+
+
+/*
+        sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
+//        cout << buffr << '\r';                                // send that line to the serial port
 
             while (1) {
                 while (Serial.available()) {  //any character for next data item or 'q' to quit read1
@@ -279,6 +430,7 @@ void SDstorage::stgc_0x6E_h() {
                         sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
                         if (sdin.eof()) {
                             cout << "__EOF__" << endl;
+
                             return;
                         }
                         cout << buffr << '\r';                                // send that line to the serial port
@@ -290,41 +442,10 @@ void SDstorage::stgc_0x6E_h() {
                     }
                 }
             }
+*/
 
             break;
 
-        case 'D':
-#ifdef DEBUG_STORE_COMMANDS
-//            cout << F("ASCII DATA\r");
-//            cout << F("Type SPACE for next item, or type q to quit\r \r ");
-        debugStream.println(F("ASCII DATA"));
-        debugStream.println(F("Type SPACE for next item, or type q to quit\r"));
-#endif
-            sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
-            cout << buffr << '\r';                                // send that line to the serial port
-
-            while (1) {
-                while (Serial.available()) {  //any character for next data item or 'q' to quit read1
-                    incoming = Serial.read();
-                    if (incoming != 'q') {
-                        incoming = '\0';     // clear the flag
-                        sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
-                        if (sdin.eof()) {
-                            cout << "__EOF__" << endl;
-                            return;
-                        }
-
-                        //no need to parse buffer: 4050 will read a CR terminated buffer and then parse based on BASIC parameter type
-                        cout << buffr << '\r';                                // send that line to the serial port
-
-                    } else {  // incoming was 'q'
-                        incoming = '\0';  // clear the flag
-                        cout << "__Quit__" << endl;
-                        return;
-                    }
-                }
-            }
-            break;
 
         case 'B':
 #ifdef DEBUG_STORE_COMMANDS
@@ -490,7 +611,7 @@ void SDstorage::stgc_0x6E_h() {
     f_type = 'O';              //set file type to "File Not Open"
 
   // Send EOI to end transmission
-  gpibBus.sendEOI();
+//  gpibBus.sendEOI();
 
 
 #ifdef DEBUG_STORE_COMMANDS
@@ -561,14 +682,22 @@ void SDstorage::stgc_0x73_h(){
 /***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
   char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
+  char path[60] = {0};
   uint8_t paramLen = 0;
   uint8_t num = 0;
   char fname[46];
+  
+  SdFile dirFile;
+  SdFile file;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7B_h: started FIND handler..."));
 #endif
 
+  // Close currently open work file (clears handle, f_name and f_type)
+  if (sdinout.is_open()) stgc_0x62_h();
+
+  // Read file number parameter from GPIB
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
 
   // If we have received parameter data
@@ -588,8 +717,12 @@ void SDstorage::stgc_0x7B_h(){
     */
 
     if (!dirFile.open(directory, O_RDONLY)) {
-//        sd.errorHalt("Open directory failed");
       errorCode = 3;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_0x7B_h: opening directory "));
+      debugStream.print(directory);
+      debugStream.println(F(" failed!"));
+#endif
       return;    
     }
 
@@ -605,53 +738,52 @@ void SDstorage::stgc_0x7B_h(){
 
         int filenumber = atoi(fname);
 
+        // We have matched the file number)
         if (filenumber == num) {
-          // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
-//          cout << F(" ") << f_name << "\r ";
           strncpy(f_name, fname, 46);
           // all BINARY files are in HEX format
           if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'B';
+            f_type = 'B';    // BINARY PROGRAM file
           } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'H';
+            f_type = 'H';    // BINARY DATA file ** to read - parse the data_type
           } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'S';
+            f_type = 'S';    // SECRET ASCII PROGRAM file
           } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'P';
+            f_type = 'P';    // ASCII PROGRAM file
           } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'N';
+            f_type = 'N';    // ASCII LAST file
           } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'L';
+            f_type = 'L';    // ASCII LAST file
           } else {
-            dirFile.close();  // end of iteration through all files, close directory
-            f_type = 'D';
+            f_type = 'D';    // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
           }
 
+          file.close();     // end of iteration close **this** file handle
+          dirFile.close();  // end of iteration through all files, close directory
+          
+          // File type matched
+          if (f_type) {
+            
 #ifdef DEBUG_STORE_COMMANDS
-          debugStream.print(F("stgc_0x7B_h: found: "));
-          debugStream.println(f_name);
-          debugStream.print(F("stgc_0x7B_h: type:  "));
-          debugStream.println(f_type);
-          debugStream.print(F("stgc_0x7B_h: done."));
+            debugStream.print(F("stgc_0x7B_h: found: "));
+            debugStream.println(f_name);
+            debugStream.print(F("stgc_0x7B_h: type:  "));
+            debugStream.println(f_type);
 #endif
-
+            // Compose the full file path
+            strncpy(path, directory, strlen(directory));
+            strncat(path, f_name, strlen(f_name));
+            // Open found file           
+            sdinout.open(path);
+          }else{
+            // Type undetemined
+#ifdef DEBUG_STORE_COMMANDS
+            debugStream.println(F("Unknown type!"));
+          }
+#endif
+          debugStream.println(F("stgc_0x7B_h: done."));
           return;
         }
-
-        //f_name[0]=0; // clear f_name
-
-/*
-        if (file.isDir()) {
-          
-//          cout << '/' << endl;
-        }
-*/
 
 #ifdef DEBUG_STORE_COMMANDS
         // Indicate a directory.
@@ -663,136 +795,52 @@ void SDstorage::stgc_0x7B_h(){
 
       }
       file.close();  // end of iteration close **this** file
-
     }
-    
-//    cout << F("File ") << num << " not found" << endl;
+    dirFile.close();  // end of iteration through all files, close directory
+    errorCode = 2;
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.print(F("stgc_0x7B_h: file "));
     debugStream.print(num);
     debugStream.println(F(" not found!"));
 #endif
 
-    f_name[0] = '\0';  // clear f_name
-    dirFile.close();  // end of iteration through all files, close directory
-
   }
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x7B_h: done."));
+  debugStream.println(F("stgc_0x7B_h: done."));
 #endif  
 }
 
 
 /***** MARK command *****/
 void SDstorage::stgc_0x7C_h(){
+  char mpbuffer[13] = {0};
 
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_07C_h: started CD handler..."));
+#endif
   
-/***** TLIST command *****/
-
-  uint8_t number = 1;
-  uint8_t index = 0;
-  bool lastfile = false;
+  // Read the directory name data
+  gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x7C_h: started TLIST handler..."));
+  debugStream.print(F("stgc_0x7C_h: received parameters: "));
+  debugStream.println(mpbuffer);
+//  printHex2(mpbuffer, 12);
 #endif
 
-  // match the specific Tek4924 tape file number from f_name
-//  for (int number = 1; number < nMax; number++) { // find each file in # sequence
-//  for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
-  while ((!lastfile) && (number < nMax)) {
+/*
 
-    //cout << "Directory: " << directory << '\r\n';
-    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-    file.close();  //  close any file that could be open (from previous FIND for example)
+- extract number of files to create (x)
+- find current file marked as LAST (num)
+- change its number to num + x if possible or report error
+  - create x new files with num + 1 up to num + x (ignore file length)
+  - mark them as NEW
 
-    if (!dirFile.open(directory, O_RDONLY)) {
-//      sd.errorHalt("Open directory failed - possible invalid directory name");
-      errorCode = 1;
+ */
+
 #ifdef DEBUG_STORE_COMMANDS
-      debugStream.print(F("stgc_0x7C_h: open directory '"));
-      debugStream.print(directory);
-      debugStream.println(F("' failed - name may be invalid"));
+  debugStream.println(F("stgc_0x7C_h: done."));
 #endif
-      return;
-    }
-    file.rewind();
-
-//    for (int index = 0; index < nMax; index++) { //SdFat file index number
-//    for (uint8_t index = 0; index < nMax; index++) { //SdFat file index number
-
-    while ((file.openNext(&dirFile, O_RDONLY)) && (index < nMax)) {
-
-      // while (n < nMax ) {
-//      file.openNext(&dirFile, O_RDONLY);
-      // Skip directories, hidden files, and null files
-      if (!file.isSubDir() && !file.isHidden()) {
-
-        file.getName(f_name, 46);
-
-//        int filenumber = atoi(f_name);
-        uint8_t filenumber = atoi(f_name);
-
-        if (filenumber == number) {
-          // print the entire file 'header' with leading space, and CR + DC3 delimiters
-          // Note \x019 = end of medium
-//          cout << F(" ") << f_name << '\r' << '\x019';
-
-          // Stream info to buffer 
-          charStream.flush();
-          gpibout << F(" ") << f_name << '\r' << '\x019';
-          // Send info to GPIB bus
-          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
-        
-        }
-        
-        if ((f_name[7] == 'L') && (filenumber == number)) {
-          // then this is the LAST file - end of TLIST
-//          file.close();  // end of iteration close **this** file
-//          f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-//          f_type = 'O';    // set file type to "O" for NOT OPEN
-//          dirFile.close();  // end of iteration through all files, close directory
-
-#ifdef DEBUG_STORE_COMMANDS
-          debugStream.println(F("stgc_0x7C_h: reached last file."));  
-#endif    
-          lastfile = true;
-          break;
-//          return;
-
-        } else if (file.isDir()) {
-          // Indicate a directory.
-//          cout << '/' << endl;
-
-          // Stream info to buffer
-          charStream.flush();
-          gpibout << '/' << endl;
-          // Send info to GPIB bus
-          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
-
-        }
-
-      }
-      index++;
-      file.close();  // end of iteration close **this** file
-    }
-
-    number++;
-    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-    f_type = 'O';    // set file type to "O" for NOT OPEN
-    dirFile.close();  // end of iteration through all files, close directory
-  } 
-
-  // Send EOI to end transmission
-  gpibBus.sendEOI();
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x7C_h: end TLIST handler."));  
-#endif
-
-/***** TLIST command *****/
-
-
 }
 
 
@@ -863,5 +911,128 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** Command handling functions *****/
 /**************************************/
+
+
+
+
+/***** TLIST command *****/
+/*
+  uint8_t number = 1;
+  uint8_t index = 0;
+  bool lastfile = false;
+
+  SdFile dirFile;
+  SdFile file;
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x7C_h: started TLIST handler..."));
+#endif
+
+  // match the specific Tek4924 tape file number from f_name
+//  for (int number = 1; number < nMax; number++) { // find each file in # sequence
+//  for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
+  while ((!lastfile) && (number < nMax)) {
+
+    //cout << "Directory: " << directory << '\r\n';
+    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+    file.close();  //  close any file that could be open (from previous FIND for example)
+
+    if (!dirFile.open(directory, O_RDONLY)) {
+//      sd.errorHalt("Open directory failed - possible invalid directory name");
+      errorCode = 1;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_0x7C_h: open directory '"));
+      debugStream.print(directory);
+      debugStream.println(F("' failed - name may be invalid"));
+
+//      debugStream << F("This is a ") << number << F(" test!");
+#endif
+      return;
+    }
+    file.rewind();
+
+//    for (int index = 0; index < nMax; index++) { //SdFat file index number
+//    for (uint8_t index = 0; index < nMax; index++) { //SdFat file index number
+
+    while ((file.openNext(&dirFile, O_RDONLY)) && (index < nMax)) {
+
+      // while (n < nMax ) {
+//      file.openNext(&dirFile, O_RDONLY);
+      // Skip directories, hidden files, and null files
+      if (!file.isSubDir() && !file.isHidden()) {
+
+        file.getName(f_name, 46);
+
+//        int filenumber = atoi(f_name);
+        uint8_t filenumber = atoi(f_name);
+
+        if (filenumber == number) {
+          // print the entire file 'header' with leading space, and CR + DC3 delimiters
+          // Note \x019 = end of medium
+//          cout << F(" ") << f_name << '\r' << '\x019';
+
+          // Stream info to buffer 
+          charStream.flush();
+//          gpibout.flush();
+//          charStream << F(" ") << f_name << '\r' << '\x019';
+//charStream.print("Test");
+        
+          gpibout << F(" ") << f_name << '\r' << '\x019';
+          
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+//          gpibBus.sendRawData(gpibout.toCharArray(), gpibout.length());
+        
+        }
+        
+        if ((f_name[7] == 'L') && (filenumber == number)) {
+          // then this is the LAST file - end of TLIST
+//          file.close();  // end of iteration close **this** file
+//          f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+//          f_type = 'O';    // set file type to "O" for NOT OPEN
+//          dirFile.close();  // end of iteration through all files, close directory
+
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.println(F("stgc_0x7C_h: reached last file."));  
+#endif    
+          lastfile = true;
+          break;
+//          return;
+
+        } else if (file.isDir()) {
+          // Indicate a directory.
+//          cout << '/' << endl;
+
+          // Stream info to buffer
+          charStream.flush();
+//          gpibout.flush();
+          gpibout << '/' << endl;
+          // Send info to GPIB bus
+          gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
+//          gpibBus.sendRawData(gpibout.toCharArray(), gpibout.length());
+
+        }
+
+      }
+      index++;
+      file.close();  // end of iteration close **this** file
+    }
+
+    number++;
+    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
+    f_type = 'O';    // set file type to "O" for NOT OPEN
+    dirFile.close();  // end of iteration through all files, close directory
+  } 
+
+  // Send EOI to end transmission
+  gpibBus.sendEOI();
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x7C_h: end TLIST handler."));  
+#endif
+*/
+/***** TLIST command *****/
+
+
 
 #endif // EN_STORAGE

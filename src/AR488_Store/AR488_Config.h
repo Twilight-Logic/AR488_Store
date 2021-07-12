@@ -200,7 +200,7 @@
  */
 #define EN_STORAGE
 #ifdef EN_STORAGE
-  #define SDCARD_CS_PIN 3  // SS pin on Pandauino 644-Narrow / 1284-Narrow (644P/1284P)
+  #define SDCARD_CS_PIN 4  // SS pin on Pandauino 644-Narrow / 1284-Narrow (644P/1284P)
   #define EN_TEK_4924
 //  #define EN_PET_9060
 #endif

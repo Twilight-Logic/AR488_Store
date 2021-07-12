@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.23, 08/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.26, 12/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN
@@ -39,7 +39,8 @@
 /***** Character stream buffer *****/
 class CharStream : public Stream {
   public:
-    CharStream(char *buf, uint8_t dsize) : bufsize(dsize), databuf(buf), tail(0) { }
+//    CharStream(char *buf, uint8_t dsize) : bufsize(dsize), databuf(buf), tail(0) { }
+    CharStream(uint8_t dsize) : databuf(new char[dsize]), bufsize(dsize), tail(0) { }
 
     // Stream methods
     virtual int available() { return bufsize - tail; }
@@ -57,6 +58,10 @@ class CharStream : public Stream {
     uint8_t tail;
 };
 
+/*
+template<class T>
+inline Print &operator <<(Print &stream, const T &arg) {stream.print(arg); return stream;}
+*/
 
 class SDstorage {
 
@@ -64,62 +69,43 @@ class SDstorage {
 
     // Storage management functions
     SDstorage();
-//    void showVolumeInfo();
-//    bool isInit();
-//    bool isVolumeMounted();
-//    void listFiles();
-//    bool chkTek4924Directory();
-//    bool chkTapesFile();
-//    bool selectTape(uint8_t tnum);
-    
     void storeExecCmd(uint8_t cmd);
 
-//    const size_t stgcSize = 10;
-//    bool isinit = false;
-//    bool isvolmounted = false;
-//    uint8_t currentTapeNum = 1;
-//    uint8_t currentFileNum = 1;
-//    char currentTapeName[35] = {'\0'};
-//    char currentFileName[25] = {'\0'};
-
-    uint8_t errorCode = 0;
-
-//    void showSDInfo(Stream& outputStream);
-//    void showSdVolumeInfo(Stream& outputStream);
-//    void listSdFiles(Stream& outputStream);
-//    void listDir(Stream& outputStream, File dir, int numTabs);
 
   private:
 
-    /***** McGraw variables *****/
-    /*--------------------------*/
     // create a serial stream
     // Max of 99 files assumed in a single directory
-    const uint8_t nMax = 99;           // Maximum file count
-    const int line_buffer_size = 74;   // 72 char line max in Tek plus CR plus NULL
-    const int bin_buffer_size = 65;
+    const uint8_t nMax = 99;              // Maximum file count
+    const uint8_t line_buffer_size = 74;  // 72 char line max in Tek plus CR plus NULL
+    const uint8_t bin_buffer_size = 65;
+    const uint8_t file_header_size = 46;  // 44 char plus CR + NULL
     char directory[13] = "/root/";     //allow up to ten character directory names plus two '/' and NULL terminator
 
     char f_name[46];                //the current filename variable
     char f_type='N';                //the current filetype string variable
 
-
-    /*--------------------------*/
-    /***** McGraw variables *****/
-
-//    const char* tapeRoot = "/Tek_4924";
-
-
-  
-    // SD card objects
-//    SdCard arSdCard;
-//    FsVolume arSdVolume;
-//    SdFile arSdRoot;
-
     SdFat sd;
-    SdFile file;
-    SdFile dirFile;
     SdFile rdfile;
+    fstream sdinout;
+
+    uint16_t binary_header;         // Header for binary data
+
+    union file_header {
+      struct {
+        char f_number[7] = {0};
+        char f_type[8] = {0};
+        char f_usage[5] = {0};
+        char f_comment[17] = {0};
+        char f_secret[1] = {0};
+        char f_size[6] = {0};
+        char f_end[2] = {'\r','\0'};
+      };
+      char f_name[46];   // Total header = 40 characters
+    };
+    file_header current_header;
+
+    uint8_t errorCode = 0;
 
     using stgcHandler = void (SDstorage::*)();
 

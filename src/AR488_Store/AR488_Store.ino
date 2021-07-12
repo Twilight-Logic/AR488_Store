@@ -679,7 +679,7 @@ void tek_TLIST() {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.23, 08/07/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.26, 12/07/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -2305,8 +2305,6 @@ void attnRequired() {
       }
     }
   }
-
-
 
 #ifdef DEBUG_DEVICE_ATN
   debugStream.println(F("End ATN loop."));
