@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.26, 12/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.28, 12/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -37,6 +37,175 @@ void printHex2(char *buffr, int dsize) {
   debugStream.println();
 #endif
 }
+
+
+
+
+
+
+/**********************************************/
+/***** Tek file header handling functions *****/
+/*****vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
+
+TekFileInfo::TekFileInfo(){
+  fnum = 0;
+  ftype = '\0';
+  fusage = '\0';
+  fsecret = false;
+  frecords = 0;
+}
+
+
+void TekFileInfo::getFnumber(char * numstr){
+  itoa(fnum, numstr, 10);
+}
+
+
+void TekFileInfo::getFtype(char * typestr){
+  switch(ftype){
+    case 'A':
+      strncpy(typestr, "ASCII", 5);
+      break;
+    case 'B':
+      strncpy(typestr, "BINARY", 5);
+      break;
+    case 'N':
+      strncpy(typestr, "NEW", 5);
+      break;
+    case 'L':
+      strncpy(typestr, "LAST", 5);
+      break;
+  }
+}
+
+
+void TekFileInfo::getFusage(char * usagestr){
+  switch(fusage){
+    case 'P':
+      strncpy(usagestr, "PROGRAM", 7);
+      break;
+    case 'D':
+      strncpy(usagestr, "DATA", 4);
+      break;
+    case 'L':
+      strncpy(usagestr, "LOG", 4);
+      break;
+    case 'T':
+      strncpy(usagestr, "TEXT", 4);
+      break;
+  }
+}
+
+
+void TekFileInfo::getFrecords(char * recordstr){
+  itoa(frecords, recordstr, 10);
+}
+
+
+void TekFileInfo::getFsize(char * sizestr){
+  ltoa(fsize, sizestr, 10);   
+}
+
+
+void TekFileInfo::getFilename(char * filename){
+  char * filenameptr = filename;
+  memset(filename, '\0', 46);
+  getFnumber(filenameptr);
+  filename[7] = 0x32;
+  filenameptr = filenameptr + 7;
+  getFtype(filenameptr);
+  filenameptr = filenameptr + 8;
+  getFtype(filenameptr);
+  filenameptr = filenameptr + 10;
+  if (fsecret) strncpy(filenameptr, "SECRET", 8);
+  filenameptr = filenameptr + 8;
+  getFrecords(filenameptr);
+}
+
+
+void TekFileInfo::getTekHeader(char * header){
+  char * headerptr = header;
+  memset(header, '\0', 44);
+  header[0] = 0x32;
+  headerptr++;
+  getFnumber(headerptr);
+  header[7] = 0x32;
+  headerptr = headerptr + 7;
+  getFtype(headerptr);
+  headerptr = headerptr + 8;
+  getFtype(headerptr);
+  headerptr = headerptr + 10;
+  if (fsecret) strncpy(headerptr, "SECRET", 8);
+  headerptr = headerptr + 8;
+  getFrecords(headerptr);
+  header[43] = 0x0D;
+  header[44] = 0x13;
+}
+
+    
+void TekFileInfo::setFnumber(char numstr[7]){
+  fnum = atoi(numstr);
+}
+
+
+void TekFileInfo::setFtype(char * typestr){
+  switch(typestr[0]){
+    case 'A':
+    case 'B':
+    case 'L':
+    case 'N':
+      ftype == typestr[0];
+      break;
+  }    
+}
+
+
+void TekFileInfo::setFusage(char * usagestr){
+  switch(usagestr[0]){
+    case 'D':
+    case 'L':
+    case 'P':
+    case 'T':
+      fusage == usagestr[0];
+      break;
+  }  
+}
+
+
+void TekFileInfo::setFrecords(char * recordstr){
+  frecords = atoi(recordstr);
+}
+
+
+void TekFileInfo::setFsize(char * sizestr){
+  fsize = atol(sizestr);
+  fsizeToRecords(fsize);
+}
+
+
+void TekFileInfo::setFsecret(bool isSecret){
+  fsecret = isSecret;
+}
+
+
+uint16_t TekFileInfo::fsizeToRecords(unsigned long fsize){
+  frecords = (fsize/256) + 1;
+  return frecords;
+}
+
+
+/*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
+/***** Tek file header handling functions *****/
+/**********************************************/
+
+
+
+
+
+
+
+
+
 
 
 
@@ -296,40 +465,85 @@ void SDstorage::stgc_0x6C_h() {
  * Reads text files and returns the next item (line at present)
  */
 void SDstorage::stgc_0x6D_h() {
-  char path[60] = {0};
-  char linebuffer[line_buffer_size];
+  char dbuffer[line_buffer_size] = {0};
+  char keyword[10] = {0};
+  char c = 0x00;
+  uint8_t idx = 0;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6D_h: started INPUT handler..."));
 #endif
   if (f_type == 'D') {
+
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.print(F("stgc_0x6D_h: reading line from "));
-    debugStream.print(path);
+    debugStream.print(directory);
+    debugStream.print(f_name);
     debugStream.println(F("..."));
 #endif
-    if (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
+
+    if (sdinout.getline(dbuffer, line_buffer_size, ',')) {
       // getline() discards CR so add it back on
-      strncat(linebuffer, "\r\0", 2);
-        // Line was read so send data with EOI on last character
-        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+//      strncat(dbuffer, "\r\0", 2);
+      // Last line was read so send data with EOI on last character
+      gpibBus.sendData(dbuffer, strlen(dbuffer), DATA_COMPLETE);
 #ifdef DEBUG_STORE_COMMANDS
-      debugStream.print(F("stgc_0x6D_h: sent:"));
-      debugStream.println(linebuffer);
     }else{
-      debugStream.println(F("stgc_0x6D_h: reached EOF!"));
+        debugStream.println(F("stgc_0x6D_h: reached EOF!"));
 #endif
     }
+
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x6D_h: file is wrong type or closed!"));
+#endif
   }
+
+
+/*
+    while(sdinout.get(c) && (idx<line_buffer_size)){
+      if (c) {
+        switch (c) {
+          case 0x0D:  // CR
+          case 0x2C:  // Comma
+              gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+              debugStream.print(F("stgc_0x6D_h: sent:"));
+              debugStream.println(linebuffer);
+              debugStream.println(F("stgc_0x6D_h: done."));
+#endif
+              return;
+              break;
+          case 0x20:  // SPC
+              strncpy(keyword, linebuffer, 9);
+              memset(linebuffer, '\0', line_buffer_size);
+#ifdef DEBUG_STORE_COMMANDS
+              debugStream.print(F("stgc_0x6D_h: keyword: "));
+              debugStream.println(keyword);
+#endif
+              break;
+          default:
+              linebuffer[idx] = c;
+        }
+        idx++;
+#ifdef DEBUG_STORE_COMMANDS
+      }else{
+        debugStream.println(F("stgc_0x6D_h: reached EOF!"));
+#endif
+      }
+    }
+    
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x6D_h: file is wrong type or closed!"));
+#endif  
+  }
+*/
+
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6D_h: done."));
 #endif
 }
-
-
-#ifdef DEBUG_STORE_COMMANDS
-#endif
-
 
 
 /***** READ command (tek_READ_one) *****/
@@ -669,8 +883,9 @@ void SDstorage::stgc_0x73_h(){
   debugStream.println(directory);
 //  printHex2(directory, 12);
 #endif
-  
-  f_name[0] = 0; // delete any previous filename that was open
+
+  // Close any previous file that was open
+  stgc_0x62_h();  // Close function
   
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x73_h: end CD handler."));  

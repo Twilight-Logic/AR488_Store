@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.26, 12/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.28, 12/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN
@@ -40,7 +40,7 @@
 class CharStream : public Stream {
   public:
 //    CharStream(char *buf, uint8_t dsize) : bufsize(dsize), databuf(buf), tail(0) { }
-    CharStream(uint8_t dsize) : databuf(new char[dsize]), bufsize(dsize), tail(0) { }
+    CharStream(uint8_t dsize) : bufsize(dsize), databuf(new char[dsize]), tail(0) { }
 
     // Stream methods
     virtual int available() { return bufsize - tail; }
@@ -62,6 +62,43 @@ class CharStream : public Stream {
 template<class T>
 inline Print &operator <<(Print &stream, const T &arg) {stream.print(arg); return stream;}
 */
+
+
+class TekFileInfo {
+
+  public:
+    TekFileInfo();
+    void getFnumber(char * numstr);
+    void getFtype(char * typestr);
+    void getFusage(char * usagestr);
+    void getFrecords(char * recordstr);
+    void getFsize(char * sizestr);
+
+    void getFilename(char * filename);
+    void getTekHeader(char * header);
+
+    void parseFilename(char * filename);
+    
+    void setFnumber(char * numstr);
+    void setFtype(char * typestr);
+    void setFusage(char * usagestr);
+    void setFrecords(char * recordstr);
+    void setFsize(char * sizestr);
+    void setFsecret(bool isSecret);
+
+  private:
+    uint16_t fsizeToRecords(unsigned long fsize);
+    uint8_t fnum;
+    char ftype;
+    char fusage;
+    bool fsecret;
+    unsigned long fsize;
+    uint16_t frecords;
+};
+
+
+
+
 
 class SDstorage {
 
@@ -99,7 +136,7 @@ class SDstorage {
         char f_comment[17] = {0};
         char f_secret[1] = {0};
         char f_size[6] = {0};
-        char f_end[2] = {'\r','\0'};
+        const char f_end[2] = {0x0D,0x13};
       };
       char f_name[46];   // Total header = 40 characters
     };
