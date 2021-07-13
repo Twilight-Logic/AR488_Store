@@ -311,6 +311,7 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
   bool err = false;
   const size_t lastbyte = dsize - 1;
+  size_t idx = 0;
 
   if (cstate != DTAS) setControls(DTAS);
 
@@ -321,6 +322,10 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
   // Write the data string
   for (size_t i=0; i<dsize; i++) {
+    
+    // If ATN asserted then drop out of loop
+//    if (isAsserted(ATN)) return;
+
     // If EOI asserting is on
     if (cfg.eoi) {
       // If EOI asserting is on
@@ -1046,12 +1051,16 @@ bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   
     // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
-//    if (isVerb) dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
+#endif
     return true;
   }
   // Wait for NRFD to go HIGH (indicating that receiver is ready)
   if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
-//    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
+#ifdef DEBUG_GPIBbus_SEND
+    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
+#endif
     return true;
   }
 
@@ -1067,9 +1076,9 @@ debugStream.println(isLastByte);
 
   if (cfg.eoi && isLastByte) {
     // If EOI enabled and this is the last byte then assert DAV and EOI
-
-debugStream.println(F("Asserting EOI..."));    
-
+#ifdef DEBUG_GPIBbus_SEND
+    debugStream.println(F("Asserting EOI..."));    
+#endif
     setGpibState(0b00000000, 0b00011000, 0);
   }else{
     // Assert DAV (data is valid - ready to collect)
@@ -1078,13 +1087,17 @@ debugStream.println(F("Asserting EOI..."));
 
   // Wait for NRFD to go LOW (receiver accepting data)
   if (waitOnPinState(LOW, NRFD, cfg.rtmo))  {
-//    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
+#ifdef DEBUG_GPIBbus_SEND    
+    dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
+#endif
     return true;
   }
 
   // Wait for NDAC to go HIGH (data accepted)
   if (waitOnPinState(HIGH, NDAC, cfg.rtmo))  {
-//    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
+#endif
     return true;
   }
 

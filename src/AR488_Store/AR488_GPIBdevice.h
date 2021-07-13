@@ -141,6 +141,8 @@ class GPIBbus {
     bool sendRawData(char *databuffer, size_t dsize);
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);
     void setDataVal(uint8_t);
+    bool writeByte(uint8_t db, bool isLastByte);
+
 
 #ifdef EN_STORAGE
     bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
@@ -159,7 +161,6 @@ class GPIBbus {
 //    bool addressDevice(uint8_t addr, bool dir);
 //    bool unAddressDevice();
 
-    bool writeByte(uint8_t db, bool isLastByte);
 //    bool writeByteHandshake(uint8_t db, bool isLastByte);
     boolean waitOnPinState(uint8_t state, uint8_t pin, int interval);  
     bool isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence);

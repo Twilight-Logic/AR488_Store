@@ -124,10 +124,11 @@ class SDstorage {
 
     SdFat sd;
     SdFile rdfile;
-    fstream sdinout;
+//    fstream sdinout;
 
-    uint16_t binary_header;         // Header for binary data
+    SdFile sdinout;
 
+/*
     union file_header {
       struct {
         char f_number[7] = {0};
@@ -141,6 +142,7 @@ class SDstorage {
       char f_name[46];   // Total header = 40 characters
     };
     file_header current_header;
+*/
 
     uint8_t errorCode = 0;
 

@@ -29,17 +29,6 @@ ArduinoOutStream gpibout(charStream);
 
 
 
-void printHex2(char *buffr, int dsize) {
-#ifdef DB_SERIAL_ENABLE
-  for (int i = 0; i < dsize; i++) {
-    debugStream.print(buffr[i], HEX); debugStream.print(" ");
-  }
-  debugStream.println();
-#endif
-}
-
-
-
 
 
 
@@ -201,10 +190,39 @@ uint16_t TekFileInfo::fsizeToRecords(unsigned long fsize){
 
 
 
+/*****************************/
+/***** Utility functions *****/
+/*****vvvvvvvvvvvvvvvvvvv*****/
+
+void printHex2(char *buffr, int dsize) {
+#ifdef DB_SERIAL_ENABLE
+  for (int i = 0; i < dsize; i++) {
+    debugStream.print(buffr[i], HEX); debugStream.print(" ");
+  }
+  debugStream.println();
+#endif
+}
+
+
+/***** Convert 4 character hex string to 16-bit unsigned integer *****/
+uint16_t hexToDataHeader(char * hexstr) {
+  char asciistr[5] = {0};
+  // Limit to 4 characters
+  for (uint8_t i=0; i<4; i++) {
+    asciistr[i] = hexstr[i];
+  }
+  // Return 16 bit value
+  return (uint16_t)strtoul(asciistr, NULL, 16);
+}
 
 
 
 
+
+
+/*****^^^^^^^^^^^^^^^^^^^*****/
+/***** Utility functions *****/
+/*****************************/
 
 
 
@@ -466,7 +484,6 @@ void SDstorage::stgc_0x6C_h() {
  */
 void SDstorage::stgc_0x6D_h() {
 
-  char path[60] = {0};
   char linebuffer[line_buffer_size];
   char c;
   uint8_t i = 0;
@@ -479,29 +496,37 @@ void SDstorage::stgc_0x6D_h() {
 
   if (f_type == 'D') {
 
-    strncpy(path, directory, strlen(directory));
-    strncat(path, f_name, strlen(f_name));
 
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.print(F("stgc_0x6D_h: reading "));
-    debugStream.print(path);
+    debugStream.print(directory);
+    debugStream.print(f_name);
     debugStream.println(F("..."));
 #endif
 
-    ifstream sdin(path);
+//    while (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
+//    while (sdinout.fgets(linebuffer, line_buffer_size > 0)) {
+    while (sdinout.available()) {
 
-    while (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
+      // Exit on ATN
+      if (gpibBus.isAsserted(ATN)) break;
+
+      // Read a byte
+      c = sdinout.read();
+      
       // getline() discards CR so add it back on
-      strncat(linebuffer, "\r\0", 2);
+//      strncat(linebuffer, "\r\0", 2);
     
-      if (sdin.peek() == EOF) {
+      if (sdinout.peek() == EOF) {
         // Last line was read so send data with EOI on last character
-        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+//        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+        gpibBus.writeByte(c, DATA_COMPLETE);
         // Close file
         stgc_0x62_h();  // Close function
       }else{
         // Send line of data to the GPIB bus
-        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+//        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+        gpibBus.writeByte(c, DATA_CONTINUE);
       }
     }
     
@@ -642,29 +667,80 @@ void SDstorage::stgc_0x6E_h() {
         4      BINARY Character String
     */
 
-  char path[60] = {0};
+//  char path[60] = {0};
   char buffr[line_buffer_size];
   char buffr2[bin_buffer_size];
 
+  uint16_t dataHeaderValue = 0;
+  uint16_t dataLength = 0;
+  uint8_t dataType = 0;
 
-  char incoming = '\0';
-//  char CR = '\r';
+  char hexbyte[3] = {0}; 
+
+  bool isHexFormat = true;
+
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6E_h: started READ handler..."));
 #endif
-    
-  strcpy(path, directory);
-  strcat(path, f_name);
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.print(F("stgc_0x6E_h: reading "));
-  debugStream.print(path);
+  debugStream.print(directory);
+  debugStream.print(f_name);
   debugStream.println(F("..."));
 #endif
 
-  ifstream sdin(path);  // initialize stream to beginning of the file
+  while (sdinout.available()) {
+//  if (sdinout.available()) {
+    memset(buffr, '\0', line_buffer_size);
+    // Read the binary header (first 2 bytes or 4 hex encoded bytes)
+    if (isHexFormat){
+      sdinout.read(buffr, 4);
+      dataHeaderValue = hexToDataHeader(buffr);
+    }else{
+      sdinout.read(buffr, 2);
+      dataHeaderValue = (buffr[0] * 256) + buffr[1];
+    }
+
+    dataType = (uint8_t)(dataHeaderValue >> 13);
+    dataLength = (dataHeaderValue & 0x1FFF) - 2; // Reduce by the two header bytes
+
+/*
+    debugStream.println(dataHeaderValue, HEX);
+    debugStream.println(dataHeaderValue, BIN);
+
+    if (dataType == 1) debugStream.println(F("- binary number"));
+    if (dataType == 2) debugStream.println(F("- binary string"));
+    if (dataType == 7) debugStream.println(F("- EOF"));  
+    debugStream.print(F("Data length: "));
+    debugStream.println(dataLength);
+*/
+
+    memset(buffr, '\0', line_buffer_size);
+    if (isHexFormat) {
+      for (uint8_t i=0; i<dataLength; i++){
+        sdinout.read(hexbyte, 2);
+        buffr[i] = (char)strtoul(hexbyte, NULL, 16);              
+      }      
+    }else{
+      sdinout.read(buffr, dataLength);
+    }
+
+    debugStream.println(buffr);
+
+
+  }
+
+
+
+
+
+
+/*
+  
   switch (f_type) {
+
     case 'P':
     case 'D':
 
@@ -686,7 +762,7 @@ void SDstorage::stgc_0x6E_h() {
             gpibBus.sendData(buffr, strlen(buffr), DATA_CONTINUE);
           }
         }
-
+*/
 
 /*
         sdin.getline(buffr, line_buffer_size, '\r');          // fetch one CR terminated line of the program
@@ -712,11 +788,11 @@ void SDstorage::stgc_0x6E_h() {
                     }
                 }
             }
-*/
 
             break;
+*/
 
-
+/*
         case 'B':
 #ifdef DEBUG_STORE_COMMANDS
 //            cout << F("BINARY PROGRAM\r");
@@ -827,13 +903,13 @@ void SDstorage::stgc_0x6E_h() {
                     if (incoming != 'q') {
                         incoming = '\0';     // clear the flag
                         sdin.getline(buffr, bin_buffer_size, '\r');
-
+*/
                         /*
                             if (strlen(buffr) == 0) {
                             cout << "__EOF__" << endl;
                             return;
                             } else { */
-
+/*
                         strcpy(buffr2, buffr);
                         strcat(buffr2, "\r"); //add CR back to buffer, this line was CR terminated;
 
@@ -882,7 +958,7 @@ void SDstorage::stgc_0x6E_h() {
 
   // Send EOI to end transmission
 //  gpibBus.sendEOI();
-
+*/
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6E_h: done."));
@@ -966,7 +1042,8 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
   // Close currently open work file (clears handle, f_name and f_type)
-  if (sdinout.is_open()) stgc_0x62_h(); // Close function
+//  if (sdinout.is_open()) stgc_0x62_h(); // Close function
+  if (sdinout) stgc_0x62_h(); // Close function
 
   // Read file number parameter from GPIB
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
