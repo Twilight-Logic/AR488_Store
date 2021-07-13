@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.28, 12/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.29, 13/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -355,8 +355,8 @@ void SDstorage::stgc_0x64_h() {
       }
     }
 
-    f_type = 'O';   // set file type to NOT OPEN
-    sdin.close();   // and close the current file
+    // Close the file
+    stgc_0x62_h();  // Close function
     
   }else{
 #ifdef DEBUG_STORE_COMMANDS
@@ -465,6 +465,60 @@ void SDstorage::stgc_0x6C_h() {
  * Reads text files and returns the next item (line at present)
  */
 void SDstorage::stgc_0x6D_h() {
+
+  char path[60] = {0};
+  char linebuffer[line_buffer_size];
+  char c;
+  uint8_t i = 0;
+
+  // line_buffer_size = 72 char line max in Tek plus CR plus NULL
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6D_h: started INPUT handler..."));
+#endif
+
+  if (f_type == 'D') {
+
+    strncpy(path, directory, strlen(directory));
+    strncat(path, f_name, strlen(f_name));
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x6D_h: reading "));
+    debugStream.print(path);
+    debugStream.println(F("..."));
+#endif
+
+    ifstream sdin(path);
+
+    while (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
+      // getline() discards CR so add it back on
+      strncat(linebuffer, "\r\0", 2);
+    
+      if (sdin.peek() == EOF) {
+        // Last line was read so send data with EOI on last character
+        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+        // Close file
+        stgc_0x62_h();  // Close function
+      }else{
+        // Send line of data to the GPIB bus
+        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+      }
+    }
+    
+  }else{
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6D_h: incorrect file type!"));
+#endif
+  }
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6D_h: done."));
+#endif
+
+
+
+
+/*  
   char dbuffer[line_buffer_size] = {0};
   char keyword[10] = {0};
   char c = 0x00;
@@ -498,7 +552,7 @@ void SDstorage::stgc_0x6D_h() {
     debugStream.println(F("stgc_0x6D_h: file is wrong type or closed!"));
 #endif
   }
-
+*/
 
 /*
     while(sdinout.get(c) && (idx<line_buffer_size)){
@@ -540,9 +594,11 @@ void SDstorage::stgc_0x6D_h() {
   }
 */
 
+/*
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6D_h: done."));
 #endif
+*/
 }
 
 
@@ -910,7 +966,7 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
   // Close currently open work file (clears handle, f_name and f_type)
-  if (sdinout.is_open()) stgc_0x62_h();
+  if (sdinout.is_open()) stgc_0x62_h(); // Close function
 
   // Read file number parameter from GPIB
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
