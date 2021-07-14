@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.29, 13/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.30, 14/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN

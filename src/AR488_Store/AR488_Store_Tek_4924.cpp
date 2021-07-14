@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.29, 13/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.30, 14/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -504,29 +504,27 @@ void SDstorage::stgc_0x6D_h() {
     debugStream.println(F("..."));
 #endif
 
-//    while (sdinout.getline(linebuffer, line_buffer_size, '\r')) {
-//    while (sdinout.fgets(linebuffer, line_buffer_size > 0)) {
     while (sdinout.available()) {
 
       // Exit on ATN
-      if (gpibBus.isAsserted(ATN)) break;
+      if (gpibBus.isAsserted(ATN)) {
+        debugStream.println(F("\nATN asserted!"));
+        break;
+      }
 
       // Read a byte
       c = sdinout.read();
-      
-      // getline() discards CR so add it back on
-//      strncat(linebuffer, "\r\0", 2);
     
       if (sdinout.peek() == EOF) {
-        // Last line was read so send data with EOI on last character
-//        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+        // Send byte with EOI on last character
         gpibBus.writeByte(c, DATA_COMPLETE);
+        debugStream.println(F("EOF reached!"));
         // Close file
-        stgc_0x62_h();  // Close function
+//        stgc_0x62_h();  // Close function
       }else{
-        // Send line of data to the GPIB bus
-//        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+        // Send byte to the GPIB bus
         gpibBus.writeByte(c, DATA_CONTINUE);
+        debugStream.print(c);
       }
     }
     
@@ -540,90 +538,6 @@ void SDstorage::stgc_0x6D_h() {
     debugStream.println(F("stgc_0x6D_h: done."));
 #endif
 
-
-
-
-/*  
-  char dbuffer[line_buffer_size] = {0};
-  char keyword[10] = {0};
-  char c = 0x00;
-  uint8_t idx = 0;
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x6D_h: started INPUT handler..."));
-#endif
-  if (f_type == 'D') {
-
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x6D_h: reading line from "));
-    debugStream.print(directory);
-    debugStream.print(f_name);
-    debugStream.println(F("..."));
-#endif
-
-    if (sdinout.getline(dbuffer, line_buffer_size, ',')) {
-      // getline() discards CR so add it back on
-//      strncat(dbuffer, "\r\0", 2);
-      // Last line was read so send data with EOI on last character
-      gpibBus.sendData(dbuffer, strlen(dbuffer), DATA_COMPLETE);
-#ifdef DEBUG_STORE_COMMANDS
-    }else{
-        debugStream.println(F("stgc_0x6D_h: reached EOF!"));
-#endif
-    }
-
-#ifdef DEBUG_STORE_COMMANDS
-  }else{
-    debugStream.println(F("stgc_0x6D_h: file is wrong type or closed!"));
-#endif
-  }
-*/
-
-/*
-    while(sdinout.get(c) && (idx<line_buffer_size)){
-      if (c) {
-        switch (c) {
-          case 0x0D:  // CR
-          case 0x2C:  // Comma
-              gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
-#ifdef DEBUG_STORE_COMMANDS
-              debugStream.print(F("stgc_0x6D_h: sent:"));
-              debugStream.println(linebuffer);
-              debugStream.println(F("stgc_0x6D_h: done."));
-#endif
-              return;
-              break;
-          case 0x20:  // SPC
-              strncpy(keyword, linebuffer, 9);
-              memset(linebuffer, '\0', line_buffer_size);
-#ifdef DEBUG_STORE_COMMANDS
-              debugStream.print(F("stgc_0x6D_h: keyword: "));
-              debugStream.println(keyword);
-#endif
-              break;
-          default:
-              linebuffer[idx] = c;
-        }
-        idx++;
-#ifdef DEBUG_STORE_COMMANDS
-      }else{
-        debugStream.println(F("stgc_0x6D_h: reached EOF!"));
-#endif
-      }
-    }
-    
-#ifdef DEBUG_STORE_COMMANDS
-  }else{
-    debugStream.println(F("stgc_0x6D_h: file is wrong type or closed!"));
-#endif  
-  }
-*/
-
-/*
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x6D_h: done."));
-#endif
-*/
 }
 
 
