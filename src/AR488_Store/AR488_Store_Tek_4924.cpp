@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.30, 14/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.31, 15/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -18,18 +18,30 @@ extern GPIBbus gpibBus;
 
 extern ArduinoOutStream cout;
 
-//char streamBuffer[LINELENGTH];
-//CharStream charStream(streamBuffer, LINELENGTH);
-//CharStream charStream(LINELENGTH);
 CharStream charStream(LINELENGTH);
 ArduinoOutStream gpibout(charStream);
 
-//#define CR   0xD    // Carriage return
-//#define LF   0xA    // Newline/linefeed
 
-
-
-
+// Array containing index of accepted storage commands
+SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = { 
+  { 0x60, &SDstorage::stgc_0x60_h },  // STATUS
+  { 0x61, &SDstorage::stgc_0x61_h },  // SAVE
+  { 0x62, &SDstorage::stgc_0x62_h },  // CLOSE
+  { 0x63, &SDstorage::stgc_0x63_h },  // OPEN
+  { 0x64, &SDstorage::stgc_0x64_h },  // OLD/APPEND
+  { 0x66, &SDstorage::stgc_0x66_h },  // TYPE
+  { 0x67, &SDstorage::stgc_0x67_h },  // KILL
+  { 0x69, &SDstorage::stgc_0x69_h },  // HEADER
+  { 0x6C, &SDstorage::stgc_0x6C_h },  // PRINT
+  { 0x6D, &SDstorage::stgc_0x6D_h },  // INPUT
+  { 0x6E, &SDstorage::stgc_0x6E_h },  // READ
+  { 0x6F, &SDstorage::stgc_0x6F_h },  // WRITE
+  { 0x73, &SDstorage::stgc_0x73_h },  // CD
+  { 0x7B, &SDstorage::stgc_0x7B_h },  // FIND
+  { 0x7C, &SDstorage::stgc_0x7C_h },  // MARK
+  { 0x7D, &SDstorage::stgc_0x7D_h },  // SECRET
+  { 0x7E, &SDstorage::stgc_0x7E_h }   // ERROR
+};
 
 
 /**********************************************/
@@ -205,7 +217,7 @@ void printHex2(char *buffr, int dsize) {
 
 
 /***** Convert 4 character hex string to 16-bit unsigned integer *****/
-uint16_t hexToDataHeader(char * hexstr) {
+uint16_t SDstorage::hexToDataHeader(char * hexstr) {
   char asciistr[5] = {0};
   // Limit to 4 characters
   for (uint8_t i=0; i<4; i++) {
@@ -214,10 +226,6 @@ uint16_t hexToDataHeader(char * hexstr) {
   // Return 16 bit value
   return (uint16_t)strtoul(asciistr, NULL, 16);
 }
-
-
-
-
 
 
 /*****^^^^^^^^^^^^^^^^^^^*****/
@@ -231,6 +239,7 @@ uint16_t hexToDataHeader(char * hexstr) {
 /***** SD Card handling functions *****/
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
+/***** Contructor - initialise the SD Card object *****/
 SDstorage::SDstorage(){
   // Set up CS pin
   pinMode(SDCARD_CS_PIN, OUTPUT);
@@ -245,6 +254,93 @@ SDstorage::SDstorage(){
   }
 }
 
+
+/***** File search function *****/
+/*
+ * filenum 1-FILES_PER_DIRECTORY: search for the file number
+ * filenum = 0: search for the last file
+ */
+bool SDstorage::searchForFile(uint8_t filenum, SdFile *fileobjptr){
+  SdFile dirObj;
+  SdFile fileObj;
+  char fname[file_header_size];
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("searchForFile: searching..."));
+#endif
+
+  if (filenum < FILES_PER_DIRECTORY){
+
+    if (!dirObj.open(directory, O_RDONLY)) {
+      errorCode = 3;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("searchForFile: opening directory "));
+      debugStream.print(directory);
+      debugStream.println(F(" failed!"));
+#endif
+      return false;    
+    }
+
+    for (uint8_t i=0; i<FILES_PER_DIRECTORY; i++) {
+
+debugStream.print(F("loop cnt: "));
+debugStream.println(i);
+
+      // Open the next file
+      fileObj.openNext(&dirObj, O_RDONLY);
+
+
+
+      // Skip directories, hidden files, and null files
+      if (!fileObj.isSubDir() && !fileObj.isHidden()) {
+
+debugStream.println(F("notdir"));
+
+        
+        // Retrieve file name
+        fileObj.getName(fname, file_header_size);
+debugStream.println(fname);
+
+        if (filenum > 0) {
+          // Extract file number
+          int num = atoi(fname);
+          // Check file number against search parameter
+          if (filenum == num) {
+          fileobjptr = &fileObj;
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.print(F("searchForFile: found file "));
+          debugStream.println(filenum);
+          debugStream.println(F("searchForFile: done."));
+#endif         
+            return true;
+          }
+        }else{
+debugStream.println(F("chklast"));
+
+          // Find the last file
+          if (fname[7] == 'L') {
+            fileobjptr = &fileObj;
+#ifdef DEBUG_STORE_COMMANDS
+            debugStream.println(F("searchForFile: found LAST."));
+            debugStream.println(F("searchForFile: done."));
+#endif            
+            return true;
+          }
+        }
+        
+      }
+       
+    }
+    
+  }
+  errorCode = 2;
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("searchForFile: not found!"));
+  debugStream.println(F("searchForFile: done."));
+#endif
+  
+  return false;
+}
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** SD Card handling functions *****/
@@ -285,7 +381,7 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
 }
 
 
-/***** Command handlers *****/
+/***** COMMAND HANDLERS *****/
 
 /***** STATUS command *****/
 void SDstorage::stgc_0x60_h(){
@@ -487,6 +583,7 @@ void SDstorage::stgc_0x6D_h() {
   char linebuffer[line_buffer_size];
   char c;
   uint8_t i = 0;
+  bool err = false;
 
   // line_buffer_size = 72 char line max in Tek plus CR plus NULL
 
@@ -506,26 +603,30 @@ void SDstorage::stgc_0x6D_h() {
 
     while (sdinout.available()) {
 
-      // Exit on ATN
-      if (gpibBus.isAsserted(ATN)) {
-        debugStream.println(F("\nATN asserted!"));
-        break;
-      }
-
       // Read a byte
       c = sdinout.read();
     
       if (sdinout.peek() == EOF) {
         // Send byte with EOI on last character
-        gpibBus.writeByte(c, DATA_COMPLETE);
+        err = gpibBus.writeByte(c, DATA_COMPLETE);
         debugStream.println(F("EOF reached!"));
         // Close file
 //        stgc_0x62_h();  // Close function
       }else{
         // Send byte to the GPIB bus
-        gpibBus.writeByte(c, DATA_CONTINUE);
+        err = gpibBus.writeByte(c, DATA_CONTINUE);
         debugStream.print(c);
       }
+
+      // Exit on ATN or error (both NDAC and NRFD high)
+      if (err) {
+        debugStream.println(F("\nSend error!!"));
+        // Set lines to listen ?
+        // Rewind file read by a character (current character has already been read)
+        sdinout.seekCur(-1);
+        break;
+      }
+      
     }
     
   }else{
@@ -1075,30 +1176,52 @@ void SDstorage::stgc_0x7B_h(){
 
 /***** MARK command *****/
 void SDstorage::stgc_0x7C_h(){
+//  char path[60] = {0};
+  char fname[file_header_size];
   char mpbuffer[13] = {0};
+  char *token;
+  uint8_t numfiles = 0;
+  uint8_t filenum = 0;
+  SdFile lastFile;
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_07C_h: started CD handler..."));
+  debugStream.println(F("stgc_07C_h: started MARK handler..."));
 #endif
   
   // Read the directory name data
   gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
 
+  token = strtok(mpbuffer, " \t");
+  numfiles = atoi(token);
+
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x7C_h: received parameters: "));
-  debugStream.println(mpbuffer);
-//  printHex2(mpbuffer, 12);
+  debugStream.print(F("stgc_07C_h: Number of files requested: "));
+  debugStream.println(numfiles);
 #endif
 
-/*
+  if (numfiles > 0) {
+    // Search for the last file
+    if (searchForFile(0, &lastFile)){
 
-- extract number of files to create (x)
-- find current file marked as LAST (num)
-- change its number to num + x if possible or report error
-  - create x new files with num + 1 up to num + x (ignore file length)
-  - mark them as NEW
+      // Retrieve file name
+      lastFile.getName(fname, file_header_size);
+      filenum = atoi(fname);
 
- */
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_07C_h: LAST is file: "));
+      debugStream.println(filenum);
+#endif
+
+      // Renumber LAST to current number + numfiles
+      // Create files and mark as NEW (ignore length)
+      
+    }else{
+      errorCode = 2;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.println(F("stgc_07C_h: LAST not found!"));
+#endif
+    }
+  }
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7C_h: done."));
@@ -1147,27 +1270,6 @@ void SDstorage::stgc_0x7E_h(){
 #endif
 }
 
-
-// Array containing index of accepted storage commands
-SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = { 
-  { 0x60, &SDstorage::stgc_0x60_h }, 
-  { 0x61, &SDstorage::stgc_0x61_h },
-  { 0x62, &SDstorage::stgc_0x62_h },
-  { 0x63, &SDstorage::stgc_0x63_h },
-  { 0x64, &SDstorage::stgc_0x64_h },
-  { 0x66, &SDstorage::stgc_0x66_h },
-  { 0x67, &SDstorage::stgc_0x67_h },
-  { 0x69, &SDstorage::stgc_0x69_h },
-  { 0x6C, &SDstorage::stgc_0x6C_h },
-  { 0x6D, &SDstorage::stgc_0x6D_h },
-  { 0x6E, &SDstorage::stgc_0x6E_h },
-  { 0x6F, &SDstorage::stgc_0x6F_h },
-  { 0x73, &SDstorage::stgc_0x73_h },
-  { 0x7B, &SDstorage::stgc_0x7B_h },
-  { 0x7C, &SDstorage::stgc_0x7C_h },
-  { 0x7D, &SDstorage::stgc_0x7D_h },
-  { 0x7E, &SDstorage::stgc_0x7E_h }
-};
 
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/

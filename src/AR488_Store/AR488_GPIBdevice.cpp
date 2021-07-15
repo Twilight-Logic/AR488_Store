@@ -42,6 +42,7 @@ GPIBbus::GPIBbus(){
   // Set default values ({'\0'} sets version string array to null)
   cfg = { 0, 0, 1, 1, 1, 0, 0, 0, 0, 1200, 0, {'\0'}, 0, {'\0'}, 0, 0 };
   cstate = 0;
+  deviceAddressedState = DIDS;
 }
 
 
@@ -958,6 +959,123 @@ void GPIBbus::setDataContinuity(bool flag){
 }
 */
 
+
+bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
+  
+    // Wait for NDAC to go LOW (indicating that devices are at attention)
+  if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
+#endif
+    return true;
+  }
+  // Wait for NRFD to go HIGH (indicating that receiver is ready)
+  if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
+#endif
+    return true;
+  }
+
+  // If NDAC (and NRFD are high) we have an error condition
+  // If ATN is high we need to abort and listen
+  if ((!isAsserted(NDAC)) || isAsserted(ATN)) {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("gpibBus::writeByte: NDAC unasserted or ATN asserted!"));
+#endif    
+    return true;
+  }
+
+  // Place data on the bus
+  setGpibDbus(db);
+
+#ifdef DEBUG_GPIBbus_SEND
+  debugStream.print(F("EOI flag:\t"));
+  debugStream.print(cfg.eoi);
+  debugStream.print(F("\tLastByte:\t"));
+  debugStream.println(isLastByte);
+#endif
+
+  if (cfg.eoi && isLastByte) {
+    // If EOI enabled and this is the last byte then assert DAV and EOI
+#ifdef DEBUG_GPIBbus_SEND
+    debugStream.println(F("Asserting EOI..."));    
+#endif
+    setGpibState(0b00000000, 0b00011000, 0);
+  }else{
+    // Assert DAV (data is valid - ready to collect)
+    setGpibState(0b00000000, 0b00001000, 0);
+  }
+
+  // Wait for NRFD to go LOW (receiver accepting data)
+  if (waitOnPinState(LOW, NRFD, cfg.rtmo))  {
+#ifdef DEBUG_GPIBbus_SEND    
+    dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
+#endif
+    return true;
+  }
+
+  // Wait for NDAC to go HIGH (data accepted)
+  if (waitOnPinState(HIGH, NDAC, cfg.rtmo))  {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
+#endif
+    return true;
+  }
+
+  if (cfg.eoi && isLastByte) {
+    // If EOI enabled and this is the last byte then un-assert both DAV and EOI
+    if (cfg.eoi && isLastByte) setGpibState(0b00011000, 0b00011000, 0);
+  }else{
+    // Unassert DAV
+    setGpibState(0b00001000, 0b00001000, 0);
+  }
+  
+  // Reset the data bus
+  setGpibDbus(0);
+
+  return false;
+}
+
+
+/***** Set device addressing state *****/
+/*
+ * NOTE: this is a flag. It does not set the state of the GPIB controls
+ */
+void GPIBbus::setDeviceAddressedState(uint8_t state){
+  // Valid state supplied
+  if (state==DLAS || state==DTAS) {
+    deviceAddressedState = state;
+    return;
+  }
+  // Otherwise set to idle
+  deviceAddressedState = DIDS;
+}
+
+
+/***** Device is addressed to listen? *****/
+bool GPIBbus::isDeviceAddressedToListen(){
+  if (deviceAddressedState == DLAS) return true;
+  return false;
+}
+
+
+/***** Device is addressed to talk? *****/
+bool GPIBbus::isDeviceAddressedToTalk(){
+  if (deviceAddressedState == DTAS) return true;
+  return false;
+}
+
+
+/***** Device is not addressed? *****/
+bool GPIBbus::isDeviceNotAddressed(){
+  if (deviceAddressedState == DIDS) return true;
+  return false;
+}
+
+
+
+
 /********** PRIVATE FUNCTIONS **********/
 
 
@@ -1016,103 +1134,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 //  delayMicroseconds(cfg.tmbus);
 
   return 0;
-}
-
-
-/***** Write a SINGLE BYTE onto the GPIB bus using 3-way handshake *****/
-/*
- * (- this function is called in a loop to send data )
- */
-/*
-bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
-
-  bool err;
-
-  err = writeByteHandshake(db, isLastByte);
-
-  // Unassert DAV
-  setGpibState(0b00001000, 0b00001000, 0);
-
-  // Reset the data bus
-  setGpibDbus(0);
-
-  // GPIB bus DELAY
-//  delayMicroseconds(AR488.tmbus);
-
-  // Exit successfully
-  return err;
-}
-*/
-
-
-/***** GPIB send byte handshake *****/
-//bool GPIBbus::writeByteHandshake(uint8_t db, bool isLastByte) {
-bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
-  
-    // Wait for NDAC to go LOW (indicating that devices are at attention)
-  if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
-#endif
-    return true;
-  }
-  // Wait for NRFD to go HIGH (indicating that receiver is ready)
-  if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND
-    if (isVerb) dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
-#endif
-    return true;
-  }
-
-  // Place data on the bus
-  setGpibDbus(db);
-
-/*
-debugStream.print(F("cfgEOI:     "));
-debugStream.println(cfg.eoi);
-debugStream.print(F("isLastByte: "));
-debugStream.println(isLastByte);
-*/
-
-  if (cfg.eoi && isLastByte) {
-    // If EOI enabled and this is the last byte then assert DAV and EOI
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Asserting EOI..."));    
-#endif
-    setGpibState(0b00000000, 0b00011000, 0);
-  }else{
-    // Assert DAV (data is valid - ready to collect)
-    setGpibState(0b00000000, 0b00001000, 0);
-  }
-
-  // Wait for NRFD to go LOW (receiver accepting data)
-  if (waitOnPinState(LOW, NRFD, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND    
-    dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
-#endif
-    return true;
-  }
-
-  // Wait for NDAC to go HIGH (data accepted)
-  if (waitOnPinState(HIGH, NDAC, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
-#endif
-    return true;
-  }
-
-  if (cfg.eoi && isLastByte) {
-    // If EOI enabled and this is the last byte then un-assert both DAV and EOI
-    if (cfg.eoi && isLastByte) setGpibState(0b00011000, 0b00011000, 0);
-  }else{
-    // Unassert DAV
-    setGpibState(0b00001000, 0b00001000, 0);
-  }
-  
-  // Reset the data bus
-  setGpibDbus(0);
-
-  return false;
 }
 
 

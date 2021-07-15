@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.30, 14/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.31, 15/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN
@@ -29,7 +29,9 @@
 // Number of storage GPIB commands
 #define STGC_SIZE 17
 // Length of character stream buffer
-#define LINELENGTH 82
+#define LINELENGTH 74
+// Number of files allowed per directory (virtual "tape")
+#define FILES_PER_DIRECTORY 99
 
 
 #define DATA_CONTINUE false
@@ -189,6 +191,9 @@ class SDstorage {
     };
 
     static storeCmdRec storeCmdHidx[STGC_SIZE];
+
+    uint16_t hexToDataHeader(char * hexstr);
+    bool searchForFile(uint8_t filenum, SdFile *filehandleptr);
 
 };
 

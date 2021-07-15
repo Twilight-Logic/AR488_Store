@@ -142,7 +142,10 @@ class GPIBbus {
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);
     void setDataVal(uint8_t);
     bool writeByte(uint8_t db, bool isLastByte);
-
+    void setDeviceAddressedState(uint8_t stat);
+    bool isDeviceAddressedToListen();
+    bool isDeviceAddressedToTalk();
+    bool isDeviceNotAddressed();
 
 #ifdef EN_STORAGE
     bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
@@ -151,21 +154,17 @@ class GPIBbus {
 #endif
 
     void signalBreak();
-//    void setDataContinuity(bool flag);
 
   private:
 
     bool dataContinuity;
+    uint8_t deviceAddressedState;
 
-
-//    bool addressDevice(uint8_t addr, bool dir);
-//    bool unAddressDevice();
-
-//    bool writeByteHandshake(uint8_t db, bool isLastByte);
     boolean waitOnPinState(uint8_t state, uint8_t pin, int interval);  
     bool isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence);
     void setSrqSig();
     void clrSrqSig();
+    
 
 
 };
