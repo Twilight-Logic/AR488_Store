@@ -2301,7 +2301,7 @@ void attnRequired() {
           debugStream.println(gpibcmd, HEX);
 #endif
           execGpibCmd(db);
-          return;
+//          return;
         }
       }
     }
