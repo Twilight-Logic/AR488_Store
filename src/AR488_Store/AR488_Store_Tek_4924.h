@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.31, 15/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.33, 17/07/2021 *****/
 
 // Chip select pin
 #ifndef SDCARD_CS_PIN
@@ -36,6 +36,13 @@
 
 #define DATA_CONTINUE false
 #define DATA_COMPLETE true
+
+
+
+struct alphaIndex {
+  const char idx;
+  const char * desc;
+};
 
 
 /***** Character stream buffer *****/
@@ -70,7 +77,9 @@ class TekFileInfo {
 
   public:
     TekFileInfo();
-    void getFnumber(char * numstr);
+    void clear();
+    uint8_t getFnumVal();
+    void getFnumStr(char * numstr);
     void getFtype(char * typestr);
     void getFusage(char * usagestr);
     void getFrecords(char * recordstr);
@@ -79,23 +88,24 @@ class TekFileInfo {
     void getFilename(char * filename);
     void getTekHeader(char * header);
 
-    void parseFilename(char * filename);
-    
-    void setFnumber(char * numstr);
-    void setFtype(char * typestr);
-    void setFusage(char * usagestr);
-    void setFrecords(char * recordstr);
-    void setFsize(char * sizestr);
+    void setFromFilename(char * filename);
+    bool setFnumber(uint8_t filenum);
+    void setFtype(char typechar);
+    void setFusage(char usagechar);
+    void setFrecords(uint16_t records);
+    void setFsize(size_t filesize);
     void setFsecret(bool isSecret);
 
   private:
+ 
     uint16_t fsizeToRecords(unsigned long fsize);
     uint8_t fnum;
     char ftype;
     char fusage;
     bool fsecret;
-    unsigned long fsize;
+    size_t fsize;
     uint16_t frecords;
+
 };
 
 
@@ -125,26 +135,11 @@ class SDstorage {
     char f_type='N';                //the current filetype string variable
 
     SdFat sd;
-    SdFile rdfile;
+//    SdFile rdfile;
 //    fstream sdinout;
 
-    SdFile sdinout;
-
-/*
-    union file_header {
-      struct {
-        char f_number[7] = {0};
-        char f_type[8] = {0};
-        char f_usage[5] = {0};
-        char f_comment[17] = {0};
-        char f_secret[1] = {0};
-        char f_size[6] = {0};
-        const char f_end[2] = {0x0D,0x13};
-      };
-      char f_name[46];   // Total header = 40 characters
-    };
-    file_header current_header;
-*/
+//    TekFileInfo tekFile;
+    File sdinout;
 
     uint8_t errorCode = 0;
 
@@ -193,7 +188,7 @@ class SDstorage {
     static storeCmdRec storeCmdHidx[STGC_SIZE];
 
     uint16_t hexToDataHeader(char * hexstr);
-    bool searchForFile(uint8_t filenum, SdFile *filehandleptr);
+    bool searchForFile(uint8_t filenum, File *filehandleptr);
 
 };
 

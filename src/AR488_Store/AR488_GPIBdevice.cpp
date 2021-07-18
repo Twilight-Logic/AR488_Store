@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.29, 13/07/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.32, 16/07/2021 *****/
 
 
 /****** Process status values *****/
@@ -1044,7 +1044,7 @@ bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
  */
 void GPIBbus::setDeviceAddressedState(uint8_t state){
   // Valid state supplied
-  if (state==DLAS || state==DTAS) {
+  if ((state==DLAS) || (state==DTAS)) {
     deviceAddressedState = state;
     return;
   }

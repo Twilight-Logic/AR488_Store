@@ -679,7 +679,7 @@ void tek_TLIST() {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.31, 15/07/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.33, 17/07/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -888,7 +888,7 @@ bool dataBufferFull = false;    // Flag when parse buffer is full
 //extern volatile bool isSRQ;  // has SRQ been asserted?
 
 // SRQ auto mode
-bool isSrqa = false;
+//bool isSrqa = false;
 
 // Interrupt without handler fired
 //volatile bool isBAD = false;
@@ -2241,7 +2241,7 @@ void attnRequired() {
 //  bool spe = false;
 //  bool spd = false;
   bool eoiDetected = false;
-  uint8_t gpibcmd = 0;
+//  uint8_t gpibcmd = 0;
   uint8_t saddrcmd = 0;
 
   // Set device listner active state (assert NDAC+NRFD (low), DAV=INPUT_PULLUP)
@@ -2269,7 +2269,7 @@ void attnRequired() {
       // Device is addressed to listen
       if (gpibBus.cfg.paddr == (db ^ 0x20)) { // MLA = db^0x20
 #ifdef DEBUG_DEVICE_ATN
-        debugStream.println(F("attnRequired: Controller wants me to data accept data <<<"));
+        debugStream.println(F("attnRequired: addressed to listen <<<"));
 #endif
         gpibBus.setDeviceAddressedState(DLAS);
 
@@ -2278,16 +2278,16 @@ void attnRequired() {
         // Call talk handler to send data
         gpibBus.setDeviceAddressedState(DTAS);
 #ifdef DEBUG_DEVICE_ATN
-        if (db != GC_SPE) debugStream.println(F("attnRequired: Controller wants me to send data >>>"));
+        if (db != GC_SPE) debugStream.println(F("attnRequired: addressed to talk >>>"));
 #endif
 
 #ifdef EN_STORAGE
       }else if (db>0x5F && db<0x80) {
         // Secondary addressing command received
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
-          saddrcmd = db;
+          saddrcmd = db;          
   #ifdef DEBUG_DEVICE_ATN
-          debugStream.print(F("attnRequired: Secondary addressing command received: "));
+          debugStream.print(F("attnRequired: secondary addressing command received: "));
           debugStream.println(saddrcmd, HEX);
   #endif
         }
@@ -2295,11 +2295,13 @@ void attnRequired() {
 
       }else{
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
-          gpibcmd = db;
+//          gpibcmd = db;
 #ifdef DEBUG_DEVICE_ATN
           debugStream.print(F("attnRequired: GPIB command received: "));
           debugStream.println(gpibcmd, HEX);
 #endif
+          execGpibCmd(db);
+          return;
         }
       }
     }
@@ -2309,75 +2311,11 @@ void attnRequired() {
   debugStream.println(F("End ATN loop."));
 #endif
 
-/***** Perform GPIB copmmand actions *****/
 
-  if (gpibcmd) {
-    // Respond to GPIB command
-    switch (db) {
-      case GC_SPE:
-        // Serial Poll enable request
-#ifdef DEBUG_DEVICE_ATN
-          debugStream.println(F("attnRequired: Received serial poll enable."));
-#endif
-          device_spe_h();
-          break;
-      case GC_SPD:
-          // Serial poll disable request
-#ifdef DEBUG_DEVICE_ATN
-          debugStream.println(F("attnRequired: Received serial poll disable."));
-#endif
-          device_spd_h();
-          break;
-      case GC_UNL:
-          // Unlisten
-          device_unl_h();
-          break;
-      case GC_UNT:
-          // Untalk
-          device_unt_h();
-          break;
-      case GC_SDC:
-          // Device clear (reset)
-          device_sdc_h();
-          break;
-#ifdef PIN_REMOTE
-      case GC_LLO:
-          // Remote lockout mode
-          device_llo_h();
-          break;
-      case GC_GTL:
-          // Local mode
-          device_gtl_h();
-          break;
-#endif
-    } // End switch
-    // Clear flags
-    gpibcmd = 0;
-    return;
-  }
-
-
-/***** Perform secondry address command actions *****/
-#ifdef EN_STORAGE
-  if (saddrcmd) {
-    // If addressed to listen then set GPIB to listen
-    if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
-
-    // If addressed to talk then set GPIB to talk
-    if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
-    
-    // Execute the GPIB secondary addressing command
-    storage.storeExecCmd(saddrcmd);
-    // Clear flags
-    saddrcmd = 0;
-
-    // reset GPIB BUS back to idle
-    gpibBus.setControls(DIDS);
-
-    return;
-  }
-
-#endif
+if (saddrcmd) {
+  execSecondaryGpibCmd(db);
+  return;  
+}
 
 
 /***** Otherwise perform read or write *****/
@@ -2407,6 +2345,77 @@ void attnRequired() {
 #endif
 
 }
+
+
+/***** Execure GPIB command *****/
+void execGpibCmd(uint8_t gpibcmd){
+  // If addressed to listen then set GPIB to listen
+  if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
+
+  // If addressed to talk then set GPIB to talk
+  if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
+  
+  // Respond to GPIB command
+  switch (gpibcmd) {
+    case GC_SPE:
+      // Serial Poll enable request
+#ifdef DEBUG_DEVICE_ATN
+        debugStream.println(F("attnRequired: Received serial poll enable."));
+#endif
+        device_spe_h();
+        break;
+      case GC_SPD:
+        // Serial poll disable request
+#ifdef DEBUG_DEVICE_ATN
+        debugStream.println(F("attnRequired: Received serial poll disable."));
+#endif
+        device_spd_h();
+        break;
+    case GC_UNL:
+        // Unlisten
+        device_unl_h();
+        break;
+    case GC_UNT:
+        // Untalk
+        device_unt_h();
+        break;
+    case GC_SDC:
+        // Device clear (reset)
+        device_sdc_h();
+        break;
+#ifdef PIN_REMOTE
+    case GC_LLO:
+        // Remote lockout mode
+        device_llo_h();
+        break;
+    case GC_GTL:
+        // Local mode
+        device_gtl_h();
+        break;
+#endif
+  } // End switch
+}
+
+
+/***** Perform secondry address command actions *****/
+#ifdef EN_STORAGE
+void execSecondaryGpibCmd(uint8_t saddrcmd){
+  // If addressed to listen then set GPIB to listen
+  if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
+
+  // If addressed to talk then set GPIB to talk
+  if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
+    
+  // Execute the GPIB secondary addressing command
+  storage.storeExecCmd(saddrcmd);
+
+  // Clear flags
+  saddrcmd = 0;
+
+  // reset GPIB BUS back to idle
+  gpibBus.setControls(DIDS);
+}
+#endif
 
 
 /***** Device is addressed to listen - so listen *****/
@@ -2448,7 +2457,7 @@ void device_spd_h() {
 /***** Serial Poll Enable *****/
 void device_spe_h() {
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Serial poll request received from controller ->"));
+  debugStream.println(F("Serial poll request started ->"));
 #endif
   gpibBus.sendStatus();
 #ifdef DEBUG_DEVICE_ATN
@@ -2476,6 +2485,9 @@ void device_unl_h() {
   // Clear addressed state flag and set controls to idle
   gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
+#ifdef DEBUG_DEVICE_ATN
+  debugStream.println(F("Unlisten done."));
+#endif
 }
 
 
@@ -2488,6 +2500,9 @@ void device_unt_h(){
   // Clear addressed state flag and set controls to idle
   gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
+#ifdef DEBUG_DEVICE_ATN
+  debugStream.println(F("Untalk done."));
+#endif
 }
 
 

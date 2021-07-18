@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.31, 15/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.33, 17/07/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -22,7 +22,25 @@ CharStream charStream(LINELENGTH);
 ArduinoOutStream gpibout(charStream);
 
 
-// Array containing index of accepted storage commands
+/***** Tektronix file types *****/
+alphaIndex tekFileTypes [] = {
+  { 'A', "ASCII" },
+  { 'B', "BINARY" },
+  { 'N', "NEW" },
+  { 'L', "LAST" }  
+};
+
+
+/***** Tektronix file usages *****/
+alphaIndex tekFileUsages [] = {
+  { 'P', "PROGRAM" },
+  { 'D', "DATA" },
+  { 'L', "LOG" },
+  { 'T', "TEXT" }
+};
+
+
+/***** Index of accepted storage commands *****/
 SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = { 
   { 0x60, &SDstorage::stgc_0x60_h },  // STATUS
   { 0x61, &SDstorage::stgc_0x61_h },  // SAVE
@@ -48,93 +66,108 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
 /***** Tek file header handling functions *****/
 /*****vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv*****/
 
+
+/***** Constructor *****/
 TekFileInfo::TekFileInfo(){
+  clear();
+}
+
+
+/***** Clear the file information record *****/
+void TekFileInfo::clear(){
   fnum = 0;
   ftype = '\0';
   fusage = '\0';
   fsecret = false;
   frecords = 0;
+  fsize = 0;
 }
 
 
-void TekFileInfo::getFnumber(char * numstr){
-  itoa(fnum, numstr, 10);
+/***** Return file number value *****/
+uint8_t TekFileInfo::getFnumVal(){
+  return fnum + 1;  // 1 - 256 stored as 0 - 255
 }
 
 
+/***** Return file number string*****/
+void TekFileInfo::getFnumStr(char * numstr){
+  sprintf(numstr, "%-3d", fnum);  // Left justified number
+}
+
+
+/***** Return file type string *****/
 void TekFileInfo::getFtype(char * typestr){
-  switch(ftype){
-    case 'A':
-      strncpy(typestr, "ASCII", 5);
+  uint8_t i = 0;
+  while (tekFileTypes[i].idx) {
+    if (tekFileTypes[i].idx == ftype) {
+      strcpy(typestr, tekFileTypes[i].desc);
       break;
-    case 'B':
-      strncpy(typestr, "BINARY", 5);
-      break;
-    case 'N':
-      strncpy(typestr, "NEW", 5);
-      break;
-    case 'L':
-      strncpy(typestr, "LAST", 5);
-      break;
+    }
+    i++;
   }
 }
 
 
+/***** Return file usage string *****/
 void TekFileInfo::getFusage(char * usagestr){
-  switch(fusage){
-    case 'P':
-      strncpy(usagestr, "PROGRAM", 7);
+  uint8_t i = 0;
+  while (tekFileUsages[i].idx) {
+    if (tekFileUsages[i].idx == fusage) {
+      strcpy(usagestr, tekFileUsages[i].desc);
       break;
-    case 'D':
-      strncpy(usagestr, "DATA", 4);
-      break;
-    case 'L':
-      strncpy(usagestr, "LOG", 4);
-      break;
-    case 'T':
-      strncpy(usagestr, "TEXT", 4);
-      break;
+    }
+    i++;
   }
 }
 
 
+/***** Return string containing assigned number of records *****/
 void TekFileInfo::getFrecords(char * recordstr){
-  itoa(frecords, recordstr, 10);
+  sprintf(recordstr, "%-5d", frecords);
 }
 
 
+/***** Return string contaning the file size *****/
 void TekFileInfo::getFsize(char * sizestr){
-  ltoa(fsize, sizestr, 10);   
+  sprintf(sizestr, "%-5d", fsize);   
 }
 
 
+/***** Return a file name from the stored file information *****/
 void TekFileInfo::getFilename(char * filename){
   char * filenameptr = filename;
   memset(filename, '\0', 46);
-  getFnumber(filenameptr);
-  filename[7] = 0x32;
-  filenameptr = filenameptr + 7;
-  getFtype(filenameptr);
+  getFnumStr(filenameptr);
   filenameptr = filenameptr + 8;
   getFtype(filenameptr);
+  filenameptr = filenameptr + 8;
+  getFusage(filenameptr);
   filenameptr = filenameptr + 10;
-  if (fsecret) strncpy(filenameptr, "SECRET", 8);
+  if (fsecret) strcpy(filenameptr, "SECRET");
   filenameptr = filenameptr + 8;
   getFrecords(filenameptr);
+  for (uint8_t i=0; i<34; i++) {
+    if (filename[i] == 0x00) filename[i] = 0x20;  // Replace NULL with space
+  }
 }
 
 
+/***** Return a Tek header from the stored file information *****/
 void TekFileInfo::getTekHeader(char * header){
   char * headerptr = header;
   memset(header, '\0', 44);
-  header[0] = 0x32;
+  header[0] = 0x20;
   headerptr++;
-  getFnumber(headerptr);
-  header[7] = 0x32;
-  headerptr = headerptr + 7;
+  int n = sprintf(headerptr, "%-6d", fnum);
+  getFnumStr(headerptr);
+  header[6] = 0x20;
+  headerptr = headerptr + 6;
+//  strncat(headerptr, getFtype(), 8);
   getFtype(headerptr);
   headerptr = headerptr + 8;
-  getFtype(headerptr);
+//  strncat(headerptr, getFusage(), 8);
+  getFusage(headerptr);
   headerptr = headerptr + 10;
   if (fsecret) strncpy(headerptr, "SECRET", 8);
   headerptr = headerptr + 8;
@@ -143,52 +176,77 @@ void TekFileInfo::getTekHeader(char * header){
   header[44] = 0x13;
 }
 
-    
-void TekFileInfo::setFnumber(char numstr[7]){
-  fnum = atoi(numstr);
+
+/***** Set file info from filename string *****/
+void TekFileInfo::setFromFilename(char * filename){
+  char * fptr = filename;
+  fnum = atoi(filename) - 1;  // fnum takes values 0 - 255
+  ftype = filename[7];
+  fusage = filename[15];
+  if (filename[25] == 'S') fsecret = true;
+  fptr = fptr + 32;
+  frecords = atoi(fptr);
 }
 
 
-void TekFileInfo::setFtype(char * typestr){
-  switch(typestr[0]){
-    case 'A':
-    case 'B':
-    case 'L':
-    case 'N':
-      ftype == typestr[0];
+/***** Set the file number *****/
+bool TekFileInfo::setFnumber(uint8_t filenum ){
+  if (filenum < FILES_PER_DIRECTORY) {
+    fnum = filenum;
+    return true;
+  }
+  return false;
+}
+
+
+/***** Set the file type *****/
+void TekFileInfo::setFtype(char typechar){
+  uint8_t i = 0;
+  // typechar must match known types
+  while (tekFileTypes[i].idx) {
+    if (tekFileTypes[i].idx == typechar) {
+      ftype = typechar;
       break;
-  }    
+    }
+    i++;
+  }
 }
 
 
-void TekFileInfo::setFusage(char * usagestr){
-  switch(usagestr[0]){
-    case 'D':
-    case 'L':
-    case 'P':
-    case 'T':
-      fusage == usagestr[0];
+/***** Set the file usage *****/
+void TekFileInfo::setFusage(char usagechar){
+  uint8_t i = 0;
+  // usagechar must match known usages
+  while (tekFileUsages[i].idx) {
+    if (tekFileUsages[i].idx == usagechar) {
+      fusage = usagechar;
       break;
-  }  
+    }
+    i++;
+  }
 }
 
 
-void TekFileInfo::setFrecords(char * recordstr){
-  frecords = atoi(recordstr);
+/***** Set number of file records *****/
+void TekFileInfo::setFrecords(uint16_t records){
+  frecords = records;
 }
 
 
-void TekFileInfo::setFsize(char * sizestr){
-  fsize = atol(sizestr);
-  fsizeToRecords(fsize);
+/***** Set the file size *****/
+void TekFileInfo::setFsize(size_t filesize){
+  fsize = filesize;
+  setFrecords(fsizeToRecords(fsize));
 }
 
 
+/***** Set status of SECRET *****/
 void TekFileInfo::setFsecret(bool isSecret){
   fsecret = isSecret;
 }
 
 
+/***** Convert filesize to record count *****/
 uint16_t TekFileInfo::fsizeToRecords(unsigned long fsize){
   frecords = (fsize/256) + 1;
   return frecords;
@@ -259,14 +317,16 @@ SDstorage::SDstorage(){
 /*
  * filenum 1-FILES_PER_DIRECTORY: search for the file number
  * filenum = 0: search for the last file
+ * returns true if the file is found
  */
-bool SDstorage::searchForFile(uint8_t filenum, SdFile *fileobjptr){
-  SdFile dirObj;
-  SdFile fileObj;
+bool SDstorage::searchForFile(uint8_t filenum, File *fileobj){
+  File dirObj;
   char fname[file_header_size];
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("searchForFile: searching..."));
+  debugStream.print(F("searchForFile: searching "));
+  debugStream.print(directory);
+  debugStream.println(F("..."));  
 #endif
 
   if (filenum < FILES_PER_DIRECTORY){
@@ -274,64 +334,51 @@ bool SDstorage::searchForFile(uint8_t filenum, SdFile *fileobjptr){
     if (!dirObj.open(directory, O_RDONLY)) {
       errorCode = 3;
 #ifdef DEBUG_STORE_COMMANDS
-      debugStream.print(F("searchForFile: opening directory "));
-      debugStream.print(directory);
-      debugStream.println(F(" failed!"));
+      debugStream.println(F("searchForFile: failed to open directory!"));
 #endif
       return false;    
     }
 
     for (uint8_t i=0; i<FILES_PER_DIRECTORY; i++) {
-
-debugStream.print(F("loop cnt: "));
-debugStream.println(i);
-
       // Open the next file
-      fileObj.openNext(&dirObj, O_RDONLY);
-
-
-
+      fileobj->openNext(&dirObj, O_RDONLY);
       // Skip directories, hidden files, and null files
-      if (!fileObj.isSubDir() && !fileObj.isHidden()) {
-
-debugStream.println(F("notdir"));
-
-        
+      if (!fileobj->isSubDir() && !fileobj->isHidden()) {
         // Retrieve file name
-        fileObj.getName(fname, file_header_size);
-debugStream.println(fname);
-
+        fileobj->getName(fname, file_header_size);
         if (filenum > 0) {
           // Extract file number
           int num = atoi(fname);
           // Check file number against search parameter
           if (filenum == num) {
-          fileobjptr = &fileObj;
+//          fileobjptr = &fileObj;
 #ifdef DEBUG_STORE_COMMANDS
           debugStream.print(F("searchForFile: found file "));
           debugStream.println(filenum);
           debugStream.println(F("searchForFile: done."));
-#endif         
+#endif
+//            fileobjptr = &fileObj;
+//            fileObj.close();
+            dirObj.close();     
             return true;
           }
         }else{
-debugStream.println(F("chklast"));
-
           // Find the last file
           if (fname[7] == 'L') {
-            fileobjptr = &fileObj;
+//            fileobjptr = &fileObj;
 #ifdef DEBUG_STORE_COMMANDS
             debugStream.println(F("searchForFile: found LAST."));
             debugStream.println(F("searchForFile: done."));
-#endif            
+#endif
+//            fileObj.close();
+            dirObj.close();             
             return true;
           }
-        }
-        
+        }        
       }
-       
+      fileobj->close(); 
     }
-    
+    dirObj.close();
   }
   errorCode = 2;
 #ifdef DEBUG_STORE_COMMANDS
@@ -401,6 +448,14 @@ void SDstorage::stgc_0x60_h(){
 
 /***** SAVE command *****/
 void SDstorage::stgc_0x61_h(){
+  uint16_t randnum = random(10000000,99999999);
+/*
+ * - create temp file random.tmp
+ * - save data into tmp
+ * - delete original file
+ * - rename tmp to original
+ */
+
   
 }
 
@@ -470,6 +525,7 @@ void SDstorage::stgc_0x64_h() {
     }
 
     // Close the file
+    sdin.close();
     stgc_0x62_h();  // Close function
     
   }else{
@@ -477,8 +533,6 @@ void SDstorage::stgc_0x64_h() {
     debugStream.println(F("stgc_0x64_h: incorrect file type!"));
 #endif
   }
-
-    // cout << '\r'; //add one CR to last line processed to end Tek BASIC program output
 
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.println(F("stgc_0x64_h: done."));
@@ -549,18 +603,14 @@ void SDstorage::stgc_0x67_h(){
 
 /***** HEADER command *****/
 void SDstorage::stgc_0x69_h() {
-  char path[60] = {0};
+  char header[46] = {0};
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x69_h: started HEADER handler..."));
-#endif   
-//  strcpy(path, directory);
-//  strcat(path, f_name);
+#endif
+
+// Extract header information
+  
   gpibBus.sendData(f_name, strlen(f_name), DATA_COMPLETE);
-
-//  Extract filetype and datatype to use for subsequent Tektronix commands.
-
-//  Extract filetype and datatype to use for subsequent Tektronix commands.
-
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x69_h: done."));
 #endif
@@ -620,7 +670,7 @@ void SDstorage::stgc_0x6D_h() {
 
       // Exit on ATN or error (both NDAC and NRFD high)
       if (err) {
-        debugStream.println(F("\nSend error!!"));
+        debugStream.println(F("\r\nATN or ERR during send!!"));
         // Set lines to listen ?
         // Rewind file read by a character (current character has already been read)
         sdinout.seekCur(-1);
@@ -1044,13 +1094,11 @@ void SDstorage::stgc_0x73_h(){
 /***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
   char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
-  char path[60] = {0};
+//  char path[60] = {0};
   uint8_t paramLen = 0;
   uint8_t num = 0;
   char fname[46];
-  
-  SdFile dirFile;
-  SdFile file;
+  File findfile;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7B_h: started FIND handler..."));
@@ -1079,6 +1127,61 @@ void SDstorage::stgc_0x7B_h(){
         since SdFat file index is not sequential with Tek 4050 filenames
     */
 
+    if (searchForFile(num, &findfile)) { // Returns closed filehandle if found
+      sdinout.open(O_RDONLY);
+      findfile.getName(fname, 46);
+      strncpy(f_name, fname, 46);
+      // all BINARY files are in HEX format
+      if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
+        f_type = 'B';    // BINARY PROGRAM file
+      } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
+        f_type = 'H';    // BINARY DATA file ** to read - parse the data_type
+      } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
+        f_type = 'S';    // SECRET ASCII PROGRAM file
+      } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
+        f_type = 'P';    // ASCII PROGRAM file
+      } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
+        f_type = 'N';    // ASCII LAST file
+      } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
+        f_type = 'L';    // ASCII LAST file
+      } else {
+        f_type = 'D';    // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
+      }
+
+      if (f_type) {
+        sdinout = findfile;
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.print(F("stgc_0x7B_h: found: "));
+        debugStream.println(f_name);
+        debugStream.print(F("stgc_0x7B_h: type:  "));
+        debugStream.println(f_type);
+#endif
+      }else{
+        // Type undetemined
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.println(F("Unknown type!"));
+        debugStream.println(F("stgc_0x7B_h: done."));
+      }
+#endif
+      return;      
+    }else{
+      errorCode = 2;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_0x7B_h: file "));
+      debugStream.print(num);
+      debugStream.println(F(" not found!"));
+#endif
+    }
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("no search criteria!"));
+#endif
+  }
+  
+
+  
+    
+/*
     if (!dirFile.open(directory, O_RDONLY)) {
       errorCode = 3;
 #ifdef DEBUG_STORE_COMMANDS
@@ -1088,7 +1191,8 @@ void SDstorage::stgc_0x7B_h(){
 #endif
       return;    
     }
-
+*/
+/*
     for (int index = 0; index < nMax; index++) { //SdFat file index number
 
       // while (n < nMax ) {
@@ -1168,6 +1272,8 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
   }
+*/
+
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7B_h: done."));
 #endif  
@@ -1176,21 +1282,21 @@ void SDstorage::stgc_0x7B_h(){
 
 /***** MARK command *****/
 void SDstorage::stgc_0x7C_h(){
-//  char path[60] = {0};
-  char fname[file_header_size];
+  char fname[file_header_size] = {0};
   char mpbuffer[13] = {0};
   char *token;
   uint8_t numfiles = 0;
   uint8_t filenum = 0;
-  SdFile lastFile;
+//  char fnumstr[7] = {0};
+  File markFile;
+  TekFileInfo fileinfo;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_07C_h: started MARK handler..."));
 #endif
   
-  // Read the directory name data
+  // Read parameters abd extract the number of files required
   gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
-
   token = strtok(mpbuffer, " \t");
   numfiles = atoi(token);
 
@@ -1201,20 +1307,52 @@ void SDstorage::stgc_0x7C_h(){
 
   if (numfiles > 0) {
     // Search for the last file
-    if (searchForFile(0, &lastFile)){
+    if (searchForFile(0, &markFile)){
 
       // Retrieve file name
-      lastFile.getName(fname, file_header_size);
-      filenum = atoi(fname);
+      markFile.getName(fname, file_header_size);
 
 #ifdef DEBUG_STORE_COMMANDS
       debugStream.print(F("stgc_07C_h: LAST is file: "));
-      debugStream.println(filenum);
+      debugStream.println(fname);
 #endif
 
+      fileinfo.setFromFilename(fname);
+      filenum = fileinfo.getFnumVal();
+
       // Renumber LAST to current number + numfiles
-      // Create files and mark as NEW (ignore length)
+      if (fileinfo.setFnumber(filenum + numfiles)) {
+//        fileinfo.setFtype('A');
+//        fileinfo.setFusage('P');
+//        fileinfo.setFsecret(true);
+//        fileinfo.setFrecords(1);
+
+        fileinfo.getFilename(fname);
+
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.print(F("stgc_07C_h: rename LAST to: "));
+        debugStream.println(fname);
+#endif
+      }
       
+      // Create new files and mark them as NEW (ignore length)
+
+      for (uint8_t i=filenum; i<(filenum + numfiles); i++) {
+        fileinfo.clear();
+        fileinfo.setFnumber(i);
+        fileinfo.setFtype('N');
+        fileinfo.setFrecords(1);
+        fileinfo.getFilename(fname);
+
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.print(F("stgc_07C_h: create NEW file: "));
+        debugStream.println(fname);
+#endif
+
+        
+      }
+      
+
     }else{
       errorCode = 2;
 #ifdef DEBUG_STORE_COMMANDS
