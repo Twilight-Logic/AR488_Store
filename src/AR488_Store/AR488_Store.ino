@@ -93,6 +93,7 @@ void tek_CD(char *direct) {
     // limit the emulator dir name to single level 8 characters trailing "/" plus NULL
 
     char *param;
+
     if (direct != NULL) {
 
         param = strtok(direct, " \t");
@@ -586,7 +587,7 @@ char tek_FIND(char * params) {
                     return 'P'; // ASCII PROGRAM file
                 } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
                     dirFile.close();  // end of iteration through all files, close directory
-                    return 'N'; // ASCII LAST file
+                    return 'N'; // ASCII NEW file
                 } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
                     dirFile.close();  // end of iteration through all files, close directory
                     return 'L'; // ASCII LAST file
@@ -677,9 +678,61 @@ void tek_TLIST() {
 
 //------------------------------------------------------------------------------
 
+// By JCH
+void tek_FIND_alt(char * params) {
+    // char f_name[46];  //the filename variable
+    /*  FINDs and OPENs file (num)
+         Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
+
+         FIND iterates through each file in a directory until filenumber matches num
+         since SdFat file index is not sequential with Tek 4050 filenames
+    */
+
+    int num = atoi(params);
+
+    if (!dirFile.open(directory, O_RDONLY)) {
+        sd.errorHalt("Open directory failed");
+    }
+
+    for (int index = 0; index < nMax; index++) { //SdFat file index number
+
+        // while (n < nMax ) {
+        file.openNext(&dirFile, O_RDONLY);
+        // Skip directories, hidden files, and null files
+        if (!file.isSubDir() && !file.isHidden()) {
+
+            file.getName(f_name, 46);
+
+            int filenumber = atoi(f_name);
+
+            if (filenumber == num) {
+                // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
+                cout << F(" ") << f_name << "\r ";
+                dirFile.close();
+                return;
+            }
+            //f_name[0]=0; // clear f_name
+
+            if (file.isDir()) {
+                // Indicate a directory.
+                cout << '/' << endl;
+            }
+
+        }
+        file.close();  // end of iteration close **this** file
+
+    }
+    cout << F("File ") << num << " not found" << endl;
+    f_name[0] = '\0';  // clear f_name
+    dirFile.close();  // end of iteration through all files, close directory
+
+//    return 'O'; // File num NOT OPEN (or NOT FOUND)
+}
+
+
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.33, 17/07/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.35, 02/09/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -888,7 +941,7 @@ bool dataBufferFull = false;    // Flag when parse buffer is full
 //extern volatile bool isSRQ;  // has SRQ been asserted?
 
 // SRQ auto mode
-//bool isSrqa = false;
+bool isSrqa = false;
 
 // Interrupt without handler fired
 //volatile bool isBAD = false;
@@ -988,6 +1041,7 @@ void setup() {
 
   // Initialize the interface in device mode
   gpibBus.begin();
+//  gpibBus.setControls(DLAS);  // Device listner active state
 
 //  isATN = false;
 //  isSRQ = false;
@@ -1343,13 +1397,13 @@ static cmdRec cmdHidx [] = {
 //  { "tmbus",       tmbus_h     },
 #ifdef EN_STORAGE  
   // Tek 4924 commands using Prologix ++ format
-  { "find",        (void(*)(char*)) tek_FIND  },
+  { "find",        tek_FIND_alt  },
   { "tlist",       (void(*)(char*)) tek_TLIST },
-  { "cd",          cd_h        },
+  { "cd",          tek_CD      },
   { "readf",       readf_h     },
   { "read1",       read1_h     },
   { "help",        help_h      },  //help for Tek 4924 commands
-  { "old",         old_h       },
+  { "old",         (void(*)(char*)) tek_OLD },
 #endif
   { "xdiag",       xdiag_h     }
 };
@@ -2241,7 +2295,7 @@ void attnRequired() {
 //  bool spe = false;
 //  bool spd = false;
   bool eoiDetected = false;
-//  uint8_t gpibcmd = 0;
+  uint8_t gpibcmd = 0;
   uint8_t saddrcmd = 0;
 
   // Set device listner active state (assert NDAC+NRFD (low), DAV=INPUT_PULLUP)
@@ -2269,7 +2323,7 @@ void attnRequired() {
       // Device is addressed to listen
       if (gpibBus.cfg.paddr == (db ^ 0x20)) { // MLA = db^0x20
 #ifdef DEBUG_DEVICE_ATN
-        debugStream.println(F("attnRequired: addressed to listen <<<"));
+        debugStream.println(F("attnRequired: Controller wants me to data accept data <<<"));
 #endif
         gpibBus.setDeviceAddressedState(DLAS);
 
@@ -2278,16 +2332,16 @@ void attnRequired() {
         // Call talk handler to send data
         gpibBus.setDeviceAddressedState(DTAS);
 #ifdef DEBUG_DEVICE_ATN
-        if (db != GC_SPE) debugStream.println(F("attnRequired: addressed to talk >>>"));
+        if (db != GC_SPE) debugStream.println(F("attnRequired: Controller wants me to send data >>>"));
 #endif
 
 #ifdef EN_STORAGE
       }else if (db>0x5F && db<0x80) {
         // Secondary addressing command received
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
-          saddrcmd = db;          
+          saddrcmd = db;
   #ifdef DEBUG_DEVICE_ATN
-          debugStream.print(F("attnRequired: secondary addressing command received: "));
+          debugStream.print(F("attnRequired: Secondary addressing command received: "));
           debugStream.println(saddrcmd, HEX);
   #endif
         }
@@ -2295,13 +2349,11 @@ void attnRequired() {
 
       }else{
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
-//          gpibcmd = db;
+          gpibcmd = db;
 #ifdef DEBUG_DEVICE_ATN
           debugStream.print(F("attnRequired: GPIB command received: "));
           debugStream.println(gpibcmd, HEX);
 #endif
-          execGpibCmd(db);
-//          return;
         }
       }
     }
@@ -2312,10 +2364,36 @@ void attnRequired() {
 #endif
 
 
-if (saddrcmd) {
-  execSecondaryGpibCmd(db);
-  return;  
-}
+/***** Perform GPIB copmmand actions *****/
+  if (gpibcmd) {
+    // Respond to GPIB command
+    execGpibCmd(gpibcmd);
+    // Clear flags
+    gpibcmd = 0;
+    return;
+  }
+
+
+/***** Perform secondry address command actions *****/
+#ifdef EN_STORAGE
+  if (saddrcmd) {
+    // If addressed to listen then set GPIB to listen
+    if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
+
+    // If addressed to talk then set GPIB to talk
+    if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
+    
+    // Execute the GPIB secondary addressing command
+    storage.storeExecCmd(saddrcmd);
+    // Clear flags
+    saddrcmd = 0;
+
+    // reset GPIB BUS back to idle
+    gpibBus.setControls(DIDS);
+    return;
+  }
+
+#endif
 
 
 /***** Otherwise perform read or write *****/
@@ -2347,14 +2425,9 @@ if (saddrcmd) {
 }
 
 
-/***** Execure GPIB command *****/
+/***** Execute GPIB command *****/
 void execGpibCmd(uint8_t gpibcmd){
-  // If addressed to listen then set GPIB to listen
-  if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
 
-  // If addressed to talk then set GPIB to talk
-  if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
-  
   // Respond to GPIB command
   switch (gpibcmd) {
     case GC_SPE:
@@ -2397,27 +2470,6 @@ void execGpibCmd(uint8_t gpibcmd){
 }
 
 
-/***** Perform secondry address command actions *****/
-#ifdef EN_STORAGE
-void execSecondaryGpibCmd(uint8_t saddrcmd){
-  // If addressed to listen then set GPIB to listen
-  if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
-
-  // If addressed to talk then set GPIB to talk
-  if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
-    
-  // Execute the GPIB secondary addressing command
-  storage.storeExecCmd(saddrcmd);
-
-  // Clear flags
-  saddrcmd = 0;
-
-  // reset GPIB BUS back to idle
-  gpibBus.setControls(DIDS);
-}
-#endif
-
-
 /***** Device is addressed to listen - so listen *****/
 void device_listen_h(){
   // Receivedata params: stream, detectEOI, detectEndByte, endByte
@@ -2457,7 +2509,7 @@ void device_spd_h() {
 /***** Serial Poll Enable *****/
 void device_spe_h() {
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Serial poll request started ->"));
+  debugStream.println(F("Serial poll request received from controller ->"));
 #endif
   gpibBus.sendStatus();
 #ifdef DEBUG_DEVICE_ATN
@@ -2485,9 +2537,6 @@ void device_unl_h() {
   // Clear addressed state flag and set controls to idle
   gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
-#ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Unlisten done."));
-#endif
 }
 
 
@@ -2500,9 +2549,6 @@ void device_unt_h(){
   // Clear addressed state flag and set controls to idle
   gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
-#ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Untalk done."));
-#endif
 }
 
 

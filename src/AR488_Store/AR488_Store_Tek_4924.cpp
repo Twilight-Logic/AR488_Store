@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.33, 17/07/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.35, 02/09/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -448,15 +448,30 @@ void SDstorage::stgc_0x60_h(){
 
 /***** SAVE command *****/
 void SDstorage::stgc_0x61_h(){
-  uint16_t randnum = random(10000000,99999999);
 /*
+ * DO WE NEED to rewrite file on each save?
+ * If so, then:
+ * - generate random number 8 chars
  * - create temp file random.tmp
  * - save data into tmp
  * - delete original file
  * - rename tmp to original
  */
-
-  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x61_h: started SAVE handler..."));
+#endif
+  if (f_type == 'N') {  // OR 'P' ?
+    gpibBus.receiveToFile(sdinout, true, false, NULL);
+    // IF file type 'N' MARK as PROGRAM ...............
+    // IF file type 'P' then re-write..........
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x61_h: incorrect file type!"));
+#endif
+  }
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x61_h: done."));
+#endif  
 }
 
 
@@ -525,7 +540,6 @@ void SDstorage::stgc_0x64_h() {
     }
 
     // Close the file
-    sdin.close();
     stgc_0x62_h();  // Close function
     
   }else{
@@ -603,14 +617,18 @@ void SDstorage::stgc_0x67_h(){
 
 /***** HEADER command *****/
 void SDstorage::stgc_0x69_h() {
-  char header[46] = {0};
+  char path[60] = {0};
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x69_h: started HEADER handler..."));
-#endif
-
-// Extract header information
-  
+#endif   
+//  strcpy(path, directory);
+//  strcat(path, f_name);
   gpibBus.sendData(f_name, strlen(f_name), DATA_COMPLETE);
+
+//  Extract filetype and datatype to use for subsequent Tektronix commands.
+
+//  Extract filetype and datatype to use for subsequent Tektronix commands.
+
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x69_h: done."));
 #endif
@@ -620,13 +638,26 @@ void SDstorage::stgc_0x69_h() {
 
 /***** PRINT command *****/
 void SDstorage::stgc_0x6C_h() {
-  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6C_h: started PRINT handler..."));
+#endif
+  if (f_type == 'D') {
+    gpibBus.receiveToFile(sdinout, true, false, NULL);
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x6C_h: incorrect file type!"));
+#endif
+  }
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6C_h: done."));
+#endif
 }
 
 
 /***** INPUT command *****/
 /*
  * Reads text files and returns the next item (line at present)
+ * Note: EOF character = FF
  */
 void SDstorage::stgc_0x6D_h() {
 
@@ -641,7 +672,7 @@ void SDstorage::stgc_0x6D_h() {
   debugStream.println(F("stgc_0x6D_h: started INPUT handler..."));
 #endif
 
-  if (f_type == 'D') {
+  if ((f_type == 'D') || (f_type == 'P')) {
 
 
 #ifdef DEBUG_STORE_COMMANDS
@@ -658,8 +689,9 @@ void SDstorage::stgc_0x6D_h() {
     
       if (sdinout.peek() == EOF) {
         // Send byte with EOI on last character
-        err = gpibBus.writeByte(c, DATA_COMPLETE);
-        debugStream.println(F("EOF reached!"));
+        err = gpibBus.writeByte(c, DATA_CONTINUE);
+        err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+        debugStream.println(F("\nEOF reached!"));
         // Close file
 //        stgc_0x62_h();  // Close function
       }else{
@@ -694,6 +726,74 @@ void SDstorage::stgc_0x6D_h() {
 
 /***** READ command (tek_READ_one) *****/
 void SDstorage::stgc_0x6E_h() {
+
+
+// READ command test
+
+  char linebuffer[line_buffer_size];
+  char c;
+  uint8_t i = 0;
+  bool err = false;
+
+  // line_buffer_size = 72 char line max in Tek plus CR plus NULL
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6E_h: started READ handler..."));
+#endif
+
+  if (f_type == 'H') {
+
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x6E_h: reading "));
+    debugStream.print(directory);
+    debugStream.print(f_name);
+    debugStream.println(F("..."));
+#endif
+
+    while (sdinout.available()) {
+
+      // Read a byte
+      c = sdinout.read();
+    
+      if (sdinout.peek() == EOF) {
+        // Send byte with EOI on last character
+        err = gpibBus.writeByte(c, DATA_CONTINUE);
+        err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+        debugStream.println(F("\nEOF reached!"));
+        // Close file
+//        stgc_0x62_h();  // Close function
+      }else{
+        // Send byte to the GPIB bus
+        err = gpibBus.writeByte(c, DATA_CONTINUE);
+        debugStream.print(c);
+      }
+
+      // Exit on ATN or error (both NDAC and NRFD high)
+      if (err) {
+        debugStream.println(F("\r\nATN or ERR during send!!"));
+        // Set lines to listen ?
+        // Rewind file read by a character (current character has already been read)
+        sdinout.seekCur(-1);
+        break;
+      }
+      
+    }
+    
+  }else{
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6E_h: incorrect file type!"));
+#endif
+  }
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6E_h: done."));
+#endif
+
+// READ command test
+
+
+
 
     /*
         Tektronix 4050 DATA Types: ASCII and BINARY
@@ -732,6 +832,9 @@ void SDstorage::stgc_0x6E_h() {
         4      BINARY Character String
     */
 
+// READ command original JCh
+
+/*
 //  char path[60] = {0};
   char buffr[line_buffer_size];
   char buffr2[bin_buffer_size];
@@ -770,8 +873,8 @@ void SDstorage::stgc_0x6E_h() {
 
     dataType = (uint8_t)(dataHeaderValue >> 13);
     dataLength = (dataHeaderValue & 0x1FFF) - 2; // Reduce by the two header bytes
-
-/*
+*/
+/* DEBUG
     debugStream.println(dataHeaderValue, HEX);
     debugStream.println(dataHeaderValue, BIN);
 
@@ -781,7 +884,7 @@ void SDstorage::stgc_0x6E_h() {
     debugStream.print(F("Data length: "));
     debugStream.println(dataLength);
 */
-
+/*
     memset(buffr, '\0', line_buffer_size);
     if (isHexFormat) {
       for (uint8_t i=0; i<dataLength; i++){
@@ -796,7 +899,8 @@ void SDstorage::stgc_0x6E_h() {
 
 
   }
-
+*/
+// READ command original JCh
 
 
 
@@ -1035,7 +1139,19 @@ void SDstorage::stgc_0x6E_h() {
 
 /***** WRITE command *****/
 void SDstorage::stgc_0x6F_h() {
-
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
+#endif
+  if (f_type == 'H') {
+    gpibBus.receiveToFile(sdinout, true, false, NULL); 
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x6F_h: incorrect file type!"));
+#endif
+  }
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6F_h: done."));
+#endif
 }
 
 
@@ -1094,7 +1210,7 @@ void SDstorage::stgc_0x73_h(){
 /***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
   char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
-//  char path[60] = {0};
+  char path[60] = {0};
   uint8_t paramLen = 0;
   uint8_t num = 0;
   char fname[46];
@@ -1105,8 +1221,7 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
   // Close currently open work file (clears handle, f_name and f_type)
-//  if (sdinout.is_open()) stgc_0x62_h(); // Close function
-  if (sdinout) stgc_0x62_h(); // Close function
+  if (sdinout.isOpen()) stgc_0x62_h(); // Close function
 
   // Read file number parameter from GPIB
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
@@ -1127,10 +1242,12 @@ void SDstorage::stgc_0x7B_h(){
         since SdFat file index is not sequential with Tek 4050 filenames
     */
 
-    if (searchForFile(num, &findfile)) { // Returns closed filehandle if found
-      sdinout.open(O_RDONLY);
+    if (searchForFile(num, &findfile)) { // Returns filehandle if found
+      // Get filename from file handle and store in f_name
       findfile.getName(fname, 46);
       strncpy(f_name, fname, 46);
+      findfile.close();
+      
       // all BINARY files are in HEX format
       if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
         f_type = 'B';    // BINARY PROGRAM file
@@ -1149,7 +1266,11 @@ void SDstorage::stgc_0x7B_h(){
       }
 
       if (f_type) {
-        sdinout = findfile;
+        strncpy(path, directory, strlen(directory));
+        strncat(path, f_name, strlen(f_name));
+debugStream.println(path);
+        sdinout.open(path, O_RDWR); // Open file for reading and writing
+
 #ifdef DEBUG_STORE_COMMANDS
         debugStream.print(F("stgc_0x7B_h: found: "));
         debugStream.println(f_name);

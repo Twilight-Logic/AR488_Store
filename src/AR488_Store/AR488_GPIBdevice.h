@@ -1,3 +1,5 @@
+#include <ArduinoCloudProviderExamples.h>
+
 #ifndef AR488_GPIBdevice_H
 #define AR488_GPIBdevice_H
 
@@ -11,7 +13,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.33, 17/07/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.35, 02/09/2021 *****/
 
 
 /*********************************************/
@@ -137,6 +139,7 @@ class GPIBbus {
 //    bool sendCmd(uint8_t cmdByte);
     uint8_t readByte(uint8_t *db, bool readWithEoi, bool *eoi);  
     bool receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte, uint8_t endByte);
+    bool receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
     void sendData(char *databuffer, size_t dsize, bool lastChunk);
     bool sendRawData(char *databuffer, size_t dsize);
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);

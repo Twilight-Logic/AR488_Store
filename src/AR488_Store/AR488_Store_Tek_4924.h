@@ -16,15 +16,14 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.33, 17/07/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.35, 02/09/2021 *****/
 
-// Chip select pin
+// Default chip select pin number is 4
 #ifndef SDCARD_CS_PIN
   #define SDCARD_CS_PIN 4
 #endif
 
-#define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(20))
-
+#define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(SDCARD_CLK))
 
 // Number of storage GPIB commands
 #define STGC_SIZE 17
