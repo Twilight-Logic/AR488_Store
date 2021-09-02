@@ -1,0 +1,4 @@
+100 REM-------------------------------------------------------------110 REM   FIRMWARE VERIFICATION PROGRAM BASIC LOADER               |120 REM       TEKTRONIX                                            |130 REM-------------------------------------------------------------140 PRINT "	FIRMWARE VERIFICATION PROGRAM"150 PRINT "This program will verify the memory locations of the ";160 PRINT "System.  It takes about a minute.  If all memory is working";170 PRINT ", the cursor will appear in the upper left corner and the ";180 PRINT """BUSY"" light will go out.  If there areproblems in ";190 PRINT "memory, a SYSTEM ERROR will appear at the bottom of the "200 PRINT "screen.  
+
+IN CASE OF SYSTEM ERROR,
+CONTACT THE NEAREST ";210 PRINT "	      T E K T R O N I X FIELD OFFICE FOR SERVICE."220 FIND @5: 102230 DIM A$(370)240 INPUT @5:A$250 CALL "EXEC",A$
