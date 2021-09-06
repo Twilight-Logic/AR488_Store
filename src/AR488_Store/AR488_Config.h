@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.23, 08/07/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.05.37, 06/09/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -201,6 +201,7 @@
 #define EN_STORAGE
 #ifdef EN_STORAGE
   #define SDCARD_CS_PIN 4  // SS pin on Pandauino 644-Narrow / 1284-Narrow (644P/1284P)
+  #define SDCARD_CLK 16    // Clock speed in MHz
   #define EN_TEK_4924
 //  #define EN_PET_9060
 #endif

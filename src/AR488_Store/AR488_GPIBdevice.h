@@ -1,5 +1,3 @@
-#include <ArduinoCloudProviderExamples.h>
-
 #ifndef AR488_GPIBdevice_H
 #define AR488_GPIBdevice_H
 
@@ -13,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.35, 02/09/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.37, 06/09/2021 *****/
 
 
 /*********************************************/
@@ -144,7 +142,7 @@ class GPIBbus {
     bool sendRawData(char *databuffer, size_t dsize);
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);
     void setDataVal(uint8_t);
-    bool writeByte(uint8_t db, bool isLastByte);
+    uint8_t writeByte(uint8_t db, bool isLastByte);
     void setDeviceAddressedState(uint8_t stat);
     bool isDeviceAddressedToListen();
     bool isDeviceAddressedToTalk();

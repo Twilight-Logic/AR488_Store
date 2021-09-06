@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.35, 02/09/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.37, 06/09/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -346,7 +346,7 @@ bool SDstorage::searchForFile(uint8_t filenum, File *fileobj){
       if (!fileobj->isSubDir() && !fileobj->isHidden()) {
         // Retrieve file name
         fileobj->getName(fname, file_header_size);
-        if (filenum > 0) {
+        if (filenum >= 0) {
           // Extract file number
           int num = atoi(fname);
           // Check file number against search parameter
@@ -687,30 +687,35 @@ void SDstorage::stgc_0x6D_h() {
       // Read a byte
       c = sdinout.read();
     
-      if (sdinout.peek() == EOF) {
+      if (c < 0) {  // Reached EOF
         // Send byte with EOI on last character
-        err = gpibBus.writeByte(c, DATA_CONTINUE);
+//        err = gpibBus.writeByte(c, DATA_CONTINUE);
+        // Send EOI + 0xFF
         err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
         debugStream.println(F("\nEOF reached!"));
-        // Close file
-//        stgc_0x62_h();  // Close function
+#endif
       }else{
         // Send byte to the GPIB bus
         err = gpibBus.writeByte(c, DATA_CONTINUE);
-        debugStream.print(c);
+#ifdef DEBUG_STORE_COMMANDS
+        if (!err) debugStream.print(c);
+#endif
       }
 
-      // Exit on ATN or error (both NDAC and NRFD high)
+      // Exit on ATN or receiver request to stop (NDAC HIGH)
       if (err) {
-        debugStream.println(F("\r\nATN or ERR during send!!"));
-        // Set lines to listen ?
+#ifdef DEBUG_STORE_COMMANDS
+        if (err == 1) debugStream.println(F("\r\nreceiver requested stop!"));
+        if (err == 2) debugStream.println(F("\r\nATN detected."));
+#endif
         // Rewind file read by a character (current character has already been read)
         sdinout.seekCur(-1);
         break;
       }
-      
+
     }
-    
+
   }else{
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.println(F("stgc_0x6D_h: incorrect file type!"));
@@ -757,8 +762,10 @@ void SDstorage::stgc_0x6E_h() {
       c = sdinout.read();
     
       if (sdinout.peek() == EOF) {
+//      if (c < 0) {  // Reached EOF
         // Send byte with EOI on last character
         err = gpibBus.writeByte(c, DATA_CONTINUE);
+        // Send EOI + 0xFF
         err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
         debugStream.println(F("\nEOF reached!"));
         // Close file
@@ -766,12 +773,15 @@ void SDstorage::stgc_0x6E_h() {
       }else{
         // Send byte to the GPIB bus
         err = gpibBus.writeByte(c, DATA_CONTINUE);
-        debugStream.print(c);
+        if (!err) debugStream.print(c);
       }
 
-      // Exit on ATN or error (both NDAC and NRFD high)
+      // Exit on ATN or receiver request to stop (NDAC HIGH)
       if (err) {
-        debugStream.println(F("\r\nATN or ERR during send!!"));
+#ifdef DEBUG_STORE_COMMANDS
+        if (err == 1) debugStream.println(F("\r\nreceiver requested stop!"));
+        if (err == 2) debugStream.println(F("\r\nATN detected."));
+#endif
         // Set lines to listen ?
         // Rewind file read by a character (current character has already been read)
         sdinout.seekCur(-1);

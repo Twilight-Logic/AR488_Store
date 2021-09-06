@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.35, 02/09/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.37, 06/09/2021 *****/
 
 
 /****** Process status values *****/
@@ -939,9 +939,15 @@ void GPIBbus::setDataContinuity(bool flag){
 }
 */
 
+/***** Write a single byte using handshaking *****/
+/*
+ * Returns: 
+ * 0 : write succeeded
+ * 1 : NRFD and NDAC high - error condition
+ * 2 : ATN asserted during write
+ */
+uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
-bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
-  
     // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
 #ifdef DEBUG_GPIBbus_SEND
@@ -957,13 +963,20 @@ bool GPIBbus::writeByte(uint8_t db, bool isLastByte) {
     return true;
   }
 
-  // If NDAC (and NRFD are high) we have an error condition
-  // If ATN is high we need to abort and listen
-  if ((!isAsserted(NDAC)) || isAsserted(ATN)) {
+  // If NDAC (and NRFD) are high receiver has asked us to stop tranmitting
+  if (!isAsserted(NDAC)){
 #ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: NDAC unasserted or ATN asserted!"));
+    dataStream.println(F("gpibBus::writeByte: stop requested!"));
 #endif    
-    return true;
+    return 1;
+  }
+  
+  // If ATN has been asserted we need to abort and listen
+  if (isAsserted(ATN)) {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("gpibBus::writeByte: ATN detected!"));
+#endif    
+    return 2;
   }
 
   // Place data on the bus

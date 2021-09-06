@@ -732,7 +732,7 @@ void tek_FIND_alt(char * params) {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.35, 02/09/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.37, 06/09/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -2389,7 +2389,9 @@ void attnRequired() {
     saddrcmd = 0;
 
     // reset GPIB BUS back to idle
-    gpibBus.setControls(DIDS);
+// is this needed ?    
+//    gpibBus.setControls(DIDS);
+// is this needed ?    
     return;
   }
 

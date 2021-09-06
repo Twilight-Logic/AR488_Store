@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.35, 02/09/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.37, 06/09/2021 *****/
 
 // Default chip select pin number is 4
 #ifndef SDCARD_CS_PIN
