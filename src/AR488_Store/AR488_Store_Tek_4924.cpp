@@ -1181,7 +1181,54 @@ void SDstorage::stgc_0x6F_h() {
 void SDstorage::stgc_0x73_h(){
 /*
  * There is no CD command on the 4051 or 4924
+ * CD is run using PRINT@5,19:
  */
+  // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
+  char dnbuffer[13] = {0};
+  uint8_t j = 1;
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_073_h: started CD handler..."));
+#endif
+  
+  // Read the directory name data
+  gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x73_h: received directory name: "));
+  debugStream.println(dnbuffer);
+//  printHex(dnbuffer, 12);
+#endif
+  
+  // set global directory = dir
+  // directory = dir;
+
+  // Set directory path
+  directory[0] = '/';
+  for (uint8_t i=0; i<strlen(dnbuffer); i++) {
+    // Ignore slashes and line terminators (CR or LF)
+    if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
+      // Add character to directory name
+      if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
+      j++;
+    }
+  }
+  // Add terminating slash and NULL
+  directory[j] = '/';
+  directory[j+1] = '\0';
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x73_h: set directory name: "));
+  debugStream.println(directory);
+//  printHex(directory, 12);
+#endif
+
+  // Close any previous file that was open
+  stgc_0x62_h();  // Close function
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x73_h: end CD handler."));  
+#endif
 }
 
 
