@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.37, 06/09/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.05.38, 06/09/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -235,7 +235,7 @@
   //#define DEBUG_IDFUNC          // ID command
   
   // GPIB module
-  //#define DEBUG_GPIBbus_RECEIVE
+  #define DEBUG_GPIBbus_RECEIVE
   //#define DEBUG_GPIBbus_SEND
   //#define DEBUG_GPIBbus_CONTROL
   //#define DEBUG_GPIBbus_COMMANDS

@@ -16,11 +16,16 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.37, 06/09/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.38, 06/09/2021 *****/
 
-// Default chip select pin number is 4
+// Default chip select pin number is defined on some cards as SDCARD_SS_PIN
+// If its not defined and its not been set in config then we use pin 4
 #ifndef SDCARD_CS_PIN
-  #define SDCARD_CS_PIN 4
+  #ifdef SDCARD_SS_PIN
+    #define SDCARD_CS_PIN SDCARD_SS_PIN 
+  #else
+    #define SDCARD_CS_PIN 4
+  #endif
 #endif
 
 #define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(SDCARD_CLK))
@@ -42,6 +47,7 @@ struct alphaIndex {
   const char idx;
   const char * desc;
 };
+
 
 
 /***** Character stream buffer *****/
@@ -66,12 +72,8 @@ class CharStream : public Stream {
     uint8_t tail;
 };
 
-/*
-template<class T>
-inline Print &operator <<(Print &stream, const T &arg) {stream.print(arg); return stream;}
-*/
 
-
+/***** Tektronix File Information class *****/
 class TekFileInfo {
 
   public:
@@ -109,8 +111,7 @@ class TekFileInfo {
 
 
 
-
-
+/***** SD storage class for the Tek 4924 *****/
 class SDstorage {
 
   public:
@@ -128,12 +129,15 @@ class SDstorage {
     const uint8_t line_buffer_size = 74;  // 72 char line max in Tek plus CR plus NULL
     const uint8_t bin_buffer_size = 65;
     const uint8_t file_header_size = 46;  // 44 char plus CR + NULL
+    const uint8_t full_path_size = 60;    // 44 + 13 char plus CR + NULL
     char directory[13] = "/root/";     //allow up to ten character directory names plus two '/' and NULL terminator
 
     char f_name[46];                //the current filename variable
     char f_type='N';                //the current filetype string variable
 
     SdFat sd;
+
+
 //    SdFile rdfile;
 //    fstream sdinout;
 
@@ -185,10 +189,9 @@ class SDstorage {
     };
 
     static storeCmdRec storeCmdHidx[STGC_SIZE];
-
     uint16_t hexToDataHeader(char * hexstr);
-    bool searchForFile(uint8_t filenum, File *filehandleptr);
-
+    bool searchForFile(uint8_t filenum, File& fileObj);
+    uint8_t getLastFile(File& fileObj);
 };
 
 

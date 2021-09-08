@@ -417,9 +417,11 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
 
 #ifdef DEBUG_GPIBbus_RECEIVE
     debugStream.print(bytes[0], HEX), debugStream.print(' ');
+/*
 #else
     // Output the character to the serial port
     dataStream.print((char)bytes[0]);
+*/
 #endif
 
     // Byte counter
