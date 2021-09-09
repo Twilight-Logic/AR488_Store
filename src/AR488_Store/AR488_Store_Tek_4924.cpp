@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.38, 06/09/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.39, 09/09/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -29,7 +29,7 @@ alphaIndex tekFileTypes [] = {
   { 'A', "ASCII" },
   { 'B', "BINARY" },
   { 'N', "NEW" },
-  { 'L', "LAST" }  
+  { 'L', "LAST" } 
 };
 
 
@@ -38,7 +38,7 @@ alphaIndex tekFileUsages [] = {
   { 'P', "PROGRAM" },
   { 'D', "DATA" },
   { 'L', "LOG" },
-  { 'T', "TEXT" }
+  { 'T', "TEXT" },
 };
 
 
@@ -98,8 +98,20 @@ void TekFileInfo::getFnumStr(char * numstr){
 }
 
 
+/***** Return file type character *****/
+char TekFileInfo::getFtype(){
+  return ftype;
+}
+
+
+/***** Return file usage character *****/
+char TekFileInfo::getFusage(){
+  return fusage;
+}
+
+
 /***** Return file type string *****/
-void TekFileInfo::getFtype(char * typestr){
+void TekFileInfo::getFtypeStr(char * typestr){
   uint8_t i = 0;
   while (tekFileTypes[i].idx) {
     if (tekFileTypes[i].idx == ftype) {
@@ -112,14 +124,20 @@ void TekFileInfo::getFtype(char * typestr){
 
 
 /***** Return file usage string *****/
-void TekFileInfo::getFusage(char * usagestr){
+void TekFileInfo::getFusageStr(char * usagestr){
   uint8_t i = 0;
-  while (tekFileUsages[i].idx) {
-    if (tekFileUsages[i].idx == fusage) {
-      strcpy(usagestr, tekFileUsages[i].desc);
-      break;
+  if (fusage) {
+    // Fusage set to find the keyword
+    while (tekFileUsages[i].idx) {
+      if (tekFileUsages[i].idx == fusage) {
+        strcpy(usagestr, tekFileUsages[i].desc);
+        break;
+      }
+      i++;
     }
-    i++;
+  }else{
+    // Fusage unset so return spaces
+    memset(usagestr,' ',8);
   }
 }
 
@@ -144,10 +162,10 @@ void TekFileInfo::getFilename(char * filename){
   getFnumStr(filenameptr);
   filenameptr = filenameptr + 7;
   // File type
-  getFtype(filenameptr);
+  getFtypeStr(filenameptr);
   filenameptr = filenameptr + 8;
   // File usage
-  getFusage(filenameptr);
+  getFusageStr(filenameptr);
   filenameptr = filenameptr + 10;
   // Secret?
   if (fsecret) strcpy(filenameptr, "SECRET");
@@ -170,9 +188,9 @@ void TekFileInfo::getTekHeader(char * header){
   getFnumStr(headerptr);
   header[6] = 0x20;
   headerptr = headerptr + 6;
-  getFtype(headerptr);
+  getFtypeStr(headerptr);
   headerptr = headerptr + 8;
-  getFusage(headerptr);
+  getFusageStr(headerptr);
   headerptr = headerptr + 10;
   if (fsecret) strncpy(headerptr, "SECRET", 8);
   headerptr = headerptr + 8;
@@ -215,6 +233,8 @@ void TekFileInfo::setFtype(char typechar){
     }
     i++;
   }
+  // For a NEW file clear the usage field
+  if (ftype == 'N') fusage = '\0';
 }
 
 
@@ -491,7 +511,7 @@ void SDstorage::stgc_0x61_h(){
 
   TekFileInfo fileinfo;
   char fname[file_header_size];
-  uint32_t fsize = 0;
+//  uint32_t fsize = 0;
   uint8_t r = 0;
   File dirObj;
   
@@ -668,28 +688,98 @@ void SDstorage::stgc_0x66_h() {
 
 /***** KILL command *****/
 void SDstorage::stgc_0x67_h(){
-  char kbuffer[5] = {0};
+
+  TekFileInfo fileinfo;
+  char fname[file_header_size];
+  char kbuffer[12] = {0};
+  char ftype;
+  char path[full_path_size];
+//  uint32_t fsize = 0;
+  uint8_t r = 0;
+//  uint8_t paramlen = 0;
+  uint8_t fnum = 0;
+//  File dirObj;
+  File fileObj;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x67_h: started KILL handler..."));
 #endif
   
   // Read the directory name data
-  gpibBus.receiveParams(false, kbuffer, 12);   // Limit to 12 characters
+  r = gpibBus.receiveParams(false, kbuffer, 12);   // Limit to 12 characters
+
+  if (r > 1) {  // Blank buffer contains CR
+
+    fnum = (uint8_t)atoi(kbuffer);
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x67_h: received parameters: "));
-  debugStream.println(kbuffer);
-//  printHex(mpbuffer, 12);
+    debugStream.print(F("stgc_0x67_h: received parameters: "));
+    debugStream.println(kbuffer);
+    debugStream.print(F("File to kill: "));
+    debugStream.println(fnum);
 #endif
 
-/*
+    // Find the file to be wiped out
+    if (searchForFile(fnum, fileObj)) {
 
-  - find the file to kill (or report file not found error)
-  - delete file contents (delete and recreate?)
-  - mark file as NEW 
+      fileObj.getName(fname, file_header_size);
+      fileinfo.setFromFilename(fname);
+      ftype = fileinfo.getFtype();
 
- */
+      if (ftype != 'L') {   // Cannot kill the LAST file!
+
+        strncpy(path, directory, strlen(directory));
+        strncat(path, fname, strlen(fname));
+        fileObj.close();
+          
+        // Delete the file content
+//        if (fileObj.remove()) {
+        if (sd.remove(path)) {
+          // Set file parameters
+          fileinfo.setFtype('N');
+          fileinfo.setFrecords(1);
+          // Read back new filename
+          fileinfo.getFilename(fname);
+
+          memset(path, '\0', full_path_size);
+          strncpy(path, directory, strlen(directory));
+          strncat(path, fname, strlen(fname));
+
+            // Create a new NEW file with same number
+//          if (fileObj.open(&dirObj,fname,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
+          if (fileObj.open(path,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
+//          if (killfile.rename(&dirObj, fname)) {
+#ifdef DEBUG_STORE_COMMANDS
+            debugStream.println(F("stgc_067_h: file set to NEW."));
+          }else{
+            debugStream.println(F("stgc_067_h: failed make NEW!"));           
+#endif
+          }
+          fileObj.close(); // Finished with file
+
+#ifdef DEBUG_STORE_COMMANDS
+        }else{
+          debugStream.println(F("Failed to clear existing file!"));
+#endif
+        }
+        
+      }
+      
+    }else{
+      errorCode = 2;
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.println(F("stgc_0x67_h: file not found!"));
+#endif
+    }
+
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x67_h: receive params failed!"));
+#endif
+  }
+
+
+
 
 
 #ifdef DEBUG_STORE_COMMANDS
@@ -698,24 +788,65 @@ void SDstorage::stgc_0x67_h(){
 }
 
 
-/***** HEADER command *****/
+/***** DIRECTORY / HEADER / CD command *****/
 void SDstorage::stgc_0x69_h() {
-//  char path[full_path_size] = {0};
+/*
+ * There is no CD command on the 4051 or 4924
+ * CD is run using PRINT@5,9:
+ */
+  // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
+  char dnbuffer[13] = {0};
+  uint8_t j = 1;
+  uint8_t r = 0;
+  
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x69_h: started HEADER handler..."));
-#endif   
-//  strcpy(path, directory);
-//  strcat(path, f_name);
-  gpibBus.sendData(f_name, strlen(f_name), DATA_COMPLETE);
+  debugStream.println(F("stgc_69_h: started CD handler..."));
+#endif
+  
+  // Read the directory name data
+  r = gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
 
-//  Extract filetype and datatype to use for subsequent Tektronix commands.
+printHex(dnbuffer, strlen(dnbuffer));
 
-//  Extract filetype and datatype to use for subsequent Tektronix commands.
+  if (r > 1) {  // Blank buffer contains just CR
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x69_h: done."));
+    debugStream.print(F("stgc_0x69_h: received directory name: "));
+    debugStream.println(dnbuffer);
+//  printHex(dnbuffer, 12);
 #endif
 
+    // Set directory path
+    directory[0] = '/';
+    for (uint8_t i=0; i<strlen(dnbuffer); i++) {
+      // Ignore slashes and line terminators (CR or LF)
+      if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
+        // Add character to directory name
+        if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
+        j++;
+      }
+    }
+    // Add terminating slash and NULL
+    directory[j] = '/';
+    directory[j+1] = '\0';
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x69_h: set directory name: "));
+    debugStream.println(directory);
+//    printHex(directory, 12);
+#endif
+
+    // Reset list index to file 0
+    listIdx = 0;
+
+    // Close any previous file that was open
+    stgc_0x62_h();  // Close function
+
+  }
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x69_h: end CD handler."));  
+#endif
 }
 
 
@@ -1177,58 +1308,42 @@ void SDstorage::stgc_0x6F_h() {
 }
 
 
-/***** DIRECTORY (CD) command *****/
+/***** LIST / TLIST command *****/
 void SDstorage::stgc_0x73_h(){
-/*
- * There is no CD command on the 4051 or 4924
- * CD is run using PRINT@5,19:
- */
-  // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
-  char dnbuffer[13] = {0};
-  uint8_t j = 1;
-  
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_073_h: started CD handler..."));
-#endif
-  
-  // Read the directory name data
-  gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
+
+  char fname[file_header_size+1] = {0};
+  bool found = false;
+  File fileObj;
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x73_h: received directory name: "));
-  debugStream.println(dnbuffer);
-//  printHex(dnbuffer, 12);
+  debugStream.println(F("stgc_0x73_h: started TLIST handler..."));
 #endif
-  
-  // set global directory = dir
-  // directory = dir;
 
-  // Set directory path
-  directory[0] = '/';
-  for (uint8_t i=0; i<strlen(dnbuffer); i++) {
-    // Ignore slashes and line terminators (CR or LF)
-    if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
-      // Add character to directory name
-      if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
-      j++;
+  // Find the next file
+  while(!found) {
+    found = searchForFile(listIdx, fileObj);
+    if (listIdx==255) {
+      listIdx = 0;
+      break;  // Getout
     }
+    listIdx++;
   }
-  // Add terminating slash and NULL
-  directory[j] = '/';
-  directory[j+1] = '\0';
+
+  if (found) {
+    // Retrieve file name
+    fileObj.getName(fname, file_header_size);
+    fileObj.close();  // Done with file handle
+    if (fname[7] == 'L') listIdx = 0;
+    // Send filename with EOI on last character
+    gpibBus.sendData(fname, file_header_size, DATA_COMPLETE);
+  }else{
+    errorCode = 2;
+  }
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x73_h: set directory name: "));
-  debugStream.println(directory);
-//  printHex(directory, 12);
+  debugStream.println(F("stgc_0x73_h: done."));  
 #endif
 
-  // Close any previous file that was open
-  stgc_0x62_h();  // Close function
-  
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x73_h: end CD handler."));  
-#endif
 }
 
 
@@ -1252,7 +1367,7 @@ void SDstorage::stgc_0x7B_h(){
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
 
   // If we have received parameter data
-  if (paramLen > 0) {
+  if (paramLen > 1) {   // Blank buffer contains only CR
 
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.print(F("stgc_0x7B_h: received parameter: "));
@@ -1294,6 +1409,7 @@ void SDstorage::stgc_0x7B_h(){
         strncpy(path, directory, strlen(directory));
         strncat(path, f_name, strlen(f_name));
         sdinout.open(path, O_RDWR); // Open file for reading and writing
+        listIdx = num;
 
 #ifdef DEBUG_STORE_COMMANDS
         debugStream.print(F("stgc_0x7B_h: found: "));
@@ -1345,27 +1461,21 @@ void SDstorage::stgc_0x7C_h(){
   debugStream.println(F("stgc_07C_h: started MARK handler..."));
 #endif
 
+  // Read the requested number of files
+  gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
+  numfiles = atoi(mpbuffer);
+  // read the requested file size
+  gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
+  flen = atoi(mpbuffer);
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_07C_h: Number of files requested: "));
+  debugStream.println(numfiles);
+  debugStream.print(F("File length (bytes):   "));
+  debugStream.println(flen); 
+#endif
+
   if (dirObj.open(directory, O_RDONLY)) {
-
-    // Read the requested number of files
-    gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
-    numfiles = atoi(mpbuffer);
-    // read the requested file size
-    gpibBus.receiveParams(false, mpbuffer, 12);   // Limit to 12 characters
-    flen = atoi(mpbuffer);
-
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_07C_h: Number of files requested: "));
-    debugStream.println(numfiles);
-    debugStream.print(F("File length (bytes):   "));
-    debugStream.println(flen); 
-#endif
-
-//    flen = (flen/256) + 1;
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("File length (records): "));
-    debugStream.println(flen); 
-#endif
 
     // Get the number of the LAST file
     filenum = getLastFile(markFile);
@@ -1440,7 +1550,8 @@ debugStream.println();
   }else{
     errorCode = 3;
 #ifdef DEBUG_STORE_COMMANDS
-    debugStream.println(F("searchForFile: failed to open directory!"));
+    debugStream.println(F("searchForFile: failed to open directory: "));
+    debugStream.print(directory);
 #endif
   }
 
