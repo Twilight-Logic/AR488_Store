@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.39, 09/09/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.40, 11/09/2021 *****/
 
 
 /****** Process status values *****/
@@ -279,7 +279,7 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
   bool err = false;
   const size_t lastbyte = dsize - 1;
-  size_t idx = 0;
+//  size_t idx = 0;
 
   if (cstate != DTAS) setControls(DTAS);
 
@@ -945,27 +945,36 @@ void GPIBbus::setDataContinuity(bool flag){
 /*
  * Returns: 
  * 0 : write succeeded
- * 1 : NRFD and NDAC high - error condition
+ * 1 : Sender requested stop/abort
  * 2 : ATN asserted during write
+ * 3 : NDAC/NRFD protocol error
  */
 uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
-    // Wait for NDAC to go LOW (indicating that devices are at attention)
+  // Verify that IFC has not been asserted. If it has then abort
+  if (isAsserted(IFC)) {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
+#endif
+    return 1;    
+  }
+
+  // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
 #ifdef DEBUG_GPIBbus_SEND
     dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
 #endif
-    return true;
+    return 3;
   }
   // Wait for NRFD to go HIGH (indicating that receiver is ready)
   if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
 #ifdef DEBUG_GPIBbus_SEND
     dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
 #endif
-    return true;
+    return 3;
   }
 
-  // If NDAC (and NRFD) are high receiver has asked us to stop tranmitting
+  // If NDAC (and NRFD) are high receiver has asked us to stop transmitting
   if (!isAsserted(NDAC)){
 #ifdef DEBUG_GPIBbus_SEND
     dataStream.println(F("gpibBus::writeByte: stop requested!"));
@@ -1007,7 +1016,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #ifdef DEBUG_GPIBbus_SEND    
     dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
 #endif
-    return true;
+    return 3;
   }
 
   // Wait for NDAC to go HIGH (data accepted)
@@ -1015,7 +1024,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #ifdef DEBUG_GPIBbus_SEND
     dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
 #endif
-    return true;
+    return 3;
   }
 
   if (cfg.eoi && isLastByte) {
@@ -1082,6 +1091,14 @@ bool GPIBbus::isDeviceNotAddressed(){
 uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   bool atnStat = isAsserted(ATN);
   *eoi = false;
+
+  // Verify that IFC has not been asserted. If it has then abort
+  if (isAsserted(IFC)) {
+#ifdef DEBUG_GPIBbus_SEND
+    dataStream.println(F("GPIBbus::readByte: IFC detected!"));
+#endif
+    return 4;    
+  }
 
   // Unassert NRFD (we are ready for more data)
   setGpibState(0b00000100, 0b00000100, 0);
