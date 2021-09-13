@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.40, 11/09/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.41, 13/09/2021 *****/
 
 
 /****** Process status values *****/
@@ -55,6 +55,7 @@ void GPIBbus::begin(){
   cfg.cmode = 1;
   // Set GPIB control bus to device idle mode
   setControls(DINI);
+  deviceAddressedState = DIDS;
   // Initialise GPIB data lines (sets to INPUT_PULLUP)
   readyGpibDbus();
 }
@@ -254,7 +255,7 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
 #endif
 
   // Set device back to idle state
-  setControls(DIDS);
+//  setControls(DIDS);
 
 #ifdef DEBUG_GPIBbus_READ
   debugStream.println(F("<- End listen."));
@@ -878,6 +879,7 @@ void GPIBbus::setControls(uint8_t state) {
 #endif      
       setGpibState(0b00000000, 0b00001110, 1);
       setGpibState(0b11111111, 0b00001110, 0);
+      deviceAddressedState = DIDS;
       // Set data bus to input pullup
       readyGpibDbus();
 #ifdef GPIBbus_CONTROL
