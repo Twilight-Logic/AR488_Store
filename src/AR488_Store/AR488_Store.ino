@@ -1115,7 +1115,9 @@ debugStream.println(lnRdy);
   }
 
   // Device mode:
-  if (isTO) {
+  if (gpibBus.isAsserted(IFC)){
+    delayMicroseconds(25);
+  }else if (isTO) {
     if (lnRdy == 2) sendToInstrument(pBuf, pbPtr);
   }else if (isRO) {
     lonMode();
@@ -2289,10 +2291,6 @@ void attnRequired() {
 
   uint8_t db = 0;
   uint8_t stat = 0;
-//  bool mla = false;
-//  bool mta = false;
-//  bool spe = false;
-//  bool spd = false;
   bool eoiDetected = false;
   uint8_t gpibcmd = 0;
   uint8_t saddrcmd = 0;

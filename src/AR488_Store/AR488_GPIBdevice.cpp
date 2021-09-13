@@ -956,7 +956,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   // Verify that IFC has not been asserted. If it has then abort
   if (isAsserted(IFC)) {
 #ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
+    dataStream.println(F("GPIBbus::writeByte: detected interface clear [IFC]"));
 #endif
     return 1;    
   }
@@ -1097,7 +1097,7 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   // Verify that IFC has not been asserted. If it has then abort
   if (isAsserted(IFC)) {
 #ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("GPIBbus::readByte: IFC detected!"));
+    dataStream.println(F("GPIBbus::readByte: detected interface clear [IFC]"));
 #endif
     return 4;    
   }
