@@ -278,7 +278,7 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
 /***** Send a series of characters as data to the GPIB bus *****/
 void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
-  bool err = false;
+  uint8_t err = 0;
   const size_t lastbyte = dsize - 1;
 //  size_t idx = 0;
 
@@ -312,7 +312,7 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
       if ((databuffer[i] != CR) || (databuffer[i] != LF) || (databuffer[i] != ESC)) err = writeByte(databuffer[i], false);
     }
 #ifdef DEBUG_GPIBbus_SEND
-    debugStream.print(data[i]);
+    debugStream.print(databuffer[i]);
 #endif
     if (err) break;
   }
@@ -321,6 +321,10 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
   debugStream.println("<-End.");
 #endif
 
+  if (err) {
+    debugStream.print("Error: ");
+    debugStream.println(err);
+  }
 
   if (!err  && !cfg.eoi) {
     // Write terminators according to EOS setting
@@ -953,13 +957,14 @@ void GPIBbus::setDataContinuity(bool flag){
  */
 uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
-  // Verify that IFC has not been asserted. If it has then abort
+  // If IFC has been asserted then abort
   if (isAsserted(IFC)) {
 #ifdef DEBUG_GPIBbus_SEND
     dataStream.println(F("GPIBbus::writeByte: detected interface clear [IFC]"));
 #endif
     return 1;    
   }
+
 
   // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
@@ -976,6 +981,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
     return 3;
   }
 
+/*
   // If NDAC (and NRFD) are high receiver has asked us to stop transmitting
   if (!isAsserted(NDAC)){
 #ifdef DEBUG_GPIBbus_SEND
@@ -983,7 +989,8 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #endif    
     return 1;
   }
-  
+*/
+
   // If ATN has been asserted we need to abort and listen
   if (isAsserted(ATN)) {
 #ifdef DEBUG_GPIBbus_SEND
@@ -995,12 +1002,14 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   // Place data on the bus
   setGpibDbus(db);
 
+/*
 #ifdef DEBUG_GPIBbus_SEND
   debugStream.print(F("EOI flag:\t"));
   debugStream.print(cfg.eoi);
   debugStream.print(F("\tLastByte:\t"));
   debugStream.println(isLastByte);
 #endif
+*/
 
   if (cfg.eoi && isLastByte) {
     // If EOI enabled and this is the last byte then assert DAV and EOI
@@ -1040,7 +1049,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   // Reset the data bus
   setGpibDbus(0);
 
-  return false;
+  return 0;
 }
 
 
@@ -1158,15 +1167,38 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
  */
 boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, int interval) {
 
-  unsigned long timeout = millis() + interval;
-  bool atnStat = (isAsserted(ATN));
+//  unsigned long timeout = millis() + interval;
 
+//  unsigned long currentMillis = millis();
+//  unsigned long startMillis = currentMillis;
+  unsigned long timeout = interval;
+  timeout = timeout * 1000;   // Convert milliseconds to microseconds
+
+  bool atnStat = (isAsserted(ATN));
+  unsigned long clk = 0;
+  
   while (digitalRead(pin) != state) {
     // Check timer
-    if (millis() >= timeout) return true;
-    // ATN status was asserted but now unasserted so abort
-    if (atnStat && !isAsserted(ATN)) return true;
+//    if (currentMillis - startMillis >= timeout) return true;
+
+    if (clk >= timeout) {
+//      debugStream.print(F("Timeout2: "));
+//      debugStream.println(timeout);
+//      debugStream.print(F("Clk: "));
+//      debugStream.print(clk);
+      return true;
+    }
+    
+    // ATN changed state so abort
+    if (atnStat && !isAsserted(ATN)) {
+      debugStream.println(F("ATN status changed!"));
+      return true;
+    }
+    
     delayMicroseconds(100);
+//    currentMillis = millis();
+    
+    clk = clk + 100;
   }
   return false;        // = no timeout therefore succeeded!
 }

@@ -732,7 +732,7 @@ void tek_FIND_alt(char * params) {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.40, 11/09/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.42, 14/09/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1121,9 +1121,15 @@ debugStream.println(lnRdy);
     if (lnRdy == 2) sendToInstrument(pBuf, pbPtr);
   }else if (isRO) {
     lonMode();
-  }else{
-    if (gpibBus.isAsserted(ATN)) attnRequired();
+  }else if (gpibBus.isAsserted(ATN)){
+    attnRequired();
     if (lnRdy == 2) sendToInstrument(pBuf, pbPtr);
+/*    
+  }else{
+    if (!gpibBus.isDeviceNotAddressed()) {
+      gpibBus.setControls(DIDS);
+    }
+*/    
   }
 
 

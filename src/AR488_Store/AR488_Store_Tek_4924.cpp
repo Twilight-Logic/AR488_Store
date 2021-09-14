@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.40, 11/09/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.42, 14/09/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -700,6 +700,7 @@ void SDstorage::stgc_0x63_h(){
 void SDstorage::stgc_0x64_h() {
   char path[full_path_size] = {0};
   char linebuffer[line_buffer_size];
+  uint8_t err = 0;
 
   // line_buffer_size = 72 char line max in Tek plus CR plus NULL
 
@@ -730,7 +731,12 @@ void SDstorage::stgc_0x64_h() {
       }else{
         // Send line of data to the GPIB bus
         gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+debugStream.println(linebuffer);
       }
+
+
+
+
     }
 
     // Close the file
@@ -889,54 +895,67 @@ void SDstorage::stgc_0x69_h() {
   char dnbuffer[13] = {0};
   uint8_t j = 1;
   uint8_t r = 0;
+
+  // If addressed to listen, write the file
+  if (gpibBus.isDeviceAddressedToListen()){
   
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_69_h: started CD handler..."));
+    debugStream.println(F("stgc_69_h: started CD/DIR handler..."));
 #endif
   
-  // Read the directory name data
-  r = gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
+    // Read the directory name data
+    r = gpibBus.receiveParams(false, dnbuffer, 12);   // Limit to 12 characters
 
-printHex(dnbuffer, strlen(dnbuffer));
+//  printHex(dnbuffer, strlen(dnbuffer));
 
-  if (r > 1) {  // Blank buffer contains just CR
+    if (r > 1) {  // Blank buffer contains just CR
 
 #ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x69_h: received directory name: "));
-    debugStream.println(dnbuffer);
-//  printHex(dnbuffer, 12);
+      debugStream.print(F("stgc_0x69_h: received directory name: "));
+      debugStream.println(dnbuffer);
+//      printHex(dnbuffer, 12);
 #endif
 
-    // Set directory path
-    directory[0] = '/';
-    for (uint8_t i=0; i<strlen(dnbuffer); i++) {
-      // Ignore slashes and line terminators (CR or LF)
-      if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
-        // Add character to directory name
-        if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
-        j++;
+      // Set directory path
+      directory[0] = '/';
+      for (uint8_t i=0; i<strlen(dnbuffer); i++) {
+        // Ignore slashes and line terminators (CR or LF)
+        if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
+          // Add character to directory name
+          if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
+          j++;
+        }
       }
-    }
-    // Add terminating slash and NULL
-    directory[j] = '/';
-    directory[j+1] = '\0';
+      // Add terminating slash and NULL
+      directory[j] = '/';
+      directory[j+1] = '\0';
 
 #ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x69_h: set directory name: "));
-    debugStream.println(directory);
-//    printHex(directory, 12);
+      debugStream.print(F("stgc_0x69_h: set directory name: "));
+      debugStream.println(directory);
+//      printHex(directory, 12);
 #endif
 
-    // Reset list index to file 0
-    listIdx = 0;
+      // Reset list index to file 0
+      listIdx = 0;
+
+    }
 
     // Close any previous file that was open
     stgc_0x62_h();  // Close function
 
   }
+
+  // If addressed to talk, send the current directory name
+  if (gpibBus.isDeviceAddressedToTalk()){
+/*
+ * Last parameter for sendData is 'lastchunk'. DATA_COMPLETE of sendData may need amending!
+ */
+    gpibBus.sendData(directory, strlen(directory), DATA_COMPLETE);
+  }
   
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x69_h: end CD handler."));  
+  debugStream.println(F("stgc_0x69_h: done."));  
 #endif
 }
 
@@ -1009,11 +1028,17 @@ void SDstorage::stgc_0x6D_h() {
 #endif
       }
 
-      // Exit on ATN or receiver request to stop (NDAC HIGH)
+      // Exit on ATN or receiver request stop
       if (err) {
-#ifdef DEBUG_STORE_COMMANDS
-        if (err == 1) debugStream.println(F("\r\nreceiver requested stop!"));
-        if (err == 2) debugStream.println(F("\r\nATN detected."));
+//        if (err == 1) debugStream.println(F("\r\nreceiver requested stop!"));
+        if (err == 2) {
+          gpibBus.setControls(DLAS);
+#ifdef DEBUG_STORE_COMMANDS          
+          debugStream.println(F("\r\nATN detected."));
+#endif
+        }
+#ifdef DEBUG_STORE_COMMANDS          
+        if (err == 3) debugStream.println(F("\r\nwait timeout."));
 #endif
         // Rewind file read by a character (current character has already been read)
         sdinout.seekCur(-1);
@@ -1023,6 +1048,9 @@ void SDstorage::stgc_0x6D_h() {
     }
 
   }else{
+    errorCode = 2;
+    // Send EOI + 0xFF to indicate EOF (no data)
+    err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.println(F("stgc_0x6D_h: incorrect file type!"));
 #endif
@@ -1451,6 +1479,9 @@ void SDstorage::stgc_0x73_h(){
     fileObj.close();  // Done with file handle
     if (fname[7] == 'L') listIdx = 0;
     // Send filename with EOI on last character
+/*
+ * sendData lat param is lastchunk - DATA_COMPLETE may needs amending!
+ */
     gpibBus.sendData(fname, file_header_size, DATA_COMPLETE);
   }else{
     errorCode = 2;
