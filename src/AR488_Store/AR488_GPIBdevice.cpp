@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.41, 13/09/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.44, 21/09/2021 *****/
 
 
 /****** Process status values *****/
@@ -115,29 +115,6 @@ void GPIBbus::sendEOI(){
   setGpibState(0b00000000, 0b00010000, 1);
   setGpibState(0b00010000, 0b00010000, 0);
 }
-
-
-/*****  Send a single byte GPIB command *****/
-/*
-bool GPIBbus::sendCmd(uint8_t cmdByte){
-  bool stat = false;
-  // Set lines for command and assert ATN
-  if (!cstate==CCMS) setControls(CCMS);
-  // Send the command
-  stat = writeByte(cmdByte);
-  return stat ? ERR : OK;
-}
-*/
-
-
-
-
-
-
-
-
-
-
 
 
 /***** Receive data from the GPIB bus ****/
@@ -280,7 +257,6 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
 
   uint8_t err = 0;
   const size_t lastbyte = dsize - 1;
-//  size_t idx = 0;
 
   if (cstate != DTAS) setControls(DTAS);
 
@@ -422,11 +398,6 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
 
 #ifdef DEBUG_GPIBbus_RECEIVE
     debugStream.print(bytes[0], HEX), debugStream.print(' ');
-/*
-#else
-    // Output the character to the serial port
-    dataStream.print((char)bytes[0]);
-*/
 #endif
 
     // Byte counter
@@ -635,126 +606,6 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
 }
 
 
-/***** Send a series of characters as data to the GPIB bus *****/
-/*
- * This function does not set line states, implement EOI or filter terminators
- */
-/*
-bool GPIBbus::sendRawData(char *databuffer, size_t dsize) {
-
-  bool err = false;
-  uint8_t lastchar = dsize - 1;
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.print(F("Send->"));
-#endif
-
-  // Send the data string to the GPIB bus
-  for (size_t i = 0; i < dsize; i++) {
-*/    
-/*
-    if (cfg.eoi) {
-      // EOI enabled and last chaarcter so send with an EOI
-      if (i == (dsize-1)) {
-        err = writeByte(databuffer[i], true);
-      }
-    }else{
-      // Send character
-*/
-/*   
-      err = writeByte(databuffer[i], false);
-//    }
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.print(data[i]);
-#endif
-    if (err) break;
-  }
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.println("<-End.");
-#endif
-
-  // return error state
-  return err;
-}
-*/
-
-/*
-void GPIBbus::sendData(ifstream& fileToSend){
-
-  bool err = false;
-  uint8_t db = 0;
-
-  setControls(DTAS);
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.println(F("Set write data mode."));
-  debugStream.print(F("Send->"));
-#endif
-
-  // Write the data string
-//  for (int i = 0; i < dsize; i++) {
-  while (fileToSend.peek()!=EOF) {
-    db = fileToSend.get();
-    // If EOI asserting is on
-    if (cfg.eoi) {
-      // Send all characters
-//      err = writeByte(db);
-    } else {
-      // Otherwise ignore non-escaped CR, LF and ESC
-//      if ((db != CR) || (db != LF) || (db != ESC)) err = writeByte(db, false);
-    }
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.print(db);
-#endif
-    if (err) break;
-  }
-
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.println("<-End.");
-#endif
-
-  if (!err && !cfg.eoi) {
-    // Write terminators according to EOS setting
-    // Do we need to write a CR?
-    if ((cfg.eos & 0x2) == 0) {
-      writeByte(CR, false);
-#ifdef DEBUG_GPIBbus_SEND
-      debugStream.println(F("Appended CR"));
-#endif
-    }
-    // Do we need to write an LF?
-    if ((cfg.eos & 0x1) == 0) {
-      writeByte(LF, false);
-#ifdef DEBUG_GPIBbus_SEND
-      debugStream.println(F("Appended LF"));
-#endif
-    }
-  }
-*/
-/*
-  // If EOI enabled and no more data to follow then assert EOI
-  if (cfg.eoi && !dataContinuity) {
-    setGpibState(0b00000000, 0b00010000, 0);
-    //    setGpibState(0b00010000, 0b00000000, 0b00010000);
-    delayMicroseconds(40);
-    setGpibState(0b00010000, 0b00010000, 0);
-    //    setGpibState(0b00010000, 0b00010000, 0b00010000);
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Asserted EOI"));
-#endif
-  }
-*/
-/*
-  // Set control lines to idle
-  setControls(DIDS);
-
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("<- End of send."));
-#endif
-    
-  }
-*/
 #endif
 
 /***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
@@ -767,14 +618,6 @@ void GPIBbus::sendData(ifstream& fileToSend){
 void GPIBbus::signalBreak(){
   txBreak = true;
 }
-
-
-/***** Flag more data to come - suppress addressing *****/
-/*
-void GPIBbus::setDataContinuity(bool flag){
-  dataContinuity = flag;
-}
-*/
 
 
 /***** Control the GPIB bus - set various GPIB states *****/
@@ -1002,15 +845,6 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   // Place data on the bus
   setGpibDbus(db);
 
-/*
-#ifdef DEBUG_GPIBbus_SEND
-  debugStream.print(F("EOI flag:\t"));
-  debugStream.print(cfg.eoi);
-  debugStream.print(F("\tLastByte:\t"));
-  debugStream.println(isLastByte);
-#endif
-*/
-
   if (cfg.eoi && isLastByte) {
     // If EOI enabled and this is the last byte then assert DAV and EOI
 #ifdef DEBUG_GPIBbus_SEND
@@ -1164,6 +998,10 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 /*
  * Returns false on success, true on timeout.
  * Pin MUST be set as INPUT_PULLUP otherwise it will not change and simply time out!
+ */
+/*
+ * Note: Using millis() in here breaks the protocol for longer transmissions 
+ *        Reason unknown. 
  */
 boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, int interval) {
 

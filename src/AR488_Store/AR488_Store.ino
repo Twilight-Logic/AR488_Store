@@ -732,7 +732,7 @@ void tek_FIND_alt(char * params) {
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.42, 14/09/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.44, 21/09/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki

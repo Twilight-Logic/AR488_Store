@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.42, 14/09/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.44, 21/09/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -215,7 +215,7 @@ void TekFileInfo::setFromFilename(char * filename){
 
 /***** Set the file number *****/
 bool TekFileInfo::setFnumber(uint8_t filenum ){
-  if (filenum < FILES_PER_DIRECTORY) {
+  if (filenum < files_per_directory) {
     fnum = filenum;
     return true;
   }
@@ -333,8 +333,8 @@ uint8_t SDstorage::binaryRead() {
     // Exit on ATN or receiver request to stop (NDAC HIGH)
     if (err) {
 #ifdef DEBUG_STORE_COMMANDS
-      if (err == 1) debugStream.println(F("\r\nreceiver requested stop!"));
-      if (err == 2) debugStream.println(F("\r\nATN detected."));
+      if (err == 1) debugStream.println(F("\r\nbinaryRead: receiver requested stop!"));
+      if (err == 2) debugStream.println(F("\r\nbinaryRead: ATN detected."));
 #endif
       // Set lines to listen ?
       // Rewind file read by a character (current character has already been read)
@@ -342,6 +342,7 @@ uint8_t SDstorage::binaryRead() {
       break;
     }
   }
+  return err;
 }
 
 
@@ -380,7 +381,7 @@ SDstorage::SDstorage(){
 
 /***** Search for file by number function *****/
 /*
- * filenum 1-FILES_PER_DIRECTORY: search for the file number
+ * filenum 1-files_per_directory: search for the file number
  * filenum = 0: search for the last file
  * returns true if the file is found
  */
@@ -395,8 +396,8 @@ bool SDstorage::searchForFile(uint8_t filenum, File& fileObj){
   debugStream.println(F("..."));  
 #endif
 
-  // filenum is always 0 or more (uint8_t), but must be no larger than FILES_PER_DIRECTORY
-  if (filenum <= FILES_PER_DIRECTORY){
+  // filenum is always 0 or more (uint8_t), but must be no larger than files_per_directory
+  if (filenum <= files_per_directory){
 
     if (!dirObj.open(directory, O_RDONLY)) {
       errorCode = 3;
@@ -548,6 +549,68 @@ bool SDstorage::renameFile(File& fileObj, char ftype, char fusage) {
 }
 
 
+/***** Make a file NEW *****/
+bool SDstorage::makeNewFile(File& fileObj, uint16_t filelength) {
+
+  TekFileInfo fileinfo;
+  char fname[file_header_size];
+//  char kbuffer[12] = {0};
+  char ftype;
+  char path[full_path_size] = {0};
+//  uint8_t r = 0;
+//  uint8_t fnum = 0;
+
+  fileObj.getName(fname, file_header_size);
+  fileinfo.setFromFilename(fname);
+  ftype = fileinfo.getFtype();
+
+  if (ftype != 'L') {   // Cannot kill the LAST file!
+
+    // Get the existing full path
+    strncpy(path, directory, strlen(directory));
+    strncat(path, fname, strlen(fname));
+    fileObj.close();
+          
+    // Delete the file content
+    if (sd.remove(path)) {
+      // Set file parameters
+      fileinfo.setFtype('N');
+      if (filelength>0) {
+        fileinfo.setFsize(filelength);
+      }else{
+        fileinfo.setFrecords(1);
+      }
+      // Read back new filename
+      fileinfo.getFilename(fname);
+
+      // Compose the new full path
+      memset(path, '\0', full_path_size);
+      strncpy(path, directory, strlen(directory));
+      strncat(path, fname, strlen(fname));
+
+      // Create a new NEW file with same number
+      if (fileObj.open(path,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.println(F("makeNewFile: file set to NEW."));
+#endif
+        fileObj.close(); // Finished with file
+        return true;
+      }else{
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.println(F("makeNewFile: failed make NEW!"));           
+#endif
+      }
+#ifdef DEBUG_STORE_COMMANDS
+    }else{
+      debugStream.println(F("makeNewFile: failed to clear existing file!"));
+#endif
+    }
+  }
+  return false;
+}
+
+
+
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** SD Card handling functions *****/
 /**************************************/
@@ -605,7 +668,7 @@ void SDstorage::stgc_0x60_h(){
 void SDstorage::stgc_0x61_h(){
 
   TekFileInfo fileinfo;
-  char fname[file_header_size];
+//  char fname[file_header_size];
 //  uint32_t fsize = 0;
   uint8_t r = 0;
 //  File dirObj;
@@ -626,24 +689,6 @@ void SDstorage::stgc_0x61_h(){
         sdinout.truncate();
         // Make sure file is makrked as ASCII PROG, with appropriate length and rename
         renameFile(sdinout, 'A', 'P');
-/*        
-        sdinout.getName(fname, file_header_size);
-        fileinfo.setFromFilename(fname);
-        // Set file parameters
-        fileinfo.setFtype('A');
-        fileinfo.setFusage('P');
-        fileinfo.setFsize(sdinout.fileSize());
-        // Read back new filename
-        fileinfo.getFilename(fname);
-        // Rename the file
-        if (sdinout.rename(&dirObj, fname)) {
-#ifdef DEBUG_STORE_COMMANDS
-          debugStream.println(F("stgc_061_h: filename updated."));
-        }else{
-          debugStream.println(F("stgc_061_h: failed to update filename!"));           
-#endif
-        }
-*/        
 //        sdinout.close(); // Finished with file
 #ifdef DEBUG_STORE_COMMANDS
       }else{
@@ -656,14 +701,6 @@ void SDstorage::stgc_0x61_h(){
       debugStream.println(F("stgc_0x61_h: incorrect file type!"));
 #endif
     }
-/*
-  }else{
-    errorCode = 3;
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.println(F("searchForFile: failed to open directory!"));
-#endif      
-  }
-*/
 
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.println(F("stgc_0x61_h: done."));
@@ -700,7 +737,7 @@ void SDstorage::stgc_0x63_h(){
 void SDstorage::stgc_0x64_h() {
   char path[full_path_size] = {0};
   char linebuffer[line_buffer_size];
-  uint8_t err = 0;
+//  uint8_t err = 0;
 
   // line_buffer_size = 72 char line max in Tek plus CR plus NULL
 
@@ -734,9 +771,6 @@ void SDstorage::stgc_0x64_h() {
 debugStream.println(linebuffer);
       }
 
-
-
-
     }
 
     // Close the file
@@ -758,21 +792,7 @@ debugStream.println(linebuffer);
 
 
 /***** TYPE command *****/
-/*
- * 0 = Empty file or file not open 
- * 1 = End of file
- * 2 = ASCII data
- * 3 = Binary numeric data
- * 4 = Binary character string
- */
-void SDstorage::stgc_0x66_h() {
-  char dtype = 0;
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.print(F("stgc_0x66_h: sending data type..."));
-  debugStream.println(errorCode);
-#endif
-
-/*
+ /*
  * Extract type of the next DATA on tape 
  * 0 : Empty (NEW or not open)
  * 1 : End-of-file character
@@ -784,6 +804,15 @@ void SDstorage::stgc_0x66_h() {
  * Empty might be indicated by file size = 0
  * Otherwise perhaps need to scan ahead using seek() ?
  */
+void SDstorage::stgc_0x66_h() {
+  char dtype = 0;
+
+/* ........... */
+  
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("stgc_0x66_h: sending data type..."));
+  debugStream.println(errorCode);
+#endif
 
   // Send info to GPIB bus
   gpibBus.sendData(&dtype, 1, DATA_COMPLETE);
@@ -797,10 +826,10 @@ void SDstorage::stgc_0x66_h() {
 void SDstorage::stgc_0x67_h(){
 
   TekFileInfo fileinfo;
-  char fname[file_header_size];
+//  char fname[file_header_size];
   char kbuffer[12] = {0};
-  char ftype;
-  char path[full_path_size] = {0};
+//  char ftype;
+//  char path[full_path_size] = {0};
   uint8_t r = 0;
   uint8_t fnum = 0;
   File fileObj;
@@ -826,6 +855,10 @@ void SDstorage::stgc_0x67_h(){
     // Find the file to be wiped out
     if (searchForFile(fnum, fileObj)) {
 
+      // Create empty new file
+      makeNewFile(fileObj, 0);
+
+/*
       fileObj.getName(fname, file_header_size);
       fileinfo.setFromFilename(fname);
       ftype = fileinfo.getFtype();
@@ -865,7 +898,7 @@ void SDstorage::stgc_0x67_h(){
         }
         
       }
-      
+*/      
     }else{
       errorCode = 2;
 #ifdef DEBUG_STORE_COMMANDS
@@ -985,7 +1018,8 @@ void SDstorage::stgc_0x6C_h() {
  */
 
  /*
-  * Working on 4051 but not on 4052/4054
+  * Working on 4051 
+  * Working on 4052/4054 but requires debug to be disabled
   */
 
 void SDstorage::stgc_0x6D_h() {
@@ -1090,6 +1124,10 @@ void SDstorage::stgc_0x6E_h() {
 #endif
 
     err = binaryRead();
+
+#ifdef DEBUG_STORE_COMMANDS
+    if (err) debugStream.println(F("stgc_0x6E_h: error reading file!"));
+#endif
     
   }else{
 #ifdef DEBUG_STORE_COMMANDS
@@ -1403,7 +1441,7 @@ void SDstorage::stgc_0x71_h() {
   char fname[file_header_size];
   TekFileInfo fileinfo;
   uint8_t r = 0;
-  bool err = false;
+  uint8_t err = 0;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x71_h: started BSAVE/BOLD handler..."));
@@ -1438,14 +1476,14 @@ void SDstorage::stgc_0x71_h() {
 #ifdef DEBUG_STORE_COMMANDS
       debugStream.println(F("stgc_0x71_h: reading file..."));
 #endif
-      binaryRead();
+      err = binaryRead();
     }else{
-      err = true;
+      err = 5;
     }
   }
 
 #ifdef DEBUG_STORE_COMMANDS
-  if (err) debugStream.println(F("stgc_0x71_h: incorrect file type!"));
+  if (err==5) debugStream.println(F("stgc_0x71_h: incorrect file type!"));
   debugStream.println(F("stgc_0x71_h: done."));
 #endif    
 
@@ -1598,7 +1636,8 @@ void SDstorage::stgc_0x7C_h(){
   char mpbuffer[13] = {0};
 //  char *token;
   uint8_t numfiles = 0;
-  uint8_t filenum = 0;
+  uint8_t lastfilenum = 0;
+  uint8_t curfilenum = 0;
   uint16_t flen = 0;
   File dirObj;
   File markFile;
@@ -1624,66 +1663,95 @@ void SDstorage::stgc_0x7C_h(){
 
   if (dirObj.open(directory, O_RDONLY)) {
 
-    // Get the number of the LAST file
-    filenum = getLastFile(markFile);
+    // Get the number of the current file
+    sdinout.getName(fname, file_header_size);
+    curfilenum = atoi(fname);
 
 #ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_07C_h: LAST file no.: "));
-    debugStream.println(filenum);
+    debugStream.print(F("stgc_07C_h: current file: "));
+    debugStream.println(curfilenum);
 #endif
 
-    if ((filenum > 0) && (numfiles > 0)) {
-
-      // Retrieve file name
-      markFile.getName(fname, file_header_size);
-      fileinfo.setFromFilename(fname);
-
-      // Renumber LAST to current number + numfiles
-      if (fileinfo.setFnumber(filenum + numfiles)) {
-
-        // Construct the new file name
-        fileinfo.setFrecords(1);
-        fileinfo.getFilename(fname);
-
-        // Rename the file on the SD card
-        if (markFile.rename(&dirObj, fname)) {
-
-          markFile.close(); // Finished with LAST file
+    // Adding 'numfiles' cannot exceed files_per_directory - 1 (i.e. excluding LAST) so reduce 'numfiles' accordingly if required
+    if (numfiles > (files_per_directory - (curfilenum + 1))) numfiles = files_per_directory - (curfilenum + 1);
 
 #ifdef DEBUG_STORE_COMMANDS
-          debugStream.print(F("stgc_07C_h: renamed LAST to: "));
-          debugStream.println(fname);
+    debugStream.print(F("stgc_07C_h: files to MARK: "));
+    debugStream.println(numfiles);
 #endif
-     
-          // Create new files and mark them as NEW
-          for (uint8_t i=filenum; i<(filenum + numfiles); i++) {
-            fileinfo.clear();
-            fileinfo.setFnumber(i);
-            fileinfo.setFtype('N');
-            fileinfo.setFsize(flen);
-            fileinfo.getFilename(fname);
 
-debugStream.print(F("Filename bytes:"));
-printHex(fname, strlen(fname));
-debugStream.println();
+    if (numfiles > 0) {
 
-            // Create a NEW file with the generated name
-            if (markFile.open(&dirObj,fname,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
-//              markFile.sync();
-              markFile.close();
+      // Get the number of the LAST file
+      lastfilenum = getLastFile(markFile);
+
+      // If required, renumber LAST
+      if ((curfilenum + numfiles) >= lastfilenum) {
+
+        // Retrieve file name
+        markFile.getName(fname, file_header_size);
+        fileinfo.setFromFilename(fname);
+
+        // Renumber LAST to current file number + numfiles + 1
+        if (fileinfo.setFnumber(curfilenum + numfiles + 1)) {
+
+          // Construct the new file name
+          fileinfo.getFilename(fname);
+          fileinfo.setFrecords(1);
+
+          // Rename the file on the SD card
+          if (markFile.rename(&dirObj, fname)) {
+
+//            markFile.close(); // Finished with LAST file
+
 #ifdef DEBUG_STORE_COMMANDS
-              debugStream.print(F("stgc_07C_h: created: "));
-              debugStream.print(directory);
-              debugStream.println(fname);
+            debugStream.print(F("stgc_07C_h: renamed LAST to: "));
+            debugStream.println(fname);
 #endif
-            }else{
-#ifdef DEBUG_STORE_COMMANDS
-              debugStream.print(F("Failed to create: "));
-              debugStream.println(fname);
-#endif
-            }
 
           }
+        }
+      }
+      markFile.close();
+
+      // Clear/rename or create new files
+      for (uint8_t i=curfilenum+1; i<curfilenum+numfiles+1; i++) {
+
+debugStream.print(F("I: "));
+debugStream.println(i);
+        
+        // Check whether file already exists
+        if (searchForFile(i, markFile)) {
+          // If it exists then make it NEW
+          makeNewFile(markFile, flen);
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.print(F("stgc_07C_h: file made NEW: "));
+          debugStream.println(i);
+#endif
+        }else{
+          // Generate a new file name
+          fileinfo.clear();
+          fileinfo.setFnumber(i);
+          fileinfo.setFtype('N');
+          fileinfo.setFsize(flen);
+          fileinfo.getFilename(fname);
+
+          // Create a NEW file with the generated name
+          if (markFile.open(&dirObj,fname,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
+//            markFile.sync();
+            markFile.close();
+#ifdef DEBUG_STORE_COMMANDS
+            debugStream.print(F("stgc_07C_h: created: "));
+            debugStream.print(directory);
+            debugStream.println(fname);
+#endif
+          }else{
+#ifdef DEBUG_STORE_COMMANDS
+            debugStream.print(F("Failed to create: "));
+            debugStream.println(fname);
+#endif
+          }
+
         }
       }
       dirObj.close();

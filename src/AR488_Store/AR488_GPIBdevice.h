@@ -11,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.42, 14/09/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.44, 21/09/2021 *****/
 
 
 /*********************************************/
@@ -26,19 +26,7 @@
 /***** Debug Port *****/
 #ifdef DB_SERIAL_ENABLE
   extern Stream& debugStream;
-/*
-  #ifdef DB_SERIAL_TYPE_CDC
-    extern Serial_ *dbSerial;
-  #endif
-  #ifdef DB_SERIAL_TYPE_HW
-    extern HardwareSerial *dbSerial;
-  #endif
-  // Note: SoftwareSerial support conflicts with PCINT support
-  #ifdef DB_SERIAL_TYPE_SW
-    #include <SoftwareSerial.h>
-    extern SoftwareSerial *dbSerial;
-  #endif
-*/
+
   /* Configured in Config.h */
   //#define DEBUG_GPIBbus_READ
   //#define DEBUG_GPIBbus_WRITE
@@ -134,7 +122,6 @@ class GPIBbus {
     void sendStatus();
     void sendEOI();
     void setStatus(uint8_t statusByte);
-//    bool sendCmd(uint8_t cmdByte);
     uint8_t readByte(uint8_t *db, bool readWithEoi, bool *eoi);  
     bool receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte, uint8_t endByte);
     bool receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);

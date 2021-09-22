@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.42, 14/09/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.44, 21/09/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -35,19 +35,20 @@
 // Length of character stream buffer
 #define LINELENGTH 74
 // Number of files allowed per directory (virtual "tape")
-#define FILES_PER_DIRECTORY 99
+#define FILES_PER_DIRECTORY 250
 
 
 #define DATA_CONTINUE false
 #define DATA_COMPLETE true
 
 
+const uint8_t files_per_directory = FILES_PER_DIRECTORY;
+
 
 struct alphaIndex {
   const char idx;
   const char * desc;
 };
-
 
 
 /***** Character stream buffer *****/
@@ -132,6 +133,7 @@ class SDstorage {
     const uint8_t bin_buffer_size = 65;
     const uint8_t file_header_size = 46;  // 44 char plus CR + NULL
     const uint8_t full_path_size = 60;    // 44 + 13 char plus CR + NULL
+    
     char directory[13] = "/root/";     //allow up to ten character directory names plus two '/' and NULL terminator
 
     char f_name[46];                //the current filename variable
@@ -203,6 +205,7 @@ class SDstorage {
     uint8_t binaryRead();
     bool binaryWrite();
     bool renameFile(File& fileObj, char ftype, char fusage);
+    bool makeNewFile(File& fileObj, uint16_t filelength);
 };
 
 
