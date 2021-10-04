@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.44, 21/09/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.45, 04/10/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -85,7 +85,7 @@ class TekFileInfo {
     char getFtype();
     char getFusage();
     void getFtypeStr(char * typestr);
-    void getFusageStr(char * usagestr);
+    void getFusageStr(char * usagestr, uint8_t ulen);
     void getFrecords(char * recordstr);
     void getFsize(char * sizestr);
 

@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.44, 21/09/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.45, 04/10/2021 *****/
 
 
 /****** Process status values *****/
@@ -1029,7 +1029,9 @@ boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, int interval) {
     
     // ATN changed state so abort
     if (atnStat && !isAsserted(ATN)) {
+#if defined (DEBUG_GPIBbus_RECEIVE) || defined (DEBUG_GPIBbus_SEND) 
       debugStream.println(F("ATN status changed!"));
+#endif
       return true;
     }
     
