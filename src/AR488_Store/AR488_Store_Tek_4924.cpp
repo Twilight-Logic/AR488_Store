@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.45, 04/10/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.46, 02/11/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -312,31 +312,39 @@ uint16_t SDstorage::hexToDataHeader(char * hexstr) {
 uint8_t SDstorage::binaryRead() {
   int16_t c;
   uint8_t err = 0;
+
+//  unsigned long cnt = 0;
+  
   while (sdinout.available()) {
 
     // Read a byte
     c = sdinout.read();
-    
-    if (sdinout.peek() == EOF) {  // Look ahead for EOF
-      // Reached EOF - send last byte with EOI
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
+//    cnt++;
+
+/*
+#ifdef DEBUG_STORE_COMMANDS
+    if (!err) {
+      char x[4] = {0};
+      sprintf(x,"%02X ",c);    
+      debugStream.print(x);
+    }
+#endif
+*/
+
+    if (sdinout.peek() < 0) {  // Look ahead for EOF
+      // Reached EOF - send last byte and 0xFF with EOI
+      err = gpibBus.writeByte(c, DATA_CONTINUE);
+      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+
 /*
 #ifdef DEBUG_STORE_COMMANDS
       debugStream.println(F("<EOF"));
 #endif
 */
+
     }else{
       // Send byte to the GPIB bus
       err = gpibBus.writeByte(c, DATA_CONTINUE);
-/*
-#ifdef DEBUG_STORE_COMMANDS
-      if (!err) {
-        char x[4] = {0};
-        sprintf(x,"%02X ",c);    
-        debugStream.print(x);
-      }
-#endif
-*/
     }
 
     // Exit on ATN or receiver request to stop (NDAC HIGH)
@@ -351,6 +359,12 @@ uint8_t SDstorage::binaryRead() {
       break;
     }
   }
+
+/*
+  debugStream.print(cnt);
+  debugStream.println(" bytes sent.");
+*/
+
   return err;
 }
 
@@ -810,7 +824,7 @@ void SDstorage::stgc_0x64_h() {
  * Otherwise perhaps need to scan ahead using seek() ?
  */
 void SDstorage::stgc_0x66_h() {
-  char dtype = 0;
+//  char dtype = 0;
 
 /* ........... */
   
@@ -1421,7 +1435,7 @@ void SDstorage::stgc_0x71_h() {
   debugStream.println(F("stgc_0x71_h: started BSAVE/BOLD handler..."));
 #endif
 
-  // If addressed to listen, write the file
+  // If addressed to listen, write (BSAVE) the file
   if (gpibBus.isDeviceAddressedToListen()){
     sdinout.getName(fname, file_header_size);
     fileinfo.setFromFilename(fname);
@@ -1442,7 +1456,7 @@ void SDstorage::stgc_0x71_h() {
     }
   }
 
-  // If addressed to talk read the file  
+  // If addressed to talk read (BOLD) the file  
   if (gpibBus.isDeviceAddressedToTalk()){
     sdinout.getName(fname, file_header_size);
     fileinfo.setFromFilename(fname);

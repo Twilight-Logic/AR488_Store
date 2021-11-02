@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.45, 04/10/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.46, 02/11/2021 *****/
 
 
 /****** Process status values *****/
@@ -807,7 +807,6 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #endif
     return 1;    
   }
-
 
   // Wait for NDAC to go LOW (indicating that devices are at attention)
   if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
