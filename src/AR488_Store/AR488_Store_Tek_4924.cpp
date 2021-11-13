@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.46, 02/11/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.47, 13/11/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -52,6 +52,7 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x66, &SDstorage::stgc_0x66_h },  // TYPE
   { 0x67, &SDstorage::stgc_0x67_h },  // KILL
   { 0x69, &SDstorage::stgc_0x69_h },  // HEADER/DIRECTORY/CD
+  { 0x6A, &SDstorage::stgc_0x6A_h },  // COPY
   { 0x6C, &SDstorage::stgc_0x6C_h },  // PRINT
   { 0x6D, &SDstorage::stgc_0x6D_h },  // INPUT
   { 0x6E, &SDstorage::stgc_0x6E_h },  // READ
@@ -314,14 +315,17 @@ uint8_t SDstorage::binaryRead() {
   uint8_t err = 0;
 
 //  unsigned long cnt = 0;
+
+
   
   while (sdinout.available()) {
 
     // Read a byte
     c = sdinout.read();
+
 //    cnt++;
 
-/*
+
 #ifdef DEBUG_STORE_COMMANDS
     if (!err) {
       char x[4] = {0};
@@ -329,12 +333,21 @@ uint8_t SDstorage::binaryRead() {
       debugStream.print(x);
     }
 #endif
-*/
 
+
+//    if ((term>-1) && (sdinout.peek()==(term&0xFF))) {
+/*
+    if ( (term>-1) && (c==(term&0xFF)) ) {
+      // Terminator reached
+      err = gpibBus.writeByte(c, DATA_COMPLETE);
+    }else
+*/    
     if (sdinout.peek() < 0) {  // Look ahead for EOF
+//    if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
       err = gpibBus.writeByte(c, DATA_CONTINUE);
       err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      return(0);
 
 /*
 #ifdef DEBUG_STORE_COMMANDS
@@ -367,6 +380,100 @@ uint8_t SDstorage::binaryRead() {
 
   return err;
 }
+
+
+
+/***** COPY binary data from file *****/
+uint8_t SDstorage::binaryCopy() {
+  int16_t c;
+  uint8_t err = 0;
+  int copycnt = 0;
+  
+  while (sdinout.available()) {
+
+    // Read a byte
+    c = sdinout.read();
+
+//    cnt++;
+
+
+#ifdef DEBUG_STORE_COMMANDS
+    if (!err) {
+      char x[4] = {0};
+      sprintf(x,"%02X ",c);    
+      debugStream.print(x);
+    }
+#endif
+
+    if ( c==(copyterm&0xFF)) {
+      // Terminator reached
+//      err = gpibBus.writeByte(c, DATA_CONTINUE);
+//      err = gpibBus.writeByte(c, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, DATA_COMPLETE);
+//      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      return 0;
+    } else if (c==0x0D) {
+      // CR reached
+      err = gpibBus.writeByte(c, DATA_COMPLETE);
+      return 0;
+    }else if (c<0) {
+      // EOF reached
+      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      return 0;
+    }else if (copycnt == (copylen-1)) {
+      // Reached copylen bytes
+      err = gpibBus.writeByte(c, DATA_COMPLETE);
+      return 0;      
+    }else if (sdinout.peek() < 0) {  // Look ahead for EOF
+      // Reached EOF - send last byte and 0xFF with EOI
+      err = gpibBus.writeByte(c, DATA_COMPLETE);
+//      err = gpibBus.writeByte(c, DATA_CONTINUE);
+//      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      return 0;
+
+/*
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.println(F("<EOF"));
+#endif
+*/
+
+    }else{
+      // Send byte to the GPIB bus
+      err = gpibBus.writeByte(c, DATA_CONTINUE);
+      copycnt++;
+    }
+
+    // Exit on ATN or receiver request to stop (NDAC HIGH)
+    if (err) {
+#ifdef DEBUG_STORE_COMMANDS
+      if (err == 1) debugStream.println(F("\r\nbinaryRead: receiver requested stop!"));
+      if (err == 2) debugStream.println(F("\r\nbinaryRead: ATN detected."));
+#endif
+      // Set lines to listen ?
+      // Rewind file read by a character (current character has already been read)
+      sdinout.seekCur(-1);
+      break;
+    }
+  }
+
+/*
+  debugStream.print(cnt);
+  debugStream.println(" bytes sent.");
+*/
+
+  return err;
+}
+
+
+
+
+
+
+
+
+
+
+
 
 
 /***** Write binary data/program to file *****/
@@ -970,13 +1077,58 @@ void SDstorage::stgc_0x69_h() {
 }
 
 
+/***** COPY command *****/
+void SDstorage::stgc_0x6A_h() {
+
+// Note: Reads BINARY files up to 0x80 character
+
+  uint8_t err = 0;
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6A_h: started READ handler..."));
+#endif
+
+//  if (f_type == 'H') {
+
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x6A_h: reading "));
+    debugStream.print(directory);
+    debugStream.print(f_name);
+    debugStream.println(F("..."));
+#endif
+
+//    err = binaryRead(0x80);
+    err = binaryCopy();
+
+#ifdef DEBUG_STORE_COMMANDS
+    if (err) debugStream.println(F("stgc_0x6A_h: error reading file!"));
+#endif
+
+/*
+  }else{
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6A_h: incorrect file type!"));
+#endif
+  }
+*/
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6A_h: done."));
+#endif
+
+}
+
+
 /***** PRINT command *****/
 void SDstorage::stgc_0x6C_h() {
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6C_h: started PRINT handler..."));
 #endif
-  if (f_type == 'D') {
+  if ( (f_type == 'N') || f_type == 'D') {
     gpibBus.receiveToFile(sdinout, true, false, 0);
+    // Make sure file is makrked as BINARY DATA, with appropriate length and rename
+    if (f_type == 'N') renameFile(sdinout, 'A', 'D');   
 #ifdef DEBUG_STORE_COMMANDS
   }else{
     debugStream.println(F("stgc_0x6C_h: incorrect file type!"));
@@ -1405,8 +1557,10 @@ void SDstorage::stgc_0x6F_h() {
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
 #endif
-  if (f_type == 'H') {
+  if ( (f_type == 'N') || (f_type == 'H') ) {
     binaryWrite();
+   // Make sure file is makrked as BINARY DATA, with appropriate length and rename
+   if (f_type == 'N') renameFile(sdinout, 'B', 'D');   
 #ifdef DEBUG_STORE_COMMANDS
   }else{
     debugStream.println(F("stgc_0x6F_h: incorrect file type!"));

@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.46, 02/11/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.47, 13/11/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -31,7 +31,7 @@
 #define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(SDCARD_CLK))
 
 // Number of storage GPIB commands
-#define STGC_SIZE 18
+#define STGC_SIZE 19
 // Length of character stream buffer
 #define LINELENGTH 74
 // Number of files allowed per directory (virtual "tape")
@@ -152,6 +152,9 @@ class SDstorage {
 
     uint8_t errorCode = 0;
 
+    int copyterm = 0x80;
+    int copylen = 256;
+
     using stgcHandler = void (SDstorage::*)();
 
     // Storage GPIB command functions
@@ -172,8 +175,10 @@ class SDstorage {
     // HEADER
     void stgc_0x69_h();
     // PRINT
+    void stgc_0x6A_h();
+    // COPY
     void stgc_0x6C_h();
-    // ?
+    // PRINT
     void stgc_0x6D_h();
     // READ
     void stgc_0x6E_h();
@@ -203,6 +208,7 @@ class SDstorage {
     bool searchForFile(uint8_t filenum, File& fileObj);
     uint8_t getLastFile(File& fileObj);
     uint8_t binaryRead();
+    uint8_t binaryCopy();
     bool binaryWrite();
     bool renameFile(File& fileObj, char ftype, char fusage);
     bool makeNewFile(File& fileObj, uint16_t filelength);
