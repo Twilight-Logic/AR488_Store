@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.47, 13/11/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.49, 16/11/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -20,7 +20,7 @@ extern ArduinoOutStream cout;
 
 extern void printHex(char *buffr, int dsize);
 
-CharStream charStream(LINELENGTH);
+CharStream charStream(line_buffer_size);
 ArduinoOutStream gpibout(charStream);
 
 
@@ -309,6 +309,121 @@ uint16_t SDstorage::hexToDataHeader(char * hexstr) {
 }
 
 
+/***** Get the current directory *****/
+void SDstorage::getDirectory(char * path) {
+  strncpy(path, directory, 13);
+}
+
+
+
+/***** Set the current directory *****/
+void SDstorage::setDirectory(char * path) {
+  uint8_t j = 1;
+  // Set directory path
+  directory[0] = '/';
+  for (uint8_t i=0; i<strlen(path); i++) {
+    // Ignore slashes and line terminators (CR or LF)
+    if ((path[i] != 0x2F) && (path[i] != 0x5C) && (path[i] != 0x0A) && (path[i] != 0x0D)) {
+      // Add character to directory name
+      if (j < 11) directory[j] = path[i]; // Copy max 10 characters
+      j++;
+    }
+  }
+  // Add terminating slash and NULL
+  directory[j] = '/';
+  directory[j+1] = '\0';
+
+  // Reset list index to file 0
+  listIdx = 0;
+
+  // Close any previous file that was open
+  stgc_0x62_h();  // Close function
+}
+
+
+/***** Display content of current file on terminal *****/
+void SDstorage::viewCurrentFile(Stream &output){
+  char linebuf[line_buffer_size];
+  char path[full_path_size] = {0};
+  strcpy(path, directory);
+  strcat(path, f_name);
+  ifstream sdin(path);
+  while (sdin.getline(linebuf, line_buffer_size, '\r')) {
+    output.println(linebuf);
+  }
+  sdin.close();
+}
+
+
+/***** Set the current file parameters *****/
+bool SDstorage::findFile(uint8_t fnum){
+  File findfile;
+  char path[full_path_size] = {0};
+  char fname[46];
+
+  if (searchForFile(fnum, findfile)) { // Returns filehandle if found
+
+    // Get filename from file handle and store in f_name
+    findfile.getName(fname, 46);
+    strncpy(f_name, fname, 46);
+    findfile.close();
+
+    // all BINARY files are in HEX format
+    if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
+      f_type = 'B';    // BINARY PROGRAM file
+    } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
+      f_type = 'H';    // BINARY DATA file ** to read - parse the data_type
+    } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
+      f_type = 'S';    // SECRET ASCII PROGRAM file
+    } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
+      f_type = 'P';    // ASCII PROGRAM file
+    } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
+      f_type = 'N';    // ASCII LAST file
+    } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
+      f_type = 'L';    // ASCII LAST file
+    } else {
+      f_type = 'D';    // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
+    }
+
+    if (f_type) {
+      strncpy(path, directory, strlen(directory));
+      strncat(path, f_name, strlen(f_name));
+      sdinout.open(path, O_RDWR); // Open file for reading and writing
+      listIdx = atoi(fname);
+
+      return true;
+
+#ifdef DEBUG_STORE_COMMANDS
+    }else{
+      // Type undetemined
+      debugStream.println(F("setFileInfo: Unknown type!"));
+      debugStream.println(F("setFileInfo: done."));
+#endif
+    }
+  }
+  return false;
+}
+
+
+/***** List files in directory to serial *****/
+void SDstorage::listFiles(Stream &output){
+
+  char fname[file_header_size+1] = {0};
+//  bool found = false;
+  File fileObj;
+
+  for (uint8_t fnum = 1; fnum < files_per_directory; fnum++) {
+    if (searchForFile(fnum, fileObj)) {
+      // Retrieve file name
+      fileObj.getName(fname, file_header_size);
+      fileObj.close();  // Done with file handle
+      output.println(fname);
+    }
+    if (fname[7] == 'L') return;
+  }
+}
+
+
 /***** Read binary data/program from file *****/
 uint8_t SDstorage::binaryRead() {
   int16_t c;
@@ -520,7 +635,7 @@ bool SDstorage::searchForFile(uint8_t filenum, File& fileObj){
   File dirObj;
   char fname[file_header_size];
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
   debugStream.print(F("searchForFile: searching "));
   debugStream.print(directory);
   debugStream.println(F("..."));  
@@ -531,7 +646,7 @@ bool SDstorage::searchForFile(uint8_t filenum, File& fileObj){
 
     if (!dirObj.open(directory, O_RDONLY)) {
       errorCode = 3;
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
       debugStream.println(F("searchForFile: failed to open directory!"));
 #endif
       return false;
@@ -558,7 +673,7 @@ bool SDstorage::searchForFile(uint8_t filenum, File& fileObj){
 //        debugStream.println(num);
 
         if (filenum == num) {
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
           debugStream.print(F("searchForFile: found file "));
           debugStream.println(filenum);
           debugStream.println(F("searchForFile: done."));
@@ -574,13 +689,13 @@ bool SDstorage::searchForFile(uint8_t filenum, File& fileObj){
     dirObj.close();
     errorCode = 2;
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
     debugStream.println(F("searchForFile: file not found!"));
 #endif
   }
 
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
   debugStream.println(F("searchForFile: done."));
 #endif
 
@@ -593,7 +708,7 @@ uint8_t SDstorage::getLastFile(File& fileObj) {
   File dirObj;
   char fname[file_header_size];
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
   debugStream.print(F("getLastFileNum: searching "));
   debugStream.print(directory);
   debugStream.println(F("..."));  
@@ -601,7 +716,7 @@ uint8_t SDstorage::getLastFile(File& fileObj) {
 
   if (!dirObj.open(directory, O_RDONLY)) {
     errorCode = 3;
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
     debugStream.println(F("getLastFileNum: failed to open directory!"));
 #endif
     return 0;
@@ -620,7 +735,7 @@ uint8_t SDstorage::getLastFile(File& fileObj) {
         int num = atoi(fname);
         fileObj.close();
         dirObj.close();
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
         debugStream.print(F("getLastFileNum: LAST is file number: "));
         debugStream.println(num);
         debugStream.println(F("getLastFileNum: done."));
@@ -633,7 +748,7 @@ uint8_t SDstorage::getLastFile(File& fileObj) {
   dirObj.close();
   errorCode = 2;
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
   debugStream.println(F("searchForFile: file not found!"));
   debugStream.println(F("getLastFileNum: done."));
 #endif
@@ -662,17 +777,17 @@ bool SDstorage::renameFile(File& fileObj, char ftype, char fusage) {
       fileinfo.getFilename(fname);
       // Rename the file
       if (sdinout.rename(&dirObj, fname)) {
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
         debugStream.println(F("fileRename: filename updated."));
 #endif
         return true;
       }else{
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
         debugStream.println(F("fileRename: failed to update filename!"));           
 #endif
         return false;
       }
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
     }else{
       errorCode = 2;
       debugStream.println(F("renameFile: incorrect file type!"));
@@ -680,7 +795,7 @@ bool SDstorage::renameFile(File& fileObj, char ftype, char fusage) {
     }
   }else{
     errorCode = 3;
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
     debugStream.println(F("renameFile: failed to open directory!"));
 #endif      
   }
@@ -726,17 +841,17 @@ bool SDstorage::makeNewFile(File& fileObj, uint16_t filelength) {
 
       // Create a new NEW file with same number
       if (fileObj.open(path,(O_RDWR | O_CREAT | O_AT_END))) { // Create new file if it doesn't already exist
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
         debugStream.println(F("makeNewFile: file set to NEW."));
 #endif
         fileObj.close(); // Finished with file
         return true;
       }else{
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
         debugStream.println(F("makeNewFile: failed make NEW!"));           
 #endif
       }
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_LOW_LEVEL
     }else{
       debugStream.println(F("makeNewFile: failed to clear existing file!"));
 #endif
@@ -920,18 +1035,21 @@ void SDstorage::stgc_0x64_h() {
 /***** TYPE command *****/
  /*
  * Extract type of the next DATA on tape 
- * 0 : Empty (NEW or not open)
+ * 0 : Empty File (NEW or not open)
  * 1 : End-of-file character
- * 2 : ASCII data (numaric or character sring)
- * 3 : Binary numeric data
- * 4 : Binary character string
+ * 2 : Numeric or Character string DATA/ASCII Format
+ * 3 : Numeric data/Binary Format
+ * 4 : Character String/Binary Format
  * Note: this is not about the file type but the data in the file
  * 
  * Empty might be indicated by file size = 0
  * Otherwise perhaps need to scan ahead using seek() ?
  */
 void SDstorage::stgc_0x66_h() {
-//  char dtype = 0;
+  int dtype = 0;
+  int dsize = 0;
+  int peekb[2] = {0};
+  char numstr[6] = {'\0'};
 
 /* ........... */
   
@@ -940,10 +1058,82 @@ void SDstorage::stgc_0x66_h() {
   debugStream.println(errorCode);
 #endif
 
-// TO BE COMPLETED
-  // Send info to GPIB bus
-//  gpibBus.sendData(&dtype, 1, DATA_COMPLETE);
-// TO BE COMPLETED
+  if ( (sdinout.isOpen()) && (f_type == 'H')) {
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x66_h: getting type... "));
+    debugStream.print(directory);
+    debugStream.print(f_name);
+    debugStream.println(F("..."));
+#endif
+
+    peekb[0] = sdinout.peek();
+    sdinout.seekCur(1);
+    peekb[1] = sdinout.peek();
+    sdinout.seekCur(-1);
+    
+    if (peekb[0]<0){
+      dtype = 1;
+    }else{
+      dtype = (peekb[0]&0xE0)>>5;
+      dtype  = dtype + 2; // code 1=> type 3, code 2=> type 4;
+    }
+    if ( (dtype>2) && (dtype<5) ) dsize = ((peekb[0]&0x1F)<<8) | peekb[1];
+//    if ( (dtype>2) && (dtype<5) ) dsize = peekb[1];
+
+    sprintf(numstr, "%d\x0D" ,dtype);
+    gpibBus.sendData(numstr, strlen(numstr), DATA_CONTINUE);
+    memset(numstr, '\0', 6);
+    sprintf(numstr, "%d\x0D" ,dsize);
+    gpibBus.sendData(numstr, strlen(numstr), DATA_COMPLETE);
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x66_h: type BINARY"));
+#endif
+
+
+
+/*    
+    // Send eight byte type integer
+    for (uint8_t i=0; i<7; i++) {
+      err = gpibBus.writeByte(dtype, DATA_CONTINUE);
+    }
+    err = gpibBus.writeByte(dtype, DATA_CONTINUE);
+    err = gpibBus.writeByte(0x0D, DATA_CONTINUE);
+    if (dtype == 2) {
+      // Send eight byte size integer
+      for (uint8_t i=0; i<6; i++) {
+        err = gpibBus.writeByte(dtype&0xFF, DATA_CONTINUE);
+      }
+      err = gpibBus.writeByte(dsize&0xFF00, DATA_CONTINUE);
+      err = gpibBus.writeByte(dsize&0x00FF, DATA_CONTINUE);
+    }else{
+      // Send eight byte zero integer
+      for (uint8_t i=0; i<6; i++) {
+        err = gpibBus.writeByte(0x00, DATA_CONTINUE);
+      }
+    }
+    err = gpibBus.writeByte(0x0D, DATA_COMPLETE);
+*/
+
+
+  }else if ( (sdinout.isOpen()) && (f_type == 'D') ) {
+    sprintf(numstr, "%d\x0D" ,2);
+    gpibBus.sendData(numstr, 2, DATA_CONTINUE);
+    memset(numstr, '\0', 6);
+    sprintf(numstr, "%d\x0D" ,0);
+    gpibBus.sendData(numstr, 2, DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x66_h: type ASCII"));
+#endif
+  }else{
+    sprintf(numstr, "%d\x0D" ,0);
+    gpibBus.sendData(numstr, 2, DATA_CONTINUE);
+    gpibBus.sendData(numstr, 2, DATA_COMPLETE);
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x66_h: NEW or not open"));
+#endif
+  }
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x66_h: done."));
@@ -1010,7 +1200,7 @@ void SDstorage::stgc_0x69_h() {
  */
   // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
   char dnbuffer[13] = {0};
-  uint8_t j = 1;
+//  uint8_t j = 1;
   uint8_t r = 0;
 
   // If addressed to listen, write the file
@@ -1033,19 +1223,8 @@ void SDstorage::stgc_0x69_h() {
 //      printHex(dnbuffer, 12);
 #endif
 
-      // Set directory path
-      directory[0] = '/';
-      for (uint8_t i=0; i<strlen(dnbuffer); i++) {
-        // Ignore slashes and line terminators (CR or LF)
-        if ((dnbuffer[i] != 0x2F) && (dnbuffer[i] != 0x5C) && (dnbuffer[i] != 0x0A) && (dnbuffer[i] != 0x0D)) {
-          // Add character to directory name
-          if (j < 11) directory[j] = dnbuffer[i]; // Copy max 10 characters
-          j++;
-        }
-      }
-      // Add terminating slash and NULL
-      directory[j] = '/';
-      directory[j+1] = '\0';
+      // Set directory (closes any open files, sets file index to 0)
+      setDirectory(dnbuffer);
 
 #ifdef DEBUG_STORE_COMMANDS
       debugStream.print(F("stgc_0x69_h: set directory name: "));
@@ -1053,21 +1232,11 @@ void SDstorage::stgc_0x69_h() {
 //      printHex(directory, 12);
 #endif
 
-      // Reset list index to file 0
-      listIdx = 0;
-
     }
-
-    // Close any previous file that was open
-    stgc_0x62_h();  // Close function
-
   }
 
   // If addressed to talk, send the current directory name
   if (gpibBus.isDeviceAddressedToTalk()){
-/*
- * Last parameter for sendData is 'lastchunk'. DATA_COMPLETE of sendData may need amending!
- */
     gpibBus.sendData(directory, strlen(directory), DATA_COMPLETE);
   }
   
@@ -1677,10 +1846,10 @@ void SDstorage::stgc_0x73_h(){
 /***** FIND command *****/
 void SDstorage::stgc_0x7B_h(){
   char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
-  char path[full_path_size] = {0};
+//  char path[full_path_size] = {0};
   uint8_t paramLen = 0;
   uint8_t num = 0;
-  char fname[46];
+//  char fname[46];
   File findfile;
 
 #ifdef DEBUG_STORE_COMMANDS
@@ -1709,7 +1878,18 @@ void SDstorage::stgc_0x7B_h(){
         since SdFat file index is not sequential with Tek 4050 filenames
     */
 
-    if (searchForFile(num, findfile)) { // Returns filehandle if found
+//    if (searchForFile(num, findfile)) { // Returns filehandle if found
+
+    if (findFile(num)) {
+
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.print(F("stgc_0x7B_h: found: "));
+      debugStream.println(f_name);
+      debugStream.print(F("stgc_0x7B_h: type:  "));
+      debugStream.println(f_type);
+#endif
+
+/*      
       // Get filename from file handle and store in f_name
       findfile.getName(fname, 46);
       strncpy(f_name, fname, 46);
@@ -1751,6 +1931,7 @@ void SDstorage::stgc_0x7B_h(){
         debugStream.println(F("stgc_0x7B_h: done."));
 #endif
       }
+*/
       return;      
     }else{
       errorCode = 2;
@@ -1762,7 +1943,7 @@ void SDstorage::stgc_0x7B_h(){
     }
 #ifdef DEBUG_STORE_COMMANDS
   }else{
-    debugStream.println(F("no search criteria!"));
+    debugStream.println(F("stgc_0x7B_h: no search criteria!"));
 #endif
   }
 

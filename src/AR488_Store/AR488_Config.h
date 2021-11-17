@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.47, 13/11/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.05.49, 16/11/2021"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -243,6 +243,7 @@
   // Store Module
   #define DEBUG_STORE
   #define DEBUG_STORE_COMMANDS
+  //#define DEBUG_LOW_LEVEL
 
 #endif
 

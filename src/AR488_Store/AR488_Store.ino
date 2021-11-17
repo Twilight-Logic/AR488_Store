@@ -33,6 +33,8 @@
 
 //------------------------------------------------------------------------------
 
+/*
+
 // file system object
 SdFat sd;
 SdFile file;
@@ -58,7 +60,7 @@ char f_type='N';                //the filetype string variable
 
 //enum fType {'P','D','B','S','L','N','O'}; // file types: ASCII Program, ASCII Data, Binary Program or Data, Secret ASCII Program, Last, New (just created), nO file open
 
-const int line_buffer_size = 74;  // 72 char line max in Tek plus CR plus NULL
+const int line_buffer_length = 74;  // 72 char line max in Tek plus CR plus NULL
 char buffer[line_buffer_size];
 char path[60] = {0};
 char dir[11];
@@ -88,243 +90,11 @@ float floatFromPC = 0.0;
 
 boolean newData = false;
 
-//------------------------------------------------------------------------------
-void tek_CD(char *direct) {
-    // limit the emulator dir name to single level 8 characters trailing "/" plus NULL
-
-    char *param;
-
-    if (direct != NULL) {
-
-        param = strtok(direct, " \t");
-        // cout << " \n";
-        // set directory = /param/;
-        strcpy(directory, "/");
-        strcat(directory, param);
-        strcat(directory, "/");
-        cout << F("Dir now = ") << directory << " \r " << endl;
-    } else {
-        cout << directory << endl;
-    }
-    f_name[0] = 0; // delete any previous filename that was open
-}
-
-
-//------------------------------------------------------------------------------
-void tek_OLD() {
-
-    strcpy(path, directory);
-    strcat(path, f_name);
-
-    // cout << "OLD of file: " << directory << f_name << "  path= " << path << '\r\n' << '\r\n';
-    ifstream sdin(path);
-
-    while (sdin.getline(buffer, line_buffer_size, '\r')) {
-
-        cout << buffer << '\r';
-    }
-    f_type = 'O';  // set file type to NOT OPEN
-    file.close();    // and close the current file
-
-    // cout << '\r'; //add one CR to last line processed to end Tek BASIC program output
-}
-
-//------------------------------------------------------------------------------
-/*
-char tek_FIND(char * params) {
-    // char f_name[46];  //the filename variable
 */
-    /*  FINDs and OPENs file (num)
-         Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
-
-         FIND iterates through each file in a directory until filenumber matches num
-         since SdFat file index is not sequential with Tek 4050 filenames
-    */
-
-/*
-    int num = atoi(params);
-
-    if (!dirFile.open(directory, O_RDONLY)) {
-        sd.errorHalt("Open directory failed");
-    }
-
-    for (int index = 0; index < nMax; index++) { //SdFat file index number
-
-        // while (n < nMax ) {
-        file.openNext(&dirFile, O_RDONLY);
-        // Skip directories, hidden files, and null files
-        if (!file.isSubDir() && !file.isHidden()) {
-
-            file.getName(f_name, 46);
-
-            int filenumber = atoi(f_name);
-
-            if (filenumber == num) {
-                // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
-                cout << F(" ") << f_name << "\r ";
-
-                // all BINARY files are in HEX format
-                if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'B'; // BINARY PROGRAM file
-                } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'H'; // BINARY DATA file ** to read - parse the data_type
-                } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'S'; // SECRET ASCII PROGRAM file
-                } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'P'; // ASCII PROGRAM file
-                } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'N'; // ASCII NEW file
-                } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'L'; // ASCII LAST file
-                } else {
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return 'D'; // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
-                }
-            }
-            //f_name[0]=0; // clear f_name
-
-            if (file.isDir()) {
-                // Indicate a directory.
-                cout << '/' << endl;
-            }
-
-        }
-        file.close();  // end of iteration close **this** file
-
-    }
-    cout << F("File ") << num << " not found" << endl;
-    f_name[0] = '\0';  // clear f_name
-    dirFile.close();  // end of iteration through all files, close directory
-
-    return 'O'; // File num NOT OPEN (or NOT FOUND)
-}
-*/
-
-//------------------------------------------------------------------------------
-
-void tek_TLIST() {
-    // char f_name[46];  //the filename variable
-
-    // TLIST must iterate through FILE 1 to LAST file number
-    // since SdFat file index is not sequential, code must find first file
-    // and iterate to successive files.  This also means process may have to
-    // restart at the "0" index to restart search for the next file
-
-    // match the specific Tek4924 tape file number from f_name
-    for (uint8_t number = 1; number < nMax; number++) { // find each file in # sequence
-
-        //cout << "Directory: " << directory << '\r\n';
-        f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-        file.close();  //  close any file that could be open (from previous FIND for example)
-
-        if (!dirFile.open(directory, O_RDONLY)) {
-            sd.errorHalt("Open directory failed - possible invalid directory name");
-        }
-        file.rewind();
-
-        for (int index = 0; index < nMax; index++) { //SdFat file index number
-
-            // while (n < nMax ) {
-            file.openNext(&dirFile, O_RDONLY);
-            // Skip directories, hidden files, and null files
-            if (!file.isSubDir() && !file.isHidden()) {
-
-                file.getName(f_name, 46);
-
-                int filenumber = atoi(f_name);
-
-                if (filenumber == number) {
-
-                    // print the entire file 'header' with leading space, and CR + DC3 delimiters
-                    cout << F(" ") << f_name << '\r' << '\x019';
-
-                }
-                if ((f_name[7] == 'L') && (filenumber == number)) {
-                    // then this is the LAST file - end of TLIST
-                    file.close();  // end of iteration close **this** file
-                    f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-                    f_type = 'O';    // set file type to "O" for NOT OPEN
-                    dirFile.close();  // end of iteration through all files, close directory
-                    return;
-
-                } else if (file.isDir()) {
-                    // Indicate a directory.
-                    cout << '/' << endl;
-                }
-
-            }
-            file.close();  // end of iteration close **this** file
-        }
-        f_name[0] = 0;  // clear f_name, otherwise f_name=last filename
-        f_type = 'O';    // set file type to "O" for NOT OPEN
-        dirFile.close();  // end of iteration through all files, close directory
-    }
-}
-
-
-//------------------------------------------------------------------------------
-
-// By JCH
-void tek_FIND_alt(char * params) {
-    // char f_name[46];  //the filename variable
-    /*  FINDs and OPENs file (num)
-         Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
-
-         FIND iterates through each file in a directory until filenumber matches num
-         since SdFat file index is not sequential with Tek 4050 filenames
-    */
-
-    int num = atoi(params);
-
-    if (!dirFile.open(directory, O_RDONLY)) {
-        sd.errorHalt("Open directory failed");
-    }
-
-    for (int index = 0; index < nMax; index++) { //SdFat file index number
-
-        // while (n < nMax ) {
-        file.openNext(&dirFile, O_RDONLY);
-        // Skip directories, hidden files, and null files
-        if (!file.isSubDir() && !file.isHidden()) {
-
-            file.getName(f_name, 46);
-
-            int filenumber = atoi(f_name);
-
-            if (filenumber == num) {
-                // debug print the entire file 'header' with leading space, and CR + DC3 delimiters
-                cout << F(" ") << f_name << "\r ";
-                dirFile.close();
-                return;
-            }
-            //f_name[0]=0; // clear f_name
-
-            if (file.isDir()) {
-                // Indicate a directory.
-                cout << '/' << endl;
-            }
-
-        }
-        file.close();  // end of iteration close **this** file
-
-    }
-    cout << F("File ") << num << " not found" << endl;
-    f_name[0] = '\0';  // clear f_name
-    dirFile.close();  // end of iteration through all files, close directory
-
-//    return 'O'; // File num NOT OPEN (or NOT FOUND)
-}
-
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.47, 13/11/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.49, 16/11/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -491,7 +261,6 @@ uint8_t pbPtr = 0;
 
 // GPIB bus object
 GPIBbus gpibBus;
-//Stream& gpibBus(GPIBbus);
 
 // Verbose mode
 //bool isVerb = false;
@@ -999,8 +768,6 @@ static cmdRec cmdHidx [] = {
   { "find",        find_h      },
   { "tlist",       (void(*)(char*)) tlist_h     },
   { "cd",          cd_h        },
-//  { "readf",       readf_h     },
-//  { "read1",       read1_h     },
 //  { "help",        help_h      },  //help for Tek 4924 commands
   { "old",         (void(*)(char*)) old_h       },
 #endif
@@ -1008,18 +775,35 @@ static cmdRec cmdHidx [] = {
 };
 
 
+#ifdef EN_STORAGE
+
 void find_h(char * params){
-  tek_FIND_alt(params);
+  uint8_t fnum = atoi(params);
+  if (storage.findFile(fnum)) {
+    return;    
+  }
+  dataStream.println(F("Not found!"));
 }
 
 
 void tlist_h(){
-  tek_TLIST();
+  storage.listFiles(dataStream);
+//  tek_TLIST();
 }
 
 
 void cd_h(char * params){
-  tek_CD(params);
+  char dir[13];
+  if (params != NULL) {
+    storage.setDirectory(params);
+    strncpy(dir, params, 12);   // Copy max 12 characters (dir name = 10 plus characters + 2 slashes)
+    storage.setDirectory(dir);  // Changes directory, closes previous file and sets index to 0
+    dataStream.print(F("Dir now = "));
+    dataStream.println(dir);
+  } else {
+    storage.getDirectory(dir);
+    dataStream.println(dir);
+  }
 }
 
 
@@ -1030,8 +814,11 @@ void help_h(char * params){
 
 
 void old_h(){
-  tek_OLD();
+  storage.viewCurrentFile(dataStream);
+//  tek_OLD();
 }
+
+#endif
 
 
 /***** Show a prompt *****/

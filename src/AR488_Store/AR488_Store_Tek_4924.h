@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.47, 13/11/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.49, 16/11/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -32,23 +32,18 @@
 
 // Number of storage GPIB commands
 #define STGC_SIZE 19
-// Length of character stream buffer
-#define LINELENGTH 74
-// Number of files allowed per directory (virtual "tape")
-#define FILES_PER_DIRECTORY 250
-
 
 #define DATA_CONTINUE false
 #define DATA_COMPLETE true
-
-
-const uint8_t files_per_directory = FILES_PER_DIRECTORY;
 
 
 struct alphaIndex {
   const char idx;
   const char * desc;
 };
+
+const uint8_t files_per_directory = 250;  // Maximum files allowed per directory
+const uint8_t line_buffer_size = 74;    // 72 characters line max in Tek plus CR plus NULL
 
 
 /***** Character stream buffer *****/
@@ -122,22 +117,23 @@ class SDstorage {
     // Storage management functions
     SDstorage();
     void storeExecCmd(uint8_t cmd);
+    void getDirectory(char * path);
+    void setDirectory(char * path);
+    void viewCurrentFile(Stream &output);
+    bool findFile(uint8_t fnum);
+    void listFiles(Stream &output);
 
 
   private:
 
-    // create a serial stream
-    // Max of 99 files assumed in a single directory
-    const uint8_t nMax = 99;              // Maximum file count
-    const uint8_t line_buffer_size = 74;  // 72 char line max in Tek plus CR plus NULL
     const uint8_t bin_buffer_size = 65;
-    const uint8_t file_header_size = 46;  // 44 char plus CR + NULL
-    const uint8_t full_path_size = 60;    // 44 + 13 char plus CR + NULL
+    const uint8_t file_header_size = 46;      // 44 char plus CR + NULL
+    const uint8_t full_path_size = 60;        // 44 + 13 char plus CR + NULL
     
-    char directory[13] = "/root/";     //allow up to ten character directory names plus two '/' and NULL terminator
+    char directory[13] = "/root/";            //allow up to ten character directory names plus two '/' and NULL terminator
 
-    char f_name[46];                //the current filename variable
-    char f_type='N';                //the current filetype string variable
+    char f_name[46];                          //the current filename variable
+    char f_type='N';                          //the current filetype string variable
 
     SdFat sd;
 
@@ -212,6 +208,7 @@ class SDstorage {
     bool binaryWrite();
     bool renameFile(File& fileObj, char ftype, char fusage);
     bool makeNewFile(File& fileObj, uint16_t filelength);
+    void setFileInfo(File filehandle);
 };
 
 
