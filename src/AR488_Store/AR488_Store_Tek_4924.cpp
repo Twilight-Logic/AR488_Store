@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.49, 16/11/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.51, 14/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -35,7 +35,7 @@ alphaIndex tekFileTypes [] = {
 
 /***** Tektronix file usages *****/
 alphaIndex tekFileUsages [] = {
-  { 'P', "PROGRAM" },
+  { 'P', "PROG" },
   { 'D', "DATA" },
   { 'L', "LOG" },
   { 'T', "TEXT" },
@@ -82,8 +82,9 @@ void TekFileInfo::clear(){
   fnum = 0;
   ftype = '\0';
   fusage = '\0';
-  fsecret = false;
-  frecords = 0;
+  memset(fdesc, '\0', (file_header_size-30)+1);
+//  fsecret = false;
+//  frecords = 0;
   fsize = 0;
 }
 
@@ -117,7 +118,7 @@ void TekFileInfo::getFtypeStr(char * typestr){
   uint8_t i = 0;
   while (tekFileTypes[i].idx) {
     if (tekFileTypes[i].idx == ftype) {
-      strcpy(typestr, tekFileTypes[i].desc);
+      strncpy(typestr, tekFileTypes[i].desc, strlen(tekFileTypes[i].desc));
       break;
     }
     i++;
@@ -126,13 +127,13 @@ void TekFileInfo::getFtypeStr(char * typestr){
 
 
 /***** Return file usage string *****/
-void TekFileInfo::getFusageStr(char * usagestr, uint8_t ulen){
+void TekFileInfo::getFusageStr(char * usagestr){
   uint8_t i = 0;
   if (fusage) {
     // Fusage set to find the keyword
     while (tekFileUsages[i].idx) {
       if (tekFileUsages[i].idx == fusage) {
-        strncpy(usagestr, tekFileUsages[i].desc, ulen);
+        strncpy(usagestr, tekFileUsages[i].desc, strlen(tekFileUsages[i].desc));
         break;
       }
       i++;
@@ -144,22 +145,61 @@ void TekFileInfo::getFusageStr(char * usagestr, uint8_t ulen){
 }
 
 
-/***** Return string containing assigned number of records *****/
-void TekFileInfo::getFrecords(char * recordstr){
-  sprintf(recordstr, "%8d", frecords);
+/***** Return the file description *****/
+void TekFileInfo::getFdescStr(char * description){
+  uint8_t dl = (file_header_size-30);
+  uint8_t scnt = 0;
+  uint8_t i = 0;
+
+/*
+  debugStream.print(F("Desc: >"));
+  debugStream.print(fdesc);
+  debugStream.println(F("<"));
+*/
+
+  // Is description contain only spaces (dl = scnt) ?  
+  for (i=0; i<dl; i++) {
+    if (fdesc[i]==0x20) {
+      scnt++;
+    }else if (fdesc[i]==0) {
+      break;
+    }
+  }
+
+  if ( (fdesc[0]==0) || (scnt==i) ) {
+    // NULL or full of spaces
+    memset(description, '-', dl); // Blank string returns '----------------'
+  }else{
+    // Valid data
+    strncpy(description, fdesc, dl);
+  }
+
+/*
+  debugStream.print(F("Description: >"));
+  debugStream.print(description);
+  debugStream.println(F("<"));
+*/
 }
 
 
+/***** Return string containing assigned number of records *****/
+/*
+void TekFileInfo::getFrecords(char * recordstr){
+  sprintf(recordstr, "%8d", frecords);
+}
+*/
+
 /***** Return string contaning the file size *****/
 void TekFileInfo::getFsize(char * sizestr){
-  sprintf(sizestr, "%6d", fsize);   
+//  sprintf(sizestr, "%6d", fsize); // (Right justification)
+  sprintf(sizestr, "%d", fsize);  // (Left [no] justification)
 }
 
 
 /***** Return a file name from the stored file information *****/
 void TekFileInfo::getFilename(char * filename){
   char * filenameptr = filename;
-  memset(filename, '\0', 46);
+  memset(filename, '\0', file_header_size);
   // File number
   getFnumStr(filenameptr);
   filenameptr = filenameptr + 7;
@@ -167,16 +207,17 @@ void TekFileInfo::getFilename(char * filename){
   getFtypeStr(filenameptr);
   filenameptr = filenameptr + 8;
   // File usage
-  getFusageStr(filenameptr, 4);
-  filenameptr = filenameptr + 17;
-  // Secret?
-  if (fsecret) *filenameptr = 'S';
-//  if (fsecret) strcpy(filenameptr, "SECRET");
-  filenameptr = filenameptr + 1;
-  // Number of records
+  getFusageStr(filenameptr);
+  filenameptr = filenameptr + 5;
+  // File description
+  getFdescStr(filenameptr);
+  filenameptr = filenameptr + ((file_header_size-30)+1);  // +1 for the space
+  *filenameptr = ' ';
+  filenameptr++;
+  // File size
   getFsize(filenameptr);
-  // Up to char pos 34 replace NULL with space
-  for (uint8_t i=0; i<34; i++) {
+  // Up to char pos (file_header_size - 7) replace NULL with space
+  for (uint8_t i=0; i<(file_header_size-7); i++) {
     if (filename[i] == 0x00) filename[i] = 0x20;
   }
 }
@@ -185,6 +226,7 @@ void TekFileInfo::getFilename(char * filename){
 /***** Return a Tek header from the stored file information *****/
 void TekFileInfo::getTekHeader(char * header){
   char * headerptr = header;
+  size_t records;
   memset(header, '\0', 44);
   header[0] = 0x20;
   headerptr++;
@@ -193,11 +235,13 @@ void TekFileInfo::getTekHeader(char * header){
   headerptr = headerptr + 6;
   getFtypeStr(headerptr);
   headerptr = headerptr + 8;
-  getFusageStr(headerptr, 7);
+  getFusageStr(headerptr);
   headerptr = headerptr + 10;
-  if (fsecret) strncpy(headerptr, "SECRET", 8);
+//  if (fsecret) strncpy(headerptr, "SECRET", 8);
   headerptr = headerptr + 8;
-  getFrecords(headerptr);
+  records = fsizeToRecords(fsize);
+  sprintf(headerptr, "%8d", records);
+//  getFrecords(headerptr);
   header[43] = 0x0D;
   header[44] = 0x13;
 }
@@ -205,13 +249,46 @@ void TekFileInfo::getTekHeader(char * header){
 
 /***** Set file info from filename string *****/
 void TekFileInfo::setFromFilename(char * filename){
-  char * fptr = filename;
+//  char * fptr = filename;
+  uint8_t flen = strlen(filename);
+  uint8_t depos = flen;
+  char ch;
+  uint8_t dcnt = 0;
+  char fsizestr[8];
+
+  if (flen>file_header_size) flen = file_header_size; // Prevent inadvertent overrun
+  memset(fsizestr, '\0', 8);
   fnum = (uint8_t)atoi(filename);   // fnum takes values 0 - 255
   ftype = filename[7];
   fusage = filename[15];
-  if (filename[32] == 'S') fsecret = true;
-  fptr = fptr + 32;
-  frecords = (uint8_t)atoi(fptr);   // records can be from 1 - 255
+
+  // Determine the position of the final space
+  while ( (ch != ' ') && (depos > 0) ) {
+    ch = filename[depos];
+    depos--;
+  }
+
+  // Extract description
+  memset(fdesc, '\0', ((file_header_size-30) + 1) );
+//  memset(desc, '\0', ((file_header_size-30) + 1) );
+  for (uint8_t i=20; i<depos; i++) {
+    ch = filename[i];
+    if ( (ch != '[') && (ch != ']') ) {
+      fdesc[dcnt] = ch;
+      dcnt++;
+    }
+  }
+
+  // Extract file size string and convert to number
+  dcnt = 0;
+  for (uint8_t i=depos; i<flen; i++){
+    fsizestr[dcnt] = filename[i];
+    dcnt++;
+  }
+  fsize = atoi(fsizestr);
+
+//  fptr = fptr + depos;
+//  frecords = (uint8_t)atoi(fptr);   // records can be from 1 - 255
 }
 
 
@@ -255,7 +332,15 @@ void TekFileInfo::setFusage(char usagechar){
 }
 
 
+/***** Set the file description *****/
+void TekFileInfo::setFdesc(const char * description) {
+  memset( fdesc, '\0', ((file_header_size-30)+1) );
+  strncpy(fdesc, description, (file_header_size-30));
+}
+
+
 /***** Set number of file records *****/
+/*
 void TekFileInfo::setFrecords(uint16_t records){
   if (records) {
     frecords = records;
@@ -263,24 +348,26 @@ void TekFileInfo::setFrecords(uint16_t records){
     frecords = 1;
   }
 }
-
+*/
 
 /***** Set the file size *****/
 void TekFileInfo::setFsize(size_t filesize){
   fsize = filesize;
-  setFrecords(fsizeToRecords(fsize));
+//  setFrecords(fsizeToRecords(fsize));
 }
 
 
 /***** Set status of SECRET *****/
+/*
 void TekFileInfo::setFsecret(bool isSecret){
   fsecret = isSecret;
 }
-
+*/
 
 /***** Convert filesize to record count *****/
-uint16_t TekFileInfo::fsizeToRecords(unsigned long fsize){
-  frecords = (fsize/256) + 1;
+size_t TekFileInfo::fsizeToRecords(size_t fsize){
+  size_t frecords = (fsize/256) + 1;
+//  frecords = (fsize/256) + 1;
   return frecords;
 }
 
@@ -428,18 +515,11 @@ void SDstorage::listFiles(Stream &output){
 uint8_t SDstorage::binaryRead() {
   int16_t c;
   uint8_t err = 0;
-
-//  unsigned long cnt = 0;
-
-
   
   while (sdinout.available()) {
 
     // Read a byte
     c = sdinout.read();
-
-//    cnt++;
-
 
 #ifdef DEBUG_STORE_COMMANDS
     if (!err) {
@@ -449,16 +529,7 @@ uint8_t SDstorage::binaryRead() {
     }
 #endif
 
-
-//    if ((term>-1) && (sdinout.peek()==(term&0xFF))) {
-/*
-    if ( (term>-1) && (c==(term&0xFF)) ) {
-      // Terminator reached
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
-    }else
-*/    
     if (sdinout.peek() < 0) {  // Look ahead for EOF
-//    if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
       err = gpibBus.writeByte(c, DATA_CONTINUE);
       err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
@@ -487,11 +558,6 @@ uint8_t SDstorage::binaryRead() {
       break;
     }
   }
-
-/*
-  debugStream.print(cnt);
-  debugStream.println(" bytes sent.");
-*/
 
   return err;
 }
@@ -766,7 +832,7 @@ bool SDstorage::renameFile(File& fileObj, char ftype, char fusage) {
   
   if (dirObj.open(directory, O_RDONLY)) {
     if (f_type == 'N') { // Rename new files only
-      // Make sure file is makrked as 'ftype' and 'fusage' and with appropriate length
+      // Make sure file is marked as 'ftype' and 'fusage' and with appropriate length
       fileObj.getName(fname, file_header_size);
       fileinfo.setFromFilename(fname);
       // Set file parameters
@@ -829,7 +895,8 @@ bool SDstorage::makeNewFile(File& fileObj, uint16_t filelength) {
     if (sd.remove(path)) {
       // Set file parameters
       fileinfo.setFtype('N');
-      fileinfo.setFsecret(false);
+      fileinfo.setFdesc("");
+//      fileinfo.setFsecret(false);
       fileinfo.setFsize(filelength);
       // Read back new filename
       fileinfo.getFilename(fname);
@@ -1807,6 +1874,7 @@ void SDstorage::stgc_0x73_h(){
   char fname[file_header_size+1] = {0};
   bool found = false;
   File fileObj;
+  TekFileInfo tekfile;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x73_h: started TLIST handler..."));
@@ -1827,10 +1895,12 @@ void SDstorage::stgc_0x73_h(){
     fileObj.getName(fname, file_header_size);
     fileObj.close();  // Done with file handle
     if (fname[7] == 'L') listIdx = 0;
+    
+    // Parse and return
+    tekfile.setFromFilename(fname);
+    tekfile.getFilename(fname);
+    
     // Send filename with EOI on last character
-/*
- * sendData lat param is lastchunk - DATA_COMPLETE may needs amending!
- */
     gpibBus.sendData(fname, file_header_size, DATA_COMPLETE);
   }else{
     errorCode = 2;

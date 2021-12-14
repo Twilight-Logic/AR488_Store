@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.49, 16/11/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.51, 14/12/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -43,7 +43,8 @@ struct alphaIndex {
 };
 
 const uint8_t files_per_directory = 250;  // Maximum files allowed per directory
-const uint8_t line_buffer_size = 74;    // 72 characters line max in Tek plus CR plus NULL
+const uint8_t line_buffer_size = 74;      // 72 characters line max in Tek plus CR plus NULL
+const uint8_t file_header_size = 46;      // 44 char plus CR + NULL
 
 
 /***** Character stream buffer *****/
@@ -80,8 +81,9 @@ class TekFileInfo {
     char getFtype();
     char getFusage();
     void getFtypeStr(char * typestr);
-    void getFusageStr(char * usagestr, uint8_t ulen);
-    void getFrecords(char * recordstr);
+    void getFusageStr(char * usagestr);
+    void getFdescStr(char * description);
+//    void getFrecords(char * recordstr);
     void getFsize(char * sizestr);
 
     void getFilename(char * filename);
@@ -91,19 +93,22 @@ class TekFileInfo {
     bool setFnumber(uint8_t filenum);
     void setFtype(char typechar);
     void setFusage(char usagechar);
-    void setFrecords(uint16_t records);
+    void setFdesc(const char * description);
+    void clearFdesc();
+//    void setFrecords(uint16_t records);
     void setFsize(size_t filesize);
-    void setFsecret(bool isSecret);
+//    void setFsecret(bool isSecret);
 
   private:
  
-    uint16_t fsizeToRecords(unsigned long fsize);
+    size_t fsizeToRecords(size_t fsize);
     uint8_t fnum;
     char ftype;
     char fusage;
-    bool fsecret;
+    char fdesc[(file_header_size-30)];  // 30 = fnum[7] + ftype[8] + fusage[5] + fsize[7] + CR + NULL
+//    bool fsecret;
     size_t fsize;
-    uint16_t frecords;
+//    uint16_t frecords;
 
 };
 
@@ -127,7 +132,6 @@ class SDstorage {
   private:
 
     const uint8_t bin_buffer_size = 65;
-    const uint8_t file_header_size = 46;      // 44 char plus CR + NULL
     const uint8_t full_path_size = 60;        // 44 + 13 char plus CR + NULL
     
     char directory[13] = "/root/";            //allow up to ten character directory names plus two '/' and NULL terminator
