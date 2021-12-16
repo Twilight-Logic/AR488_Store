@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.51, 14/12/2021 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.52, 16/12/2021 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -45,6 +45,7 @@ struct alphaIndex {
 const uint8_t files_per_directory = 250;  // Maximum files allowed per directory
 const uint8_t line_buffer_size = 74;      // 72 characters line max in Tek plus CR plus NULL
 const uint8_t file_header_size = 46;      // 44 char plus CR + NULL
+const uint8_t max_fdesc_length = file_header_size - 30;   // Maximum length of description field: 30 = fnum[7] + ftype[8] + fusage[5] + fsize[7] + CR + NULL
 
 
 /***** Character stream buffer *****/
@@ -105,9 +106,9 @@ class TekFileInfo {
     uint8_t fnum;
     char ftype;
     char fusage;
-    char fdesc[(file_header_size-30)];  // 30 = fnum[7] + ftype[8] + fusage[5] + fsize[7] + CR + NULL
+    char fdesc[(max_fdesc_length + 1)];
 //    bool fsecret;
-    size_t fsize;
+    unsigned long fsize;
 //    uint16_t frecords;
 
 };

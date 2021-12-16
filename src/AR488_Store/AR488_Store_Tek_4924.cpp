@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.51, 14/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.52, 16/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -192,7 +192,7 @@ void TekFileInfo::getFrecords(char * recordstr){
 /***** Return string contaning the file size *****/
 void TekFileInfo::getFsize(char * sizestr){
 //  sprintf(sizestr, "%6d", fsize); // (Right justification)
-  sprintf(sizestr, "%d", fsize);  // (Left [no] justification)
+  sprintf(sizestr, "%ld", fsize);  // (Left [no] justification)
 }
 
 
@@ -250,45 +250,74 @@ void TekFileInfo::getTekHeader(char * header){
 /***** Set file info from filename string *****/
 void TekFileInfo::setFromFilename(char * filename){
 //  char * fptr = filename;
-  uint8_t flen = strlen(filename);
-  uint8_t depos = flen;
+  uint8_t plen;
+  uint8_t depos;
   char ch;
   uint8_t dcnt = 0;
   char fsizestr[8];
+  char * param;
 
-  if (flen>file_header_size) flen = file_header_size; // Prevent inadvertent overrun
+//debugStream.print(F("Filename: "));
+//debugStream.println(filename);
+
   memset(fsizestr, '\0', 8);
-  fnum = (uint8_t)atoi(filename);   // fnum takes values 0 - 255
-  ftype = filename[7];
-  fusage = filename[15];
+  param = strtok(filename, " ");
+  fnum = (uint8_t)atoi(param);   // fnum takes values 0 - 255
+
+//debugStream.print(F("File num: "));
+//debugStream.println(fnum);
+  
+  param = strtok(NULL, " ");
+  setFtype(param[0]);
+
+//debugStream.print(F("File type: "));
+//debugStream.println(ftype);
+  
+  param = strtok(NULL, " ");
+  setFusage(param[0]);
+
+//debugStream.print(F("File usage: "));
+//debugStream.println(fusage);
+  
+  param = strtok(NULL, "\0");
+  plen = strlen(param);
+  depos = plen;
 
   // Determine the position of the final space
   while ( (ch != ' ') && (depos > 0) ) {
-    ch = filename[depos];
     depos--;
+    ch = param[depos];
   }
 
   // Extract description
-  memset(fdesc, '\0', ((file_header_size-30) + 1) );
-//  memset(desc, '\0', ((file_header_size-30) + 1) );
-  for (uint8_t i=20; i<depos; i++) {
-    ch = filename[i];
+  memset(fdesc, '\0', (max_fdesc_length + 1) );
+  for (uint8_t i=0; i<depos; i++) {
+    ch = param[i];
     if ( (ch != '[') && (ch != ']') ) {
       fdesc[dcnt] = ch;
       dcnt++;
     }
+    if (dcnt == max_fdesc_length) break; // Reached max desc length - prevent overrun
   }
+
+//debugStream.print(F("Description: "));
+//debugStream.println(fdesc);
 
   // Extract file size string and convert to number
   dcnt = 0;
-  for (uint8_t i=depos; i<flen; i++){
-    fsizestr[dcnt] = filename[i];
-    dcnt++;
+  if ( (plen-depos)>7 ){  // Prevent overrun
+    fsize = 0;
+  }else{
+    for (uint8_t i=depos; i<plen; i++){
+      fsizestr[dcnt] = param[i];
+      dcnt++;
+    }
+    fsize = atol(fsizestr);
   }
-  fsize = atoi(fsizestr);
 
-//  fptr = fptr + depos;
-//  frecords = (uint8_t)atoi(fptr);   // records can be from 1 - 255
+//debugStream.print(F("File sizestr: "));
+//debugStream.println(fsizestr);
+
 }
 
 
@@ -305,6 +334,7 @@ bool TekFileInfo::setFnumber(uint8_t filenum ){
 /***** Set the file type *****/
 void TekFileInfo::setFtype(char typechar){
   uint8_t i = 0;
+  ftype = '\0';
   // typechar must match known types
   while (tekFileTypes[i].idx) {
     if (tekFileTypes[i].idx == typechar) {
@@ -321,6 +351,7 @@ void TekFileInfo::setFtype(char typechar){
 /***** Set the file usage *****/
 void TekFileInfo::setFusage(char usagechar){
   uint8_t i = 0;
+  fusage = '\0';
   // usagechar must match known usages
   while (tekFileUsages[i].idx) {
     if (tekFileUsages[i].idx == usagechar) {
@@ -1903,6 +1934,8 @@ void SDstorage::stgc_0x73_h(){
     // Send filename with EOI on last character
     gpibBus.sendData(fname, file_header_size, DATA_COMPLETE);
   }else{
+    fname[0] = '\0';
+    gpibBus.sendData(fname, 1, DATA_COMPLETE);
     errorCode = 2;
   }
 
