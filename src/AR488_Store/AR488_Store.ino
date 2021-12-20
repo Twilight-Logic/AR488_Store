@@ -94,7 +94,7 @@ boolean newData = false;
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.52, 16/12/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.53, 20/12/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1801,11 +1801,12 @@ void attnRequired() {
     debugStream.println(F("Talking..."));
 #endif
     device_talk_h();
+    gpibBus.setControls(DLAS);  // Data sent. Now listen for next CMD
     return;
   }
 
   // Finished attention - set controls to idle
-  gpibBus.setControls(DIDS);
+//  gpibBus.setControls(DIDS);  // his should be done by UNT or UNL
 
 #ifdef DEBUG_DEVICE_ATN
   debugStream.println(F("attnRequired: END attnReceived."));
