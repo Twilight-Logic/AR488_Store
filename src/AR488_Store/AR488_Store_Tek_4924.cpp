@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.53, 20/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.54, 20/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -1340,7 +1340,7 @@ void SDstorage::stgc_0x6A_h() {
   uint8_t err = 0;
 
 #ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x6A_h: started READ handler..."));
+  debugStream.println(F("stgc_0x6A_h: started COPY handler..."));
 #endif
 
 //  if (f_type == 'H') {
@@ -1367,6 +1367,8 @@ void SDstorage::stgc_0x6A_h() {
 #endif
   }
 */
+
+  gpibBus.setControls(DLAS);  // Send complete. Drop back to listen and await next command.
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6A_h: done."));
@@ -1528,8 +1530,6 @@ void SDstorage::stgc_0x6E_h() {
     debugStream.println(F("stgc_0x6E_h: incorrect file type!"));
 #endif
   }
-
-  gpibBus.setControls(DLAS);  // Read complete. Drop back to listen and await next command.
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6E_h: done."));

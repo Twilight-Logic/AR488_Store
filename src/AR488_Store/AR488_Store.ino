@@ -94,7 +94,7 @@ boolean newData = false;
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.53, 20/12/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.54, 20/12/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1772,6 +1772,10 @@ void attnRequired() {
     
     // Execute the GPIB secondary addressing command
     storage.storeExecCmd(saddrcmd);
+
+    // Make sure we drop back to listen for next command
+    gpibBus.setControls(DLAS);
+    
     // Clear flags
     saddrcmd = 0;
 
