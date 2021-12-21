@@ -815,6 +815,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #endif
     return 3;
   }
+
   // Wait for NRFD to go HIGH (indicating that receiver is ready)
   if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
 #ifdef DEBUG_GPIBbus_SEND
@@ -840,6 +841,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #endif    
     return 2;
   }
+
 
   // Place data on the bus
   setGpibDbus(db);

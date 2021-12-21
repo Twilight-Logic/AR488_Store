@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.54, 20/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.55, 20/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -589,6 +589,9 @@ uint8_t SDstorage::binaryRead() {
       break;
     }
   }
+
+debugStream.print(F("Err: "));
+debugStream.println(err);
 
   return err;
 }
@@ -1496,6 +1499,7 @@ void SDstorage::stgc_0x6D_h() {
 
 
 /***** READ command (tek_READ_one) *****/
+/*
 void SDstorage::stgc_0x6E_h() {
 
 // Note: Reads BINARY files
@@ -1537,6 +1541,94 @@ void SDstorage::stgc_0x6E_h() {
 
 
 }
+*/
+
+
+
+void SDstorage::stgc_0x6E_h() {
+
+  int16_t c;
+  int16_t header[2];
+  uint16_t dlen = 0;
+  uint8_t err = 0;
+
+  if (f_type == 'H') {
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("stgc_0x6E_h: reading "));
+    debugStream.print(directory);
+    debugStream.print(f_name);
+    debugStream.println(F("..."));
+#endif
+
+    // Get header bytes
+    header[0] = sdinout.read();
+    header[1] = sdinout.read();
+
+    if ( (header[0]==-1) || (header[1]==-1) ) {
+      // Reached EOF - send last byte and 0xFF with EOI
+      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      return;
+    }
+
+    // Get data length
+    dlen = (header[0] & 0x1F) << 8;
+    dlen = dlen + (header[1] & 0xFF);
+
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("Data length: "));
+    debugStream.println(dlen);
+#endif
+
+//debugStream.println(F("Sending header..."));
+
+    // Send header
+    if (err==0) err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
+    if (err==0) err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
+
+/*
+debugStream.print(F("Error: "));
+debugStream.println(err);
+debugStream.println(F("Sending data..."));
+*/
+
+    // Send data
+    if (err==0) {
+      for (uint16_t i=0; i<(dlen+1); i++){
+        c = sdinout.read();
+        err = gpibBus.writeByte(c, DATA_CONTINUE);
+/*      
+#ifdef DEBUG_STORE_COMMANDS
+        if (!err) {
+          char x[4] = {0};
+          sprintf(x,"%02X ",c);    
+          debugStream.print(x);
+        }else{
+          debugStream.print(F("Error: "));
+          debugStream.println(err);
+        }
+#endif
+*/
+      }
+//      if (err==0) err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+    }
+
+#ifdef DEBUG_STORE_COMMANDS
+    if (err) {
+      debugStream.print(F("stgc_0x6E_h: error: "));
+      debugStream.println(err);
+    }
+#endif
+    
+  }else{
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6E_h: incorrect file type!"));
+    err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+#endif
+  }  
+
+}
+
 
 
 /***** WRITE command *****/
