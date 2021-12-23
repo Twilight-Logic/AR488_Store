@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.55, 20/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.56, 23/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -250,6 +250,7 @@ void TekFileInfo::getTekHeader(char * header){
 /***** Set file info from filename string *****/
 void TekFileInfo::setFromFilename(char * filename){
 //  char * fptr = filename;
+  char sfname[file_header_size];
   uint8_t plen;
   uint8_t depos;
   char ch;
@@ -260,8 +261,10 @@ void TekFileInfo::setFromFilename(char * filename){
 //debugStream.print(F("Filename: "));
 //debugStream.println(filename);
 
+  memset(sfname, '\0', file_header_size);
   memset(fsizestr, '\0', 8);
-  param = strtok(filename, " ");
+  strncpy(sfname, filename, strlen(filename));
+  param = strtok(sfname, " ");
   fnum = (uint8_t)atoi(param);   // fnum takes values 0 - 255
 
 //debugStream.print(F("File num: "));
@@ -555,7 +558,7 @@ uint8_t SDstorage::binaryRead() {
 #ifdef DEBUG_STORE_COMMANDS
     if (!err) {
       char x[4] = {0};
-      sprintf(x,"%02X ",c);    
+      sprintf(x,"%02X ",c);
       debugStream.print(x);
     }
 #endif
@@ -582,8 +585,8 @@ uint8_t SDstorage::binaryRead() {
 #ifdef DEBUG_STORE_COMMANDS
       if (err == 1) debugStream.println(F("\r\nbinaryRead: receiver requested stop!"));
       if (err == 2) debugStream.println(F("\r\nbinaryRead: ATN detected."));
+      if (err == 3) debugStream.println(F("\r\nbinaryRead: Timeout (ATN?)."));
 #endif
-      // Set lines to listen ?
       // Rewind file read by a character (current character has already been read)
       sdinout.seekCur(-1);
       break;
@@ -896,11 +899,8 @@ bool SDstorage::makeNewFile(File& fileObj, uint16_t filelength) {
 
   TekFileInfo fileinfo;
   char fname[file_header_size];
-//  char kbuffer[12] = {0};
   char ftype;
   char path[full_path_size] = {0};
-//  uint8_t r = 0;
-//  uint8_t fnum = 0;
 
   fileObj.getName(fname, file_header_size);
   fileinfo.setFromFilename(fname);
@@ -1499,7 +1499,7 @@ void SDstorage::stgc_0x6D_h() {
 
 
 /***** READ command (tek_READ_one) *****/
-/*
+
 void SDstorage::stgc_0x6E_h() {
 
 // Note: Reads BINARY files
@@ -1541,16 +1541,17 @@ void SDstorage::stgc_0x6E_h() {
 
 
 }
-*/
 
 
 
+/*
 void SDstorage::stgc_0x6E_h() {
 
   int16_t c;
   int16_t header[2];
   uint16_t dlen = 0;
   uint8_t err = 0;
+  uint16_t dtype = 0;
 
   if (f_type == 'H') {
 
@@ -1560,6 +1561,10 @@ void SDstorage::stgc_0x6E_h() {
     debugStream.print(f_name);
     debugStream.println(F("..."));
 #endif
+
+
+    while( (gpibBus.isAsserted(ATN)==false) && !err) {
+
 
     // Get header bytes
     header[0] = sdinout.read();
@@ -1571,33 +1576,35 @@ void SDstorage::stgc_0x6E_h() {
       return;
     }
 
-    // Get data length
+    // Get data length and type
+    dtype = (header[0] & 0xE0);
     dlen = (header[0] & 0x1F) << 8;
     dlen = dlen + (header[1] & 0xFF);
+    if (dtype & 0x40) dlen++;   // Text data appends one additional byte
 
 #ifdef DEBUG_STORE_COMMANDS
     debugStream.print(F("Data length: "));
     debugStream.println(dlen);
 #endif
 
-//debugStream.println(F("Sending header..."));
+debugStream.println(F("Sending header..."));
 
     // Send header
     if (err==0) err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
     if (err==0) err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
 
-/*
+
 debugStream.print(F("Error: "));
 debugStream.println(err);
 debugStream.println(F("Sending data..."));
-*/
+
 
     // Send data
     if (err==0) {
-      for (uint16_t i=0; i<(dlen+1); i++){
+      for (uint16_t i=0; i<(dlen); i++){
         c = sdinout.read();
         err = gpibBus.writeByte(c, DATA_CONTINUE);
-/*      
+      
 #ifdef DEBUG_STORE_COMMANDS
         if (!err) {
           char x[4] = {0};
@@ -1608,10 +1615,13 @@ debugStream.println(F("Sending data..."));
           debugStream.println(err);
         }
 #endif
-*/
+
       }
 //      if (err==0) err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
     }
+
+    } // ATN == false
+
 
 #ifdef DEBUG_STORE_COMMANDS
     if (err) {
@@ -1628,7 +1638,7 @@ debugStream.println(F("Sending data..."));
   }  
 
 }
-
+*/
 
 
 /***** WRITE command *****/
@@ -1637,7 +1647,7 @@ void SDstorage::stgc_0x6F_h() {
   debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
 #endif
   if ( (f_type == 'N') || (f_type == 'H') ) {
-    binaryWrite();
+    gpibBus.receiveToFile(sdinout, true, false, 0);
    // Make sure file is makrked as BINARY DATA, with appropriate length and rename
    if (f_type == 'N') renameFile(sdinout, 'B', 'D');   
 #ifdef DEBUG_STORE_COMMANDS
@@ -1650,6 +1660,44 @@ void SDstorage::stgc_0x6F_h() {
 #endif
 }
 
+
+/*
+void SDstorage::stgc_0x6F_h() {
+  uint16_t dlen = 2;
+  uint8_t db;
+  uint8_t r = 0;
+  bool readWithEoi = false;
+  bool eoiDetected = false;
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
+#endif
+  if ( (f_type == 'N') || (f_type == 'H') ) {
+    for (uint16_t i=0; i<dlen; i++) {
+      r = gpibBus.readByte(&db, readWithEoi, &eoiDetected);
+      if (r>0) break;
+      sdinout.write(db);
+      if (i==0) dlen = (db & 0x1F) << 8;
+      if (i==1) dlen = dlen + db;
+    }
+
+    if (r==0) {
+      // Make sure file is makrked as BINARY DATA, with appropriate length and rename
+      if (f_type == 'N') renameFile(sdinout, 'B', 'D');
+#ifdef DEBUG_STORE_COMMANDS
+    }else{
+      debugStream.println(F("Error during receive!"));
+#endif
+    }
+#ifdef DEBUG_STORE_COMMANDS
+  }else{
+    debugStream.println(F("stgc_0x6F_h: incorrect file type!"));
+#endif
+  }
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.println(F("stgc_0x6F_h: done."));
+#endif
+}
+*/
 
 /***** BSAVE / BOLD command *****/
 /*

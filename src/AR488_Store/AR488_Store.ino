@@ -94,7 +94,7 @@ boolean newData = false;
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.55, 21/12/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.56, 21/12/2021" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1768,7 +1768,9 @@ void attnRequired() {
     if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
 
     // If addressed to talk then set GPIB to talk
-    if (gpibBus.isDeviceAddressedToTalk()) gpibBus.setControls(DTAS);
+    if (gpibBus.isDeviceAddressedToTalk()) {
+      gpibBus.setControls(DTAS);
+    }
     
     // Execute the GPIB secondary addressing command
     storage.storeExecCmd(saddrcmd);

@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.49, 16/11/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.56, 23/12/2021 *****/
 
 
 /****** Process status values *****/
@@ -477,7 +477,7 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
   bool readWithEoi = false;
   bool eoiDetected = false;
 
-  endByte = endByte;  // meaningless but defeats vcompiler warning!
+  endByte = endByte;  // meaningless but defeats compiler warning!
 
   // Reset transmission break flag
   txBreak = 0;
@@ -1008,6 +1008,9 @@ boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, int interval) {
 
 //  unsigned long timeout = millis() + interval;
 
+//  debugStream.print(F("Waiting on pin: "));
+//  debugStream.println(pin);
+
 //  unsigned long currentMillis = millis();
 //  unsigned long startMillis = currentMillis;
   unsigned long timeout = interval;
@@ -1029,13 +1032,15 @@ boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, int interval) {
     }
     
     // ATN changed state so abort
-    if (atnStat && !isAsserted(ATN)) {
-#if defined (DEBUG_GPIBbus_RECEIVE) || defined (DEBUG_GPIBbus_SEND) 
+
+    if (atnStat != isAsserted(ATN)) {
+#if defined (DEBUG_GPIBbus_RECEIVE) || defined (DEBUG_GPIBbus_SEND)
+      if (!atnStat) setControls(DLAS);  // If ATN asserted imediately go into listen mode
       debugStream.println(F("ATN status changed!"));
 #endif
       return true;
     }
-    
+ 
     delayMicroseconds(100);
 //    currentMillis = millis();
     
