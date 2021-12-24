@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.56, 23/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.57, 24/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -583,9 +583,9 @@ uint8_t SDstorage::binaryRead() {
     // Exit on ATN or receiver request to stop (NDAC HIGH)
     if (err) {
 #ifdef DEBUG_STORE_COMMANDS
-      if (err == 1) debugStream.println(F("\r\nbinaryRead: receiver requested stop!"));
-      if (err == 2) debugStream.println(F("\r\nbinaryRead: ATN detected."));
-      if (err == 3) debugStream.println(F("\r\nbinaryRead: Timeout (ATN?)."));
+      if (err == 1) debugStream.println(F("\r\nbinaryRead: IFC detected!"));
+      if (err == 2) debugStream.println(F("\r\nbinaryRead: ATN detected!"));
+      if (err == 10) debugStream.println(F("\r\nbinaryRead: Timeout!"));
 #endif
       // Rewind file read by a character (current character has already been read)
       sdinout.seekCur(-1);
@@ -1563,7 +1563,7 @@ void SDstorage::stgc_0x6E_h() {
 #endif
 
 
-    while( (gpibBus.isAsserted(ATN)==false) && !err) {
+//    while( (gpibBus.isAsserted(ATN)==false) && !err) {
 
 
     // Get header bytes
@@ -1620,7 +1620,7 @@ debugStream.println(F("Sending data..."));
 //      if (err==0) err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
     }
 
-    } // ATN == false
+//    } // ATN == false
 
 
 #ifdef DEBUG_STORE_COMMANDS
@@ -1636,6 +1636,10 @@ debugStream.println(F("Sending data..."));
     err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
 #endif
   }  
+
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.println(F("stgc_0x6E_h: done."));
+#endif
 
 }
 */
