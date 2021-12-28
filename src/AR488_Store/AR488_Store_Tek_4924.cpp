@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.57, 24/12/2021 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.59, 27/12/2021 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -1499,7 +1499,7 @@ void SDstorage::stgc_0x6D_h() {
 
 
 /***** READ command (tek_READ_one) *****/
-
+/*
 void SDstorage::stgc_0x6E_h() {
 
 // Note: Reads BINARY files
@@ -1541,10 +1541,12 @@ void SDstorage::stgc_0x6E_h() {
 
 
 }
-
+*/
 
 
 /*
+ * READ alt
+ */ 
 void SDstorage::stgc_0x6E_h() {
 
   int16_t c;
@@ -1562,66 +1564,61 @@ void SDstorage::stgc_0x6E_h() {
     debugStream.println(F("..."));
 #endif
 
+    // READ loop
+    while (!err) {  // Drop out on error
 
-//    while( (gpibBus.isAsserted(ATN)==false) && !err) {
+      // Get header bytes
+      header[0] = sdinout.read();
+      header[1] = sdinout.read();
 
+      if ( (header[0]==-1) || (header[1]==-1) ) {
+        // Reached EOF - send last byte and 0xFF with EOI
+        err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+        return;
+      }
 
-    // Get header bytes
-    header[0] = sdinout.read();
-    header[1] = sdinout.read();
-
-    if ( (header[0]==-1) || (header[1]==-1) ) {
-      // Reached EOF - send last byte and 0xFF with EOI
-      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
-      return;
-    }
-
-    // Get data length and type
-    dtype = (header[0] & 0xE0);
-    dlen = (header[0] & 0x1F) << 8;
-    dlen = dlen + (header[1] & 0xFF);
-    if (dtype & 0x40) dlen++;   // Text data appends one additional byte
+      // Get data length and type
+      dtype = (header[0] & 0xE0);
+      dlen = (header[0] & 0x1F) << 8;
+      dlen = dlen + (header[1] & 0xFF);
+      if (dtype & 0x40) dlen++;   // Text data appends one additional byte
 
 #ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("Data length: "));
-    debugStream.println(dlen);
+      debugStream.print(F("\nData length: "));
+      debugStream.println(dlen);
 #endif
 
-debugStream.println(F("Sending header..."));
+      // Send header
+      err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
+      if (err) {
+        debugStream.println(F("Hbyte1"));
+        sdinout.seekCur(-2);  // Move back to begining of header
+        break;
+      }
+      err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
+      if (err) {
+        debugStream.println(F("Hbyte2"));
+        sdinout.seekCur(-2);
+        break;
+      }
 
-    // Send header
-    if (err==0) err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
-    if (err==0) err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
-
-
-debugStream.print(F("Error: "));
-debugStream.println(err);
-debugStream.println(F("Sending data..."));
-
-
-    // Send data
-    if (err==0) {
-      for (uint16_t i=0; i<(dlen); i++){
-        c = sdinout.read();
-        err = gpibBus.writeByte(c, DATA_CONTINUE);
-      
+      // Send data
+      if (!err) {
+        for (uint16_t i=0; i<(dlen); i++){
+          c = sdinout.read();
+          err = gpibBus.writeByte(c, DATA_CONTINUE);
+          if (err) break;
+/*     
 #ifdef DEBUG_STORE_COMMANDS
-        if (!err) {
           char x[4] = {0};
           sprintf(x,"%02X ",c);    
           debugStream.print(x);
-        }else{
-          debugStream.print(F("Error: "));
-          debugStream.println(err);
-        }
 #endif
-
+*/
+        }
       }
-//      if (err==0) err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
-    }
 
-//    } // ATN == false
-
+    } // !err
 
 #ifdef DEBUG_STORE_COMMANDS
     if (err) {
@@ -1642,10 +1639,11 @@ debugStream.println(F("Sending data..."));
 #endif
 
 }
-*/
+
 
 
 /***** WRITE command *****/
+
 void SDstorage::stgc_0x6F_h() {
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
@@ -1665,9 +1663,14 @@ void SDstorage::stgc_0x6F_h() {
 }
 
 
-/*
+/*  
+ * WRITE alt
+ * 
 void SDstorage::stgc_0x6F_h() {
   uint16_t dlen = 2;
+  uint16_t hval = 0;
+  uint8_t hmode = 0;
+  uint16_t cnt = 0;
   uint8_t db;
   uint8_t r = 0;
   bool readWithEoi = false;
@@ -1676,20 +1679,62 @@ void SDstorage::stgc_0x6F_h() {
   debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
 #endif
   if ( (f_type == 'N') || (f_type == 'H') ) {
-    for (uint16_t i=0; i<dlen; i++) {
+    while (cnt < dlen) {
       r = gpibBus.readByte(&db, readWithEoi, &eoiDetected);
       if (r>0) break;
-      sdinout.write(db);
-      if (i==0) dlen = (db & 0x1F) << 8;
-      if (i==1) dlen = dlen + db;
-    }
+      if (cnt == 0) {
+        hmode = db & 0xE0;
+        hval = db & 0x1F;
+      }
+      if (cnt == 1) {
+        dlen = (hval>>8) + db + 2;
+        if (hmode&0x40) dlen++;
+      }
 
+debugStream.print(F("\nCnt: "));
+debugStream.print(cnt);
+debugStream.print(F("  Hmode: "));
+debugStream.print(hmode);
+debugStream.print(F("  Dlen: "));
+debugStream.println(dlen);
+
+      sdinout.write(db);
+#ifdef DEBUG_STORE_COMMANDS
+      char x[4] = {0};
+      sprintf(x,"%02X ",db);    
+      debugStream.print(x);
+#endif   
+      cnt++;
+    }
+*/
+/* 
+  }
+    r = gpibBus.readByte(&db, readWithEoi, &eoiDetected);
+    if (r==0) dlen = hb1 = (db & 0x1F) << 8;
+    r = gpibBus.readByte(&db, readWithEoi, &eoiDetected);
+    if (r==0) {
+      dlen = dlen + db;
+      for (uint16_t i=0; i<dlen; i++) {
+        r = gpibBus.readByte(&db, readWithEoi, &eoiDetected);
+        if (r>0) break;
+        sdinout.write(db);
+
+#ifdef DEBUG_STORE_COMMANDS
+      char x[4] = {0};
+      sprintf(x,"%02X ",db);    
+      debugStream.print(x);
+#endif
+
+    }
+*/
+/*
     if (r==0) {
       // Make sure file is makrked as BINARY DATA, with appropriate length and rename
       if (f_type == 'N') renameFile(sdinout, 'B', 'D');
 #ifdef DEBUG_STORE_COMMANDS
     }else{
-      debugStream.println(F("Error during receive!"));
+      debugStream.print("   Error: ");
+      debugStream.println(r);
 #endif
     }
 #ifdef DEBUG_STORE_COMMANDS
@@ -1702,6 +1747,7 @@ void SDstorage::stgc_0x6F_h() {
 #endif
 }
 */
+
 
 /***** BSAVE / BOLD command *****/
 /*
@@ -1811,13 +1857,18 @@ void SDstorage::stgc_0x73_h(){
 
 
 /***** FIND command *****/
+/*
+ * FINDs and OPENs file (num)
+ * Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
+ * FIND iterates through each file in a directory until filenumber matches num
+ * since SdFat file index is not sequential with Tek 4050 filenames 
+ */
 void SDstorage::stgc_0x7B_h(){
   char receiveBuffer[83] = {0};   // *0 chars + CR/LF + NULL
-//  char path[full_path_size] = {0};
   uint8_t paramLen = 0;
   uint8_t num = 0;
-//  char fname[46];
   File findfile;
+  bool found = false;
 
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x7B_h: started FIND handler..."));
@@ -1838,76 +1889,22 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
     num = atoi(receiveBuffer);
-
-    /*  FINDs and OPENs file (num)
-        Returns: string result= "A" for ASCII, "H" for HEX (Binary or Secret file), "N" for Not Found
-        FIND iterates through each file in a directory until filenumber matches num
-        since SdFat file index is not sequential with Tek 4050 filenames
-    */
-
-//    if (searchForFile(num, findfile)) { // Returns filehandle if found
-
-    if (findFile(num)) {
+    found = findFile(num);
 
 #ifdef DEBUG_STORE_COMMANDS
+    if (found) {
       debugStream.print(F("stgc_0x7B_h: found: "));
       debugStream.println(f_name);
       debugStream.print(F("stgc_0x7B_h: type:  "));
       debugStream.println(f_type);
-#endif
-
-/*      
-      // Get filename from file handle and store in f_name
-      findfile.getName(fname, 46);
-      strncpy(f_name, fname, 46);
-      findfile.close();
-      
-      // all BINARY files are in HEX format
-      if ((f_name[7] == 'B') && (f_name[15] == 'P')) {
-        f_type = 'B';    // BINARY PROGRAM file
-      } else if ((f_name[7] == 'B') && (f_name[15] == 'D')) {
-        f_type = 'H';    // BINARY DATA file ** to read - parse the data_type
-      } else if (f_name[25] == 'S') {  // f_name[25] is location of file type SECRET ASCII PROGRAM
-        f_type = 'S';    // SECRET ASCII PROGRAM file
-      } else if (f_name[15] == 'P') {  // f_name[15] is location of file type (PROG, DATA,...)
-        f_type = 'P';    // ASCII PROGRAM file
-      } else if (f_name[7] == 'N') {  // f_name[7] is location of file type (ASCII,BINARY,NEW, or LAST)
-        f_type = 'N';    // ASCII LAST file
-      } else if (f_name[7] == 'L') {  // f_name[7] is location of file type (ASCII,BINARY,LAST)
-        f_type = 'L';    // ASCII LAST file
-      } else {
-        f_type = 'D';    // ASCII DATA file, also allows other types like TEXT and LOG to be treated as DATA
-      }
-
-      if (f_type) {
-        strncpy(path, directory, strlen(directory));
-        strncat(path, f_name, strlen(f_name));
-        sdinout.open(path, O_RDWR); // Open file for reading and writing
-        listIdx = num;
-
-#ifdef DEBUG_STORE_COMMANDS
-        debugStream.print(F("stgc_0x7B_h: found: "));
-        debugStream.println(f_name);
-        debugStream.print(F("stgc_0x7B_h: type:  "));
-        debugStream.println(f_type);
-#endif
-#ifdef DEBUG_STORE_COMMANDS
-      }else{
-        // Type undetemined
-        debugStream.println(F("Unknown type!"));
-        debugStream.println(F("stgc_0x7B_h: done."));
-#endif
-      }
-*/
-      return;      
     }else{
       errorCode = 2;
-#ifdef DEBUG_STORE_COMMANDS
       debugStream.print(F("stgc_0x7B_h: file "));
       debugStream.print(num);
       debugStream.println(F(" not found!"));
-#endif
     }
+#endif
+
 #ifdef DEBUG_STORE_COMMANDS
   }else{
     debugStream.println(F("stgc_0x7B_h: no search criteria!"));

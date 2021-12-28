@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.57, 24/12/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.59, 27/12/2021 *****/
 
 
 /****** Process status values *****/
@@ -394,7 +394,6 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
     r = readByte(&bytes[0], detectEoi, &eoiDetected);
     receiveBuffer[pos] = bytes[0];
     pos++;
-    
     // If ATN asserted then break here
     if (isAsserted(ATN)) break;
 
@@ -459,10 +458,6 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
 #ifdef DEBUG_GPIBbus_RECEIVE
   debugStream.println(F("GPIBbus::receiveParams: done."));
 #endif
-
-//  if (r > 0) return ERR;
-
-//  return OK;
 
   return pos;
 
@@ -893,20 +888,20 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
 
 uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
-  unsigned long startMicros = micros();
-  unsigned long currentMicros = startMicros + 1;
-  const unsigned long timeval = cfg.rtmo * 1000;
-//  bool timeout = true;
+  unsigned long startMillis = millis();
+  unsigned long currentMillis = startMillis + 1;
+  const unsigned long timeval = cfg.rtmo;
   uint8_t stage = 4;
 
   // Wait for interval to expire
-  while ( (unsigned long)(currentMicros - startMicros) < timeval ) {
+  while ( (unsigned long)(currentMillis - startMillis) < timeval ) {
 
     if (cfg.cmode == 1) {
       // If IFC has been asserted then abort
       if (isAsserted(IFC)) {
+        setControls(DLAS);       
 #ifdef DEBUG_GPIBbus_SEND
-        dataStream.println(F("GPIBbus::writeByte: detected interface clear [IFC]"));
+        debugStream.println(F("GPIBbus::writeByte: IFC detected!"));
 #endif
         stage = 1;
         break;    
@@ -914,8 +909,9 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
       // If ATN has been asserted we need to abort and listen
       if (isAsserted(ATN)) {
+        setControls(DLAS);       
 #ifdef DEBUG_GPIBbus_SEND
-        dataStream.println(F("gpibBus::writeByte: ATN detected!"));
+        debugStream.println(F("gpibBus::writeByte: ATN detected!"));
 #endif
         stage = 2;
         break;
@@ -960,6 +956,10 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
         break;
       }
     }
+
+    // Increment time
+    currentMillis = millis();
+
   }
 
   // Handshake complete
@@ -979,13 +979,6 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   // Otherwise timeout or ATN/IFC return stage at which it ocurred
   return stage;
 }
-
-
-
-
-
-
-
 
 
 /***** Set device addressing state *****/
@@ -1034,6 +1027,7 @@ bool GPIBbus::isDeviceNotAddressed(){
  * (- this function is called in a loop to read data    )
  * (- the GPIB bus must already be configured to listen )
  */
+/*
 uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   bool atnStat = isAsserted(ATN);
   *eoi = false;
@@ -1093,6 +1087,99 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 
   return 0;
 }
+*/
+
+
+uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
+
+  unsigned long startMillis = millis();
+  unsigned long currentMillis = startMillis + 1;
+  const unsigned long timeval = cfg.rtmo;
+  uint8_t stage = 4;
+
+//  bool atnStat = isAsserted(ATN);
+  *eoi = false;
+
+  // Wait for interval to expire
+  while ( (unsigned long)(currentMillis - startMillis) < timeval ) {
+
+//debugStream.println("S.");
+
+    if (cfg.cmode == 1) {
+      // If IFC has been asserted then abort
+      if (isAsserted(IFC)) {
+//debugStream.println("SI");
+#ifdef DEBUG_GPIBbus_RECEIVE
+        dataStream.println(F("GPIBbus::readByte: IFC detected]"));
+#endif
+        stage = 1;
+        break;    
+      }
+
+/*
+ *    No check for ATN required. Still need to read when controller asserts ATN!
+ */
+
+    }  
+
+    if (stage == 4) {
+      // Unassert NRFD (we are ready for more data)
+      setGpibState(0b00000100, 0b00000100, 0);
+      stage = 6;
+    }
+
+    if (stage == 6) {
+//debugStream.println("S6");
+      // Wait for DAV to go LOW indicating talker has finished setting data lines..
+      if (digitalRead(DAV) == LOW) {
+        // Assert NRFD (Busy reading data)
+        setGpibState(0b00000000, 0b00000100, 0);
+        stage = 7;
+      }
+    }
+
+    if (stage == 7) {
+//debugStream.println("S7");
+      // Check for EOI signal
+      if (readWithEoi && isAsserted(EOI)) *eoi = true;
+      // read from DIO
+      *db = readGpibDbus();
+      // Unassert NDAC signalling data accepted
+      setGpibState(0b00000010, 0b00000010, 0);
+      stage = 8;
+    }
+
+    if (stage == 8) {
+//debugStream.println("S8");
+      // Wait for DAV to go HIGH indicating data no longer valid (i.e. transfer complete)
+      if (digitalRead(DAV) == HIGH) {
+        // Re-assert NDAC - handshake complete, ready to accept data again
+        setGpibState(0b00000000, 0b00000010, 0);
+        stage = 9;
+        break;     
+      }
+    }
+
+    // Increment time
+    currentMillis = millis();
+
+  }
+
+//debugStream.println("SX");
+
+//debugStream.println(*db, HEX);
+
+  // Completed
+  if (stage == 9) return 0;
+
+  if (stage==1) return 4;
+  if (stage==2) return 3;
+  
+  // Otherwise return stage
+  return stage;
+
+}
+
 
 
 /***** Wait for "pin" to reach a specific state *****/
@@ -1104,7 +1191,7 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
  * Note: without millis() - using millis() in here breaks the protocol for longer 
  *        transmissions. Reason unknown. 
  */
-
+/*
 boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, const uint16_t interval) {
 
   unsigned long timeout = interval;
@@ -1116,7 +1203,8 @@ boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, const uint16_t inter
   while (digitalRead(pin) != state) {
     // Check timer
     if (clk >= timeout) return true;
-    
+*/
+/*
     // ATN changed state so abort
     if (atnStat != isAsserted(ATN)) {
 #if defined (DEBUG_GPIBbus_RECEIVE) || defined (DEBUG_GPIBbus_SEND)
@@ -1125,13 +1213,14 @@ boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, const uint16_t inter
 #endif
       return true;
     }
- 
+*/
+/*
     delayMicroseconds(100);
     clk = clk + 100;
   }
   return false;        // = no timeout therefore succeeded!
 }
-
+*/
 
 
 /***** Wait for "pin" to reach a specific state *****/
