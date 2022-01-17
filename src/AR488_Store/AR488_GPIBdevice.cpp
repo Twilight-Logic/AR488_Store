@@ -3,7 +3,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.59, 27/12/2021 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.61, 03/01/2022 *****/
 
 
 /****** Process status values *****/
@@ -918,7 +918,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
       }
     }
 
-    // Wait for NDAC to go LOW (indicating that devices are at attention)
+    // Wait for NDAC to go LOW (indicating that devices (stage==4) || (stage==8) ) are at attention)
     if (stage == 4) {
       if (digitalRead(NDAC) == LOW) stage = 5;
     }
@@ -977,6 +977,26 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   }
 
   // Otherwise timeout or ATN/IFC return stage at which it ocurred
+#ifdef DEBUG_GPIBbus_SEND
+  switch (stage) {
+    case 4:
+      debugStream.print("NDAC timeout!");
+      break;
+    case 5:
+      debugStream.print("NRFD timout!");
+      break;
+    case 7:
+      debugStream.print("NRFD timout!");
+      break;
+    case 8:
+      debugStream.print("NDAC timout!");
+      break;
+    default:
+      debugStream.print(F("Error: "));
+      debugStream.println(stage);
+  }
+#endif
+
   return stage;
 }
 
@@ -1097,18 +1117,15 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   const unsigned long timeval = cfg.rtmo;
   uint8_t stage = 4;
 
-//  bool atnStat = isAsserted(ATN);
+  bool atnStat = isAsserted(ATN);
   *eoi = false;
 
   // Wait for interval to expire
   while ( (unsigned long)(currentMillis - startMillis) < timeval ) {
 
-//debugStream.println("S.");
-
     if (cfg.cmode == 1) {
       // If IFC has been asserted then abort
       if (isAsserted(IFC)) {
-//debugStream.println("SI");
 #ifdef DEBUG_GPIBbus_RECEIVE
         dataStream.println(F("GPIBbus::readByte: IFC detected]"));
 #endif
@@ -1116,9 +1133,11 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
         break;    
       }
 
-/*
- *    No check for ATN required. Still need to read when controller asserts ATN!
- */
+      // ATN unasserted during handshake - not ready yet so abort (and exit ATN loop)
+      if ( atnStat && !isAsserted(ATN) ){
+        stage = 2;
+        break;
+      }
 
     }  
 
@@ -1129,7 +1148,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
     }
 
     if (stage == 6) {
-//debugStream.println("S6");
       // Wait for DAV to go LOW indicating talker has finished setting data lines..
       if (digitalRead(DAV) == LOW) {
         // Assert NRFD (Busy reading data)
@@ -1139,7 +1157,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
     }
 
     if (stage == 7) {
-//debugStream.println("S7");
       // Check for EOI signal
       if (readWithEoi && isAsserted(EOI)) *eoi = true;
       // read from DIO
@@ -1150,7 +1167,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
     }
 
     if (stage == 8) {
-//debugStream.println("S8");
       // Wait for DAV to go HIGH indicating data no longer valid (i.e. transfer complete)
       if (digitalRead(DAV) == HIGH) {
         // Re-assert NDAC - handshake complete, ready to accept data again
@@ -1165,10 +1181,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 
   }
 
-//debugStream.println("SX");
-
-//debugStream.println(*db, HEX);
-
   // Completed
   if (stage == 9) return 0;
 
@@ -1176,6 +1188,15 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   if (stage==2) return 3;
   
   // Otherwise return stage
+#ifdef DEBUG_GPIBbus_RECEIVE
+  if ( (stage==4) || (stage==8) ) {
+    debugStream.println(F("DAV timout!"));
+  }else{
+    debugStream.print(F("Error: "));
+    debugStream.println(stage);
+  }
+#endif
+
   return stage;
 
 }
@@ -1386,7 +1407,6 @@ void GPIBbus::clrSrqSig() {
   setGpibState(0b00000000, 0b01000000, 1);
   setGpibState(0b01000000, 0b01000000, 0);
 }
-
 
 
 /***** ^^^^^^^^^^^^^^^^^^^^ *****/

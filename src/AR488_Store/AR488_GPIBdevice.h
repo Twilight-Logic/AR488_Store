@@ -11,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.59, 27/12/2021 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.61, 03/01/2022 *****/
 
 
 /*********************************************/
@@ -152,8 +152,6 @@ class GPIBbus {
     bool isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence);
     void setSrqSig();
     void clrSrqSig();
-    
-
 
 };
 

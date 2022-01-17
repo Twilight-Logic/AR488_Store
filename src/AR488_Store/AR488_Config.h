@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.59, 27/12/2021"
+#define FWVER "AR488 GPIB storage, ver. 0.05.61, 03/12/2022"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -231,7 +231,7 @@
   //#define DEBUG_SERIAL_INPUT    // serialIn_h(), parseInput_h()
   //#define DEBUG_CMD_PARSER      // getCmd
   //#define DEBUG_SEND_TO_INSTR   // sendToInstrument();
-  //#define DEBUG_DEVICE_ATN      // attnRequired
+  #define DEBUG_DEVICE_ATN      // attnRequired
   //#define DEBUG_IDFUNC          // ID command
   
   // GPIB module

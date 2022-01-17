@@ -94,7 +94,7 @@ boolean newData = false;
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.59, 27/12/2021" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.61, 03/01/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1679,34 +1679,57 @@ void idn_h(char * params){
  */
 void attnRequired() {
 
+  uint8_t cmdbytes[5] = {0};
   uint8_t db = 0;
   uint8_t stat = 0;
   bool eoiDetected = false;
   uint8_t gpibcmd = 0;
   uint8_t saddrcmd = 0;
+  uint8_t cnt = 0;
+
 
   // Set device listner active state (assert NDAC+NRFD (low), DAV=INPUT_PULLUP)
   gpibBus.setControls(DLAS);
 
+  /***** ATN loop *****/
+
 #ifdef DEBUG_DEVICE_ATN
   debugStream.println(F("attnRequired: Answering attention!"));
+  debugStream.println(F("attnRequired: Reading CMD bytes..."));
 #endif
 
   // Read bytes
-  while (gpibBus.isAsserted(ATN)) {
-
-#ifdef DEBUG_DEVICE_ATN
-      debugStream.println(F("attnRequired: Reading byte..."));
-#endif
-
+  while ( (gpibBus.isAsserted(ATN)) && (cnt <5)  && !stat ) {
     // Read the next byte from the bus, no EOI detection
-    stat = gpibBus.readByte(&db, false, &eoiDetected);
-
-    if (!stat) {
+    stat = gpibBus.readByte(&cmdbytes[cnt], false, &eoiDetected);
+#ifdef DEBUG_DEVICE_ATN
+    debugStream.println(cmdbytes[cnt], HEX);
+#endif
+    if (!stat) cnt++;
+  }
 
 #ifdef DEBUG_DEVICE_ATN
-      debugStream.println(db, HEX);
+  debugStream.println(F("attnRequired: ATN loop end."));
+  debugStream.print(cnt);
+  debugStream.println(F(" bytes read."));
+  debugStream.print(F("Stat: "));
+  debugStream.println(stat);
 #endif
+
+  /***** Command process loop *****/
+
+  if (!stat) {  // Check for error
+
+#ifdef DEBUG_DEVICE_ATN
+  debugStream.println(F("attnRequired: started command process loop..."));
+#endif
+    
+    // Process commands
+    for (uint8_t i=0; i<cnt; i++) { 
+
+      if (!cmdbytes[i]) break;  // End loop on zero
+
+      db = cmdbytes[i];
 
       // Device is addressed to listen
       if (gpibBus.cfg.paddr == (db ^ 0x20)) { // MLA = db^0x20
@@ -1728,102 +1751,102 @@ void attnRequired() {
         // Secondary addressing command received
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
           saddrcmd = db;
-          waitForATNClear();
   #ifdef DEBUG_DEVICE_ATN
           debugStream.print(F("attnRequired: Secondary addressing command received: "));
           debugStream.println(saddrcmd, HEX);
   #endif
         }
-#endif        
+#endif
 
       }else{
         if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
-          if (db == 0x5F) {
-            device_unt_h();
-          }else if (db == 0x3F) {
-            device_unl_h();
-          }else{
-            gpibcmd = db;
-            waitForATNClear();
-          }
-          #ifdef DEBUG_DEVICE_ATN
+          gpibcmd = db;
+#ifdef DEBUG_DEVICE_ATN
           debugStream.print(F("attnRequired: GPIB command received: "));
           debugStream.println(gpibcmd, HEX);
 #endif
         }
       }
-    }
-  }
-
-#ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("End ATN loop."));
-#endif
 
 
-/***** Perform GPIB copmmand actions *****/
-  if (gpibcmd) {
-    // Respond to GPIB command
-    execGpibCmd(gpibcmd);
-    // Clear flags
-    gpibcmd = 0;
-    return;
-  }
+
+/***** Perform GPIB command actions *****/
+      if (gpibcmd) {
+        // Respond to GPIB command
+        execGpibCmd(gpibcmd);
+        // Clear flags
+        gpibcmd = 0;
+      }
 
 
 /***** Perform secondry address command actions *****/
 #ifdef EN_STORAGE
-  if (saddrcmd) {
-    // If addressed to listen then set GPIB to listen
-    if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
+      if (saddrcmd) {
+        // If addressed to listen then set GPIB to listen
+        if (gpibBus.isDeviceAddressedToListen()) gpibBus.setControls(DLAS);
 
-    // If addressed to talk then set GPIB to talk
-    if (gpibBus.isDeviceAddressedToTalk()) {
-      gpibBus.setControls(DTAS);
-    }
+        // If addressed to talk then set GPIB to talk
+        if (gpibBus.isDeviceAddressedToTalk()) {
+          gpibBus.setControls(DTAS);
+        }
     
-    // Execute the GPIB secondary addressing command
-    storage.storeExecCmd(saddrcmd);
+        // Execute the GPIB secondary addressing command
+        storage.storeExecCmd(saddrcmd);
 
-    // Make sure we drop back to listen for next command
-    gpibBus.setControls(DLAS);
+        // Make sure we drop back to listen for next command
+        gpibBus.setControls(DLAS);
     
-    // Clear flags
-    saddrcmd = 0;
+        // Clear flags
+        saddrcmd = 0;
 
-    // reset GPIB BUS back to idle
-// is this needed ?    
-//    gpibBus.setControls(DIDS);
-// is this needed ?    
-    return;
-  }
+        // reset GPIB BUS back to idle
+//      is this needed ?    
+//      gpibBus.setControls(DIDS);
+//      is this needed ?    
+      }
 
 #endif
 
 
 /***** Otherwise perform read or write *****/
-  if (gpibBus.cfg.cmode == 2) { 
-  // Listen for data
-  if (gpibBus.isDeviceAddressedToListen()) { 
-#ifdef DEBUG_DEVICE_ATN
-    debugStream.println(F("Listening..."));
-#endif
-    device_listen_h();
-    return;
-  }
+      if (gpibBus.cfg.cmode == 2) { 
 
-  // Talk (send data)
-  if (gpibBus.isDeviceAddressedToTalk()) {
+        // Listen for data
+        if (gpibBus.isDeviceAddressedToListen()) { 
 #ifdef DEBUG_DEVICE_ATN
-    debugStream.println(F("Talking..."));
+          debugStream.println(F("Listening..."));
 #endif
-    device_talk_h();
-    gpibBus.setControls(DLAS);  // Data sent. Now listen for next CMD
-    return;
-  }
+          device_listen_h();
+          return;
+        }
+
+        // Talk (send data)
+        if (gpibBus.isDeviceAddressedToTalk()) {
+#ifdef DEBUG_DEVICE_ATN
+          debugStream.println(F("Talking..."));
+#endif
+          device_talk_h();
+          gpibBus.setControls(DLAS);  // Data sent. Now listen for next CMD
+          return;
+        }
 
   // Finished attention - set controls to idle
-//  gpibBus.setControls(DIDS);  // his should be done by UNT or UNL
+//    gpibBus.setControls(DIDS);  // his should be done by UNT or UNL
+      }
+
+    }
+
+#ifdef DEBUG_DEVICE_ATN
+    debugStream.println(F("End command process loop."));
+#endif
+
+#ifdef DEBUG_DEVICE_ATN
+  }else{
+    debugStream.print(F("Error reading command: "));
+    debugStream.println(stat);
+#endif
   }
+
 
 #ifdef DEBUG_DEVICE_ATN
   debugStream.println(F("attnRequired: END attnReceived."));
@@ -1850,8 +1873,7 @@ void execGpibCmd(uint8_t gpibcmd){
         debugStream.println(F("attnRequired: Received serial poll disable."));
 #endif
         device_spd_h();
-        break;
-/*        
+        break;       
     case GC_UNL:
         // Unlisten
         device_unl_h();
@@ -1860,7 +1882,6 @@ void execGpibCmd(uint8_t gpibcmd){
         // Untalk
         device_unt_h();
         break;
-*/
     case GC_SDC:
         // Device clear (reset)
         device_sdc_h();
@@ -1948,8 +1969,6 @@ void device_unl_h() {
   gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
 
-  // Wait for ATN to clear
-  waitForATNClear();
 }
 
 
@@ -1986,20 +2005,4 @@ void lonMode(){
 
   // Clear the buffer to prevent it getting blocked
   if (lnRdy==2) flushPbuf();
-}
-
-
-/***** Wait for ATN to clear *****/
-bool waitForATNClear(){
-  unsigned long startMillis = millis();
-  unsigned long currentMillis = startMillis + 1;
-  const unsigned long timeval = gpibBus.cfg.rtmo;
-  bool ATNclear = false;
-  while ( (unsigned long)(currentMillis - startMillis) < timeval ) {
-    if (!gpibBus.isAsserted(ATN)) {
-      ATNclear = true;
-      break;
-    }
-  }
-  return ATNclear;
 }
