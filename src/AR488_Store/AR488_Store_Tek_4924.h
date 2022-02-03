@@ -16,7 +16,7 @@
 #include "AR488_GPIBdevice.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.61, 03/01/2022 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.62, 03/02/2022 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -137,7 +137,7 @@ class SDstorage {
     
     char directory[13] = "/root/";            //allow up to ten character directory names plus two '/' and NULL terminator
 
-    char f_name[46];                          //the current filename variable
+    char f_name[file_header_size];            //the current filename variable
     char f_type='N';                          //the current filetype string variable
 
     SdFat sd;
@@ -214,6 +214,7 @@ class SDstorage {
     bool renameFile(File& fileObj, char ftype, char fusage);
     bool makeNewFile(File& fileObj, uint16_t filelength);
     void setFileInfo(File filehandle);
+    void stripLineEnd(char * buf, uint8_t buflen);
 };
 
 

@@ -94,7 +94,7 @@ boolean newData = false;
 
 #endif
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.61, 03/01/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.62, 03/02/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki

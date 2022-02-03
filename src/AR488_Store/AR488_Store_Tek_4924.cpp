@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.61, 03/01/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.62, 03/02/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -249,7 +249,6 @@ void TekFileInfo::getTekHeader(char * header){
 
 /***** Set file info from filename string *****/
 void TekFileInfo::setFromFilename(char * filename){
-//  char * fptr = filename;
   char sfname[file_header_size];
   uint8_t plen;
   uint8_t depos;
@@ -258,29 +257,17 @@ void TekFileInfo::setFromFilename(char * filename){
   char fsizestr[8];
   char * param;
 
-//debugStream.print(F("Filename: "));
-//debugStream.println(filename);
-
   memset(sfname, '\0', file_header_size);
   memset(fsizestr, '\0', 8);
   strncpy(sfname, filename, strlen(filename));
   param = strtok(sfname, " ");
   fnum = (uint8_t)atoi(param);   // fnum takes values 0 - 255
-
-//debugStream.print(F("File num: "));
-//debugStream.println(fnum);
   
   param = strtok(NULL, " ");
   setFtype(param[0]);
-
-//debugStream.print(F("File type: "));
-//debugStream.println(ftype);
   
   param = strtok(NULL, " ");
   setFusage(param[0]);
-
-//debugStream.print(F("File usage: "));
-//debugStream.println(fusage);
   
   param = strtok(NULL, "\0");
   plen = strlen(param);
@@ -303,9 +290,6 @@ void TekFileInfo::setFromFilename(char * filename){
     if (dcnt == max_fdesc_length) break; // Reached max desc length - prevent overrun
   }
 
-//debugStream.print(F("Description: "));
-//debugStream.println(fdesc);
-
   // Extract file size string and convert to number
   dcnt = 0;
   if ( (plen-depos)>7 ){  // Prevent overrun
@@ -317,9 +301,6 @@ void TekFileInfo::setFromFilename(char * filename){
     }
     fsize = atol(fsizestr);
   }
-
-//debugStream.print(F("File sizestr: "));
-//debugStream.println(fsizestr);
 
 }
 
@@ -523,6 +504,18 @@ bool SDstorage::findFile(uint8_t fnum){
     }
   }
   return false;
+}
+
+
+/***** Strip any trailing CR or LF characters *****/
+void SDstorage::stripLineEnd(char * buf, uint8_t buflen){
+  // Run from end of the array backwards
+  for (uint8_t i=(buflen-1); i>0; i--) {
+    // Replace CR and LF with NULL
+    if ( (buf[i]==0x0A) || (buf[i]==0x0D) ) buf[i] = 0x00;
+    // Exit on first non-NULL (and by implication non-CR and non-LF) character 
+    if (buf[i] != 0x00) i=1;
+  }
 }
 
 
@@ -1021,7 +1014,7 @@ void SDstorage::stgc_0x61_h(){
     if (r == 0) {
       // End the file here
       sdinout.truncate();
-      // Make sure file is makrked as ASCII PROG, with appropriate length and rename
+      // Make sure file is marked as ASCII PROG, with appropriate length and rename
       renameFile(sdinout, 'A', 'P');
 #ifdef DEBUG_STORE_COMMANDS
     }else{
@@ -1813,14 +1806,14 @@ void SDstorage::stgc_0x71_h() {
 void SDstorage::stgc_0x73_h(){
 
   char fname[file_header_size+1] = {0};
-  bool found = false;
-  File fileObj;
-  TekFileInfo tekfile;
-
+  uint8_t r = 0;
+  File dirObj;
+        
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x73_h: started TLIST handler..."));
 #endif
 
+/*
   // Find the next file
   while(!found) {
     found = searchForFile(listIdx, fileObj);
@@ -1836,7 +1829,7 @@ void SDstorage::stgc_0x73_h(){
     fileObj.getName(fname, file_header_size);
     fileObj.close();  // Done with file handle
     if (fname[7] == 'L') listIdx = 0;
-    
+    attnRequired: Controller wants me to send data >>>
     // Parse and return
     tekfile.setFromFilename(fname);
     tekfile.getFilename(fname);
@@ -1847,6 +1840,54 @@ void SDstorage::stgc_0x73_h(){
     fname[0] = '\0';
     gpibBus.sendData(fname, 1, DATA_COMPLETE);
     errorCode = 2;
+  }
+*/
+
+  // If addressed to listen, rename the file
+  if (gpibBus.isDeviceAddressedToListen()){
+    // Open the current directory
+#ifdef DEBUG_STORE_COMMANDS
+    debugStream.print(F("Opening "));
+    debugStream.println(directory);
+#endif
+    if (dirObj.open(directory, O_RDONLY)) {
+#ifdef DEBUG_STORE_COMMANDS
+      debugStream.println(F("Opened."));
+#endif
+      // Read the file name  from GPIB and rename the file
+      r = gpibBus.receiveParams(false, fname, 45);   // Limit to file_header_size characters including terminating null
+//      debugStream.print(F("R: "));
+//      debugStream.println(r);
+//      debugStream.print(F("Filename: "));
+//      debugStream.println(fname);
+//      debugStream.print(F("Len fname: "));
+//      debugStream.println(strlen(fname));
+      
+      // If we have received a filename then rename the file
+      if (r>0) {
+        // Remove CR/LF
+        stripLineEnd(fname, strlen(fname));
+#ifdef DEBUG_STORE_COMMANDS
+        debugStream.print(F("Filename: "));
+        debugStream.println(fname);
+        printHex(fname, strlen(fname));
+#endif
+        if (sdinout.rename(&dirObj, fname)) {
+          strncpy(f_name, fname, file_header_size);
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.println(F("stgc_0x73_h: file renamed."));
+#endif
+        }else{
+          errorCode = 4;
+#ifdef DEBUG_STORE_COMMANDS
+          debugStream.println(F("stgc_0x73_h: rename failed."));
+#endif
+        }        
+      }
+    }
+  }else{
+    // Return the file name
+    gpibBus.sendData(f_name, file_header_size, DATA_COMPLETE);
   }
 
 #ifdef DEBUG_STORE_COMMANDS
