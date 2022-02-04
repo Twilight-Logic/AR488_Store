@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.62, 03/02/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.63, 04/02/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -1886,8 +1886,12 @@ void SDstorage::stgc_0x73_h(){
       }
     }
   }else{
-    // Return the file name
-    gpibBus.sendData(f_name, file_header_size, DATA_COMPLETE);
+    // If its not a NULL string then return the file name
+    if (f_name[0]>0) {
+      gpibBus.sendData(f_name, file_header_size, DATA_COMPLETE);
+    }else{
+      gpibBus.writeByte(0x00,DATA_COMPLETE);
+    }
   }
 
 #ifdef DEBUG_STORE_COMMANDS
