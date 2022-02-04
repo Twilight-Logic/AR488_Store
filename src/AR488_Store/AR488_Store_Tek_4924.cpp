@@ -1890,7 +1890,7 @@ void SDstorage::stgc_0x73_h(){
     if (f_name[0]>0) {
       gpibBus.sendData(f_name, file_header_size, DATA_COMPLETE);
     }else{
-      gpibBus.writeByte(0x00,DATA_COMPLETE);
+      gpibBus.writeByte(0xFF,DATA_COMPLETE);
     }
   }
 
