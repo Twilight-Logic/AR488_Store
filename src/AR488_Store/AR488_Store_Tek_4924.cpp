@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.63, 04/02/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.65, 18/02/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -249,6 +249,7 @@ void TekFileInfo::getTekHeader(char * header){
 
 /***** Set file info from filename string *****/
 void TekFileInfo::setFromFilename(char * filename){
+//  char * fptr = filename;
   char sfname[file_header_size];
   uint8_t plen;
   uint8_t depos;
@@ -257,17 +258,29 @@ void TekFileInfo::setFromFilename(char * filename){
   char fsizestr[8];
   char * param;
 
+//debugStream.print(F("Filename: "));
+//debugStream.println(filename);
+
   memset(sfname, '\0', file_header_size);
   memset(fsizestr, '\0', 8);
   strncpy(sfname, filename, strlen(filename));
   param = strtok(sfname, " ");
   fnum = (uint8_t)atoi(param);   // fnum takes values 0 - 255
+
+//debugStream.print(F("File num: "));
+//debugStream.println(fnum);
   
   param = strtok(NULL, " ");
   setFtype(param[0]);
+
+//debugStream.print(F("File type: "));
+//debugStream.println(ftype);
   
   param = strtok(NULL, " ");
   setFusage(param[0]);
+
+//debugStream.print(F("File usage: "));
+//debugStream.println(fusage);
   
   param = strtok(NULL, "\0");
   plen = strlen(param);
@@ -290,6 +303,9 @@ void TekFileInfo::setFromFilename(char * filename){
     if (dcnt == max_fdesc_length) break; // Reached max desc length - prevent overrun
   }
 
+//debugStream.print(F("Description: "));
+//debugStream.println(fdesc);
+
   // Extract file size string and convert to number
   dcnt = 0;
   if ( (plen-depos)>7 ){  // Prevent overrun
@@ -301,6 +317,9 @@ void TekFileInfo::setFromFilename(char * filename){
     }
     fsize = atol(fsizestr);
   }
+
+//debugStream.print(F("File sizestr: "));
+//debugStream.println(fsizestr);
 
 }
 
@@ -461,13 +480,13 @@ void SDstorage::viewCurrentFile(Stream &output){
 bool SDstorage::findFile(uint8_t fnum){
   File findfile;
   char path[full_path_size] = {0};
-  char fname[46];
+  char fname[file_header_size];
 
   if (searchForFile(fnum, findfile)) { // Returns filehandle if found
 
     // Get filename from file handle and store in f_name
-    findfile.getName(fname, 46);
-    strncpy(f_name, fname, 46);
+    findfile.getName(fname, file_header_size);
+    strncpy(f_name, fname, file_header_size);
     findfile.close();
 
     // all BINARY files are in HEX format
@@ -586,8 +605,10 @@ uint8_t SDstorage::binaryRead() {
     }
   }
 
-debugStream.print(F("Err: "));
-debugStream.println(err);
+#ifdef DEBUG_STORE_COMMANDS
+  debugStream.print(F("Err: "));
+  debugStream.println(err);
+#endif
 
   return err;
 }
@@ -962,8 +983,8 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
   while (storeCmdHidx[i].cmdByte) {
     if (storeCmdHidx[i].cmdByte == cmd) {
 #ifdef DEBUG_STORE
-      debugStream.print(F("Executing secondary address command: "));
-      debugStream.println(cmd, HEX);
+//      debugStream.print(F("Executing secondary address command: "));
+//      debugStream.println(cmd, HEX);
 #endif
       // Call handler
       (this->*storeCmdHidx[i].handler)();
@@ -1014,7 +1035,7 @@ void SDstorage::stgc_0x61_h(){
     if (r == 0) {
       // End the file here
       sdinout.truncate();
-      // Make sure file is marked as ASCII PROG, with appropriate length and rename
+      // Make sure file is makrked as ASCII PROG, with appropriate length and rename
       renameFile(sdinout, 'A', 'P');
 #ifdef DEBUG_STORE_COMMANDS
     }else{
@@ -1492,54 +1513,6 @@ void SDstorage::stgc_0x6D_h() {
 
 
 /***** READ command (tek_READ_one) *****/
-/*
-void SDstorage::stgc_0x6E_h() {
-
-// Note: Reads BINARY files
-
-// READ command test
-
-  uint8_t err = 0;
-
-  // line_buffer_size = 72 char line max in Tek plus CR plus NULL
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x6E_h: started READ handler..."));
-#endif
-
-  if (f_type == 'H') {
-
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.print(F("stgc_0x6E_h: reading "));
-    debugStream.print(directory);
-    debugStream.print(f_name);
-    debugStream.println(F("..."));
-#endif
-
-    err = binaryRead();
-
-#ifdef DEBUG_STORE_COMMANDS
-    if (err) debugStream.println(F("stgc_0x6E_h: error reading file!"));
-#endif
-    
-  }else{
-#ifdef DEBUG_STORE_COMMANDS
-    debugStream.println(F("stgc_0x6E_h: incorrect file type!"));
-#endif
-  }
-
-#ifdef DEBUG_STORE_COMMANDS
-  debugStream.println(F("stgc_0x6E_h: done."));
-#endif
-
-
-}
-*/
-
-
-/*
- * READ alt
- */ 
 void SDstorage::stgc_0x6E_h() {
 
   int16_t c;
@@ -1558,6 +1531,7 @@ void SDstorage::stgc_0x6E_h() {
 #endif
 
     // READ loop
+
     while (!err) {  // Drop out on error
 
       // Get header bytes
@@ -1565,6 +1539,7 @@ void SDstorage::stgc_0x6E_h() {
       header[1] = sdinout.read();
 
       if ( (header[0]==-1) || (header[1]==-1) ) {
+
         // Reached EOF - send last byte and 0xFF with EOI
         err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
         return;
@@ -1584,13 +1559,11 @@ void SDstorage::stgc_0x6E_h() {
       // Send header
       err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
       if (err) {
-        debugStream.println(F("Hbyte1"));
         sdinout.seekCur(-2);  // Move back to begining of header
         break;
       }
       err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
       if (err) {
-        debugStream.println(F("Hbyte2"));
         sdinout.seekCur(-2);
         break;
       }
@@ -1804,11 +1777,17 @@ void SDstorage::stgc_0x71_h() {
 
 /***** LIST / TLIST command *****/
 void SDstorage::stgc_0x73_h(){
-
+/*
   char fname[file_header_size+1] = {0};
+  bool found = false;
+  File fileObj;
+  TekFileInfo tekfile;
+*/
+  char readbuffer[line_buffer_size] = {0};  // Buffer must be bigger than file length
+  char fname[file_header_size] = {0};
   uint8_t r = 0;
   File dirObj;
-        
+
 #ifdef DEBUG_STORE_COMMANDS
   debugStream.println(F("stgc_0x73_h: started TLIST handler..."));
 #endif
@@ -1829,7 +1808,7 @@ void SDstorage::stgc_0x73_h(){
     fileObj.getName(fname, file_header_size);
     fileObj.close();  // Done with file handle
     if (fname[7] == 'L') listIdx = 0;
-    attnRequired: Controller wants me to send data >>>
+    
     // Parse and return
     tekfile.setFromFilename(fname);
     tekfile.getFilename(fname);
@@ -1855,7 +1834,7 @@ void SDstorage::stgc_0x73_h(){
       debugStream.println(F("Opened."));
 #endif
       // Read the file name  from GPIB and rename the file
-      r = gpibBus.receiveParams(false, fname, 45);   // Limit to file_header_size characters including terminating null
+      r = gpibBus.receiveParams(false, readbuffer, line_buffer_size);   // Limit to file_header_size characters including terminating null
 //      debugStream.print(F("R: "));
 //      debugStream.println(r);
 //      debugStream.print(F("Filename: "));
@@ -1865,12 +1844,14 @@ void SDstorage::stgc_0x73_h(){
       
       // If we have received a filename then rename the file
       if (r>0) {
-        // Remove CR/LF
+        // Copy max [file_header_size] characters to fname
+        strncpy(fname, readbuffer, file_header_size); 
+        // Remove any trailing CR/LF
         stripLineEnd(fname, strlen(fname));
 #ifdef DEBUG_STORE_COMMANDS
         debugStream.print(F("Filename: "));
         debugStream.println(fname);
-        printHex(fname, strlen(fname));
+//        printHex(fname, strlen(fname));
 #endif
         if (sdinout.rename(&dirObj, fname)) {
           strncpy(f_name, fname, file_header_size);

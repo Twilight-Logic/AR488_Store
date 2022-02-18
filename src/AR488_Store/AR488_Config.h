@@ -7,7 +7,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.63, 04/02/2022"
+#define FWVER "AR488 GPIB storage, ver. 0.05.65, 18/02/2022"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -66,7 +66,7 @@
 /*** MEGA 2560 board ***/
 #elif __AVR_ATmega2560__
   /*** Board/layout selection ***/
-  //#define AR488_MEGA2560_D
+  #define AR488_MEGA2560_D
   //#define AR488_MEGA2560_E1
   //#define AR488_MEGA2560_E2
   //#define AR488_MEGA2560_S1
@@ -231,7 +231,7 @@
   //#define DEBUG_SERIAL_INPUT    // serialIn_h(), parseInput_h()
   //#define DEBUG_CMD_PARSER      // getCmd
   //#define DEBUG_SEND_TO_INSTR   // sendToInstrument();
-  #define DEBUG_DEVICE_ATN      // attnRequired
+  //#define DEBUG_DEVICE_ATN      // attnRequired
   //#define DEBUG_IDFUNC          // ID command
   
   // GPIB module

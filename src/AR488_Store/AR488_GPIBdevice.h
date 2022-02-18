@@ -11,7 +11,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.63, 04/02/2022 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.65, 18/02/2022 *****/
 
 
 /*********************************************/
@@ -117,28 +117,30 @@ class GPIBbus {
 
     void begin();
     void stop();
+
     bool isAsserted(uint8_t gpibsig);
     void setControls(uint8_t state);
     void sendStatus();
     void sendEOI();
     void setStatus(uint8_t statusByte);
-    uint8_t readByte(uint8_t *db, bool readWithEoi, bool *eoi);  
     bool receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte, uint8_t endByte);
     bool receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
     void sendData(char *databuffer, size_t dsize, bool lastChunk);
     bool sendRawData(char *databuffer, size_t dsize);
+    uint8_t readByte(uint8_t *db, bool readWithEoi, bool *eoi);  
+    uint8_t writeByte(uint8_t db, bool isLastByte);
     void setControlVal(uint8_t value, uint8_t mask, uint8_t mode);
     void setDataVal(uint8_t);
-    uint8_t writeByte(uint8_t db, bool isLastByte);
-    void setDeviceAddressedState(uint8_t stat);
+
+//    void setDeviceAddressedState(uint8_t stat);
     bool isDeviceAddressedToListen();
     bool isDeviceAddressedToTalk();
     bool isDeviceNotAddressed();
 
 #ifdef EN_STORAGE
-    bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
+//    bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);
     uint8_t receiveParams(bool detectEoi, char * receiveBuffer, uint8_t bufSize);
-    void sendData(ifstream& fileStream);
+//    void sendData(ifstream& fileStream);
 #endif
 
     void signalBreak();
@@ -152,6 +154,7 @@ class GPIBbus {
     bool isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence);
     void setSrqSig();
     void clrSrqSig();
+    bool atnStatus = false;
 
 };
 
