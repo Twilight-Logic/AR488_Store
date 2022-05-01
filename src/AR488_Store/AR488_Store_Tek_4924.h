@@ -1,22 +1,19 @@
 #ifndef AR488_STORE_TEK_4924_H
 #define AR488_STORE_TEK_4924_H
 
-//#include <BufferedPrint.h>
-//#include <FreeStack.h>
-//#include <MinimumSerial.h>
-
 #include <SPI.h>
 #include <SdFat.h>
 #include <SdFatConfig.h>
 #include <sdios.h>
-//#include <Stream.h>
-#include "string.h"
+//#include "string.h"
 
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
+#include "AR488_SerialPorts.h"
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.65, 18/02/2022 *****/
+
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.70, 01/05/2022 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -29,6 +26,13 @@
 #endif
 
 #define SD_CONFIG SdSpiConfig(SDCARD_CS_PIN, SHARED_SPI, SD_SCK_MHZ(SDCARD_CLK))
+
+
+/***** Debug Serial Port *****/
+#ifdef DB_SERIAL_ENABLE
+  extern Stream& debugStream;
+#endif
+
 
 // Number of storage GPIB commands
 #define STGC_SIZE 19
@@ -49,6 +53,7 @@ const uint8_t max_fdesc_length = file_header_size - 30;   // Maximum length of d
 
 
 /***** Character stream buffer *****/
+/*
 class CharStream : public Stream {
   public:
 //    CharStream(char *buf, uint8_t dsize) : bufsize(dsize), databuf(buf), tail(0) { }
@@ -69,6 +74,7 @@ class CharStream : public Stream {
     char *databuf;
     uint8_t tail;
 };
+*/
 
 
 /***** Tektronix File Information class *****/
@@ -84,7 +90,6 @@ class TekFileInfo {
     void getFtypeStr(char * typestr);
     void getFusageStr(char * usagestr);
     void getFdescStr(char * description);
-//    void getFrecords(char * recordstr);
     void getFsize(char * sizestr);
 
     void getFilename(char * filename);
@@ -96,9 +101,7 @@ class TekFileInfo {
     void setFusage(char usagechar);
     void setFdesc(const char * description);
     void clearFdesc();
-//    void setFrecords(uint16_t records);
     void setFsize(size_t filesize);
-//    void setFsecret(bool isSecret);
 
   private:
  
@@ -107,9 +110,7 @@ class TekFileInfo {
     char ftype;
     char fusage;
     char fdesc[(max_fdesc_length + 1)];
-//    bool fsecret;
     unsigned long fsize;
-//    uint16_t frecords;
 
 };
 

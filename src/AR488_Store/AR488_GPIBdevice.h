@@ -4,6 +4,7 @@
 //#include <SD.h>
 #include "AR488_Config.h"
 #include "AR488_Layouts.h"
+#include "AR488_SerialPorts.h"
 
 #ifdef EN_STORAGE
   #ifdef EN_TEK_4924
@@ -11,7 +12,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.65, 18/02/2022 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.70, 01/05/2022 *****/
 
 
 /*********************************************/
@@ -19,23 +20,6 @@
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 
 #define GPIB_CFG_SIZE 83
-
-#define AR_CFG_SIZE 85
-
-
-/***** Debug Port *****/
-#ifdef DB_SERIAL_ENABLE
-  extern Stream& debugStream;
-
-  /* Configured in Config.h */
-  //#define DEBUG_GPIBbus_READ
-  //#define DEBUG_GPIBbus_WRITE
-  //#define DEBUG_GPIBbus_CONTROL
-  //#define SN7516X
-  /* Configured in Config.h */
-
-#endif
-
 
 // Universal Multiline commands (apply to all devices)
 

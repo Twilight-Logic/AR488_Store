@@ -12,7 +12,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 #include "AR488_Layouts.h"
-
+#include "AR488_SerialPorts.h"
 
 #ifdef USE_INTERRUPTS
   #ifdef __AVR__
@@ -28,73 +28,7 @@
 #endif
 
 
-
-#ifdef EN_STORAGE
-
-//------------------------------------------------------------------------------
-
-/*
-
-// file system object
-SdFat sd;
-SdFile file;
-SdFile dirFile;
-SdFile rdfile;
-
-// create a serial stream
-ArduinoOutStream cout(Serial);
-
-// Number of files found.
-uint16_t n = 0;
-
-// Max of 99 files assumed in a single directory
-const uint8_t nMax = 255;
-
-// Position of file's directory entry.
-uint16_t dirIndex[nMax];
-
-char directory[13] = "/root/";  //allow up to ten character directory names plus two '/' and NULL terminator
-
-char f_name[46];                //the filename variable
-char f_type='N';                //the filetype string variable
-
-//enum fType {'P','D','B','S','L','N','O'}; // file types: ASCII Program, ASCII Data, Binary Program or Data, Secret ASCII Program, Last, New (just created), nO file open
-
-const int line_buffer_length = 74;  // 72 char line max in Tek plus CR plus NULL
-char buffer[line_buffer_size];
-char path[60] = {0};
-char dir[11];
-char buffr[line_buffer_size];
-char buffr2[76];
-const int bin_buffer_size = 65;
-char binary[33]; // output buffer size = bin buffer size / 2 plus NULL
-char *param;
-char rparam = '\0';
-char ibuffr[4];
-char s_input[4] = {0};
-
-const byte numChars = 32;
-char receivedChars[numChars];
-char tempChars[numChars];        // temporary array for use when parsing
-
-// variables to hold the parsed data
-char messageFromPC[numChars] = {0};
-char parameterFromPC[numChars] = {0};
-int integerFromPC = 0;
-float floatFromPC = 0.0;
-
-//------------------------------------------------------------------------------
-// store error strings in flash to save RAM
-#define error(s) sd.errorHalt(F(s))
-//------------------------------------------------------------------------------
-
-boolean newData = false;
-
-*/
-
-#endif
-
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.65, 18/02/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.70, 01/05/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -201,29 +135,10 @@ boolean newData = false;
 /***** SERIAL PORT MANAGEMENT *****/
 /***** vvvvvvvvvvvvvvvvvvvvvv *****/
 
-#ifdef AR_SERIAL_ENABLE
-  #ifdef AR_SERIAL_TYPE_SW
-    #include <SoftwareSerial.h>
-    SoftwareSerial AR_SERIAL_PORT(SW_SERIAL_RX_PIN, SW_SERIAL_TX_PIN);
-  #else
-    Stream& dataStream = AR_SERIAL_PORT;
-  #endif
-#endif
-
-
-#ifdef DB_SERIAL_ENABLE
-  #ifdef DB_SERIAL_TYPE_SW
-    #include <SoftwareSerial.h>
-    SoftwareSerial DB_SERIAL_PORT(SW_SERIAL_RX_PIN, SW_SERIAL_TX_PIN);
-  #else
-    Stream& debugStream = DB_SERIAL_PORT;
-  #endif
-#endif
-
 
 /***** PARSE BUFFERS *****/
 /*
- * Note: Ardiono serial input buffer is 64 
+ * Note: Arduino serial input buffer is 64 
  */
 // Serial input parsing buffer
 static const uint8_t PBSIZE = 128;
@@ -355,14 +270,11 @@ void setup() {
 
 
 // Initialise comms port
-#ifdef AR_SERIAL_PORT
-  AR_SERIAL_PORT.begin(AR_SERIAL_SPEED);
-#endif
+  DATAPORT_START();
+
 
 // Initialise debug port
-#ifdef DB_SERIAL_PORT
-  DB_SERIAL_PORT.begin(DB_SERIAL_SPEED);
-#endif
+  DEBUG_START();
 
 
 // Un-comment for diagnostic purposes
@@ -407,34 +319,21 @@ void setup() {
 //  isATN = false;
 //  isSRQ = false;
 
-/*
-#ifdef EN_STORAGE
-  // setup for SdFat
-  // Initialize at the highest speed supported by the board that is
-  // not over 50 MHz. Try a lower speed if SPI errors occur.
-  if (!sd.begin(SDCARD_CS_PIN, SD_SCK_MHZ(50))) {
-    sd.initErrorHalt();
-  }
-#endif
-*/
 
 #ifdef SAY_HELLO
-  dataStream.print(F("AR488-Store ready "));
-  if (gpibBus.cfg.cmode==1) dataStream.println(F("(device)."));
+  DATA_RAW_PRINT(F("AR488-Store ready "));
+  if (gpibBus.cfg.cmode==1) { DATA_RAW_PRINTLN(F("(device).") ); };
 #endif
 
-  
+//  DB_PRINTX(F("Hello "), );
+
 }
 /****** End of Arduino standard SETUP procedure *****/
 
 
 /***** ARDUINO MAIN LOOP *****/
 void loop() {
-/*
-debugStream.println("LOOP");
-debugStream.print(F("LnRdy: "));
-debugStream.println(lnRdy);
-*/
+
 
 /*** Pin Hooks ***/
 /*
@@ -450,15 +349,8 @@ debugStream.println(lnRdy);
   /* SerialEvent() handles the serial interrupt but some boards
      do not support SerialEvent. In this case use in-loop checking
   */
-/*  
-#if not defined (USE_SERIALEVENT) || not defined (SERIALEVENT1) || not defined (SERIALEVENT2) || not defined (SERIALEVENT3)
-  // Serial input handler
-  while (dataStream.available()) {
-    lnRdy = parseInput(dataStream.read());
-  }
-#endif
-*/
-//
+
+
 /*** Process the buffer ***/
 /* Each received char is passed through parser until an un-escaped 
  * CR is encountered. If we have a command then parse and execute.
@@ -497,15 +389,10 @@ debugStream.println(lnRdy);
   // Reset line ready flag
 //  lnRdy = 0;
 
-  // IDN query ?
-  if (sendIdn) {
-    if (gpibBus.cfg.idn==1) dataStream.println(gpibBus.cfg.sname);
-    if (gpibBus.cfg.idn==2) {dataStream.print(gpibBus.cfg.sname);dataStream.print("-");dataStream.println(gpibBus.cfg.serial);}
-    sendIdn = false;
-  }
-
+#ifdef DATAPORT_ENABLE
   // Check serial buffer
   lnRdy = serialIn_h();
+#endif
   
   delayMicroseconds(5);
 }
@@ -545,22 +432,24 @@ void initGpibCfg(){
  * lnRdy=1: terminator detected, sequence in parse buffer is a ++ command
  * lnRdy=2: terminator detected, sequence in parse buffer is data or direct instrument command
  */ 
+#ifdef DATAPORT_ENABLE
 uint8_t serialIn_h() {
   uint8_t bufferStatus = 0;
   // Parse serial input until we have detected a line terminator
-  while (dataStream.available() && bufferStatus==0) {   // Parse while characters available and line is not complete
-    bufferStatus = parseInput(dataStream.read());
+  while (dataPort.available() && bufferStatus==0) {   // Parse while characters available and line is not complete
+    bufferStatus = parseInput(dataPort.read());
   }
 
 #ifdef DEBUG_SERIAL_INPUT
   if (bufferStatus) {
-    debugStream.print(F("BufferStatus: "));
-    debugStream.println(bufferStatus);  
+    DB_RAW_PRINT(F("BufferStatus: "));
+    DB_RAW_PRINTLN(bufferStatus);
   }
 #endif
 
   return bufferStatus;
 }
+#endif
 
 
 /*************************************/
@@ -570,7 +459,7 @@ uint8_t serialIn_h() {
 
 /***** Unrecognized command *****/
 void errBadCmd() {
-  dataStream.println(F("Unrecognized command"));
+  DB_PRINT(F("Unrecognized command"),"");
 }
 
 
@@ -581,7 +470,7 @@ uint8_t parseInput(char c) {
 
   // Read until buffer full (buffer-size - 2 characters)
   if (pbPtr < PBSIZE) {
-//    if (isVerb) dataStream.print(c);  // Humans like to see what they are typing...
+//    if (isVerb) DATA_RAW_PRINT(c);  // Humans like to see what they are typing...
     // Actions on specific characters
     switch (c) {
       // Carriage return or newline? Then process the line
@@ -599,9 +488,9 @@ uint8_t parseInput(char c) {
 //            if (isVerb) showPrompt();
             return 0;
           } else {
-//            if (isVerb) dataStream.println();  // Move to new line
+//            if (isVerb) dataPort.println();  // Move to new line
 #ifdef DEBUG_CMD_PARSER
-            debugStream.print(F("parseInput: Received ")); debugStream.println(pBuf);
+            DB_PRINT(F("Received: "), pBuf)
 #endif
             // Buffer starts with ++ and contains at least 3 characters - command?
             if (pbPtr>2 && isCmd(pBuf) && !isPlusEscaped) {
@@ -623,7 +512,7 @@ uint8_t parseInput(char c) {
             }
             isPlusEscaped = false;
 #ifdef DEBUG_CMD_PARSER
-            debugStream.print(F("R: "));debugStream.println(r);
+           DB_PRINT(F("R: "), r);
 #endif
 //            return r;
           }
@@ -646,11 +535,11 @@ uint8_t parseInput(char c) {
           if (pbPtr < 2) isPlusEscaped = true;
         }
         addPbuf(c);
-//        if (isVerb) dataStream.print(c);
+//        if (isVerb) DATA_RAW_PRINT(c);
         break;
       // Something else?
       default: // any char other than defined above
-//        if (isVerb) dataStream.print(c);  // Humans like to see what they are typing...
+//        if (isVerb) dataPort.print(c);  // Humans like to see what they are typing...
         // Buffer contains '++' (start of command). Stop sending data to serial port by halting GPIB receive.
         addPbuf(c);
         isEsc = false;
@@ -660,15 +549,13 @@ uint8_t parseInput(char c) {
     if (isCmd(pBuf) && !r) {  // Command without terminator and buffer full
 /*      
       if (isVerb) {
-        dataStream.println(F("ERROR - Command buffer overflow!"));
+        DATA_RAW_PRINT(F("ERROR - Command buffer overflow!"));
       }
 */      
       flushPbuf();
     }else{  // Buffer contains data and is full, so process the buffer (send data via GPIB)
       dataBufferFull = true;
       // Signal to GPIB object that more data will follow (suppress GPIB addressing)
-//      gpibBus.setDataContinuity(true);
-
       r = 2;
     }
   }
@@ -680,7 +567,7 @@ uint8_t parseInput(char c) {
 bool isCmd(char *buffr) {
   if (buffr[0] == PLUS && buffr[1] == PLUS) {
 #ifdef DEBUG_CMD_PARSER
-    debugStream.println(F("isCmd: Command detected."));
+    DB_PRINT(F("Command detected."),"");
 #endif
     return true;
   }
@@ -690,10 +577,9 @@ bool isCmd(char *buffr) {
 
 /***** Is this an *idn? query? *****/
 bool isIdnQuery(char *buffr) {
-//  if (buffr[0] == PLUS && buffr[1] == PLUS) {
   if (strncmp(buffr, "*idn?", 5)==0) {
 #ifdef DEBUG_CMD_PARSER
-    debugStream.println(F("isIdnQuery: Detected IDN query."));
+    DB_PRINT(F("Detected IDN query."),"");
 #endif
     return true;
   }
@@ -744,22 +630,22 @@ static cmdRec cmdHidx [] = {
 //  { "eos",         eos_h       },
 //  { "eot_char",    eot_char_h  },
 //  { "eot_enable",  eot_en_h    },
-  { "id",          id_h        },
-  { "idn",         idn_h       },
-  { "lon",         lon_h       },
+//  { "id",          id_h        },
+//  { "idn",         idn_h       },
+//  { "lon",         lon_h       },
 //  { "macro",       macro_h     },
 //  { "mode" ,       cmode_h     },
   { "read",        read_h      },
   { "read_tmo_ms", rtmo_h      },
-  { "repeat",      repeat_h    },
+//  { "repeat",      repeat_h    },
   { "rst",         (void(*)(char*)) rst_h },
 //  { "savecfg",     (void(*)(char*)) save_h },
-  { "setvstr",     setvstr_h   },
+//  { "setvstr",     setvstr_h   },
   { "status",      stat_h      },
 #ifdef EN_STORAGE
 //  { "storage",     store_h     },
 #endif
-  { "ton",         ton_h       },
+//  { "ton",         ton_h       },
   { "ver",         ver_h       },
 //  { "verbose",     (void(*)(char*)) verb_h    },
 //  { "tmbus",       tmbus_h     },
@@ -777,32 +663,34 @@ static cmdRec cmdHidx [] = {
 
 #ifdef EN_STORAGE
 
+/***** FIND command (debug output to serial) *****/
 void find_h(char * params){
   uint8_t fnum = atoi(params);
   if (storage.findFile(fnum)) {
     return;    
   }
-  dataStream.println(F("Not found!"));
+  DATA_RAW_PRINTLN(F("Not found!"));
 }
 
 
+/***** TLIST command (debug output to serial *****/
 void tlist_h(){
-  storage.listFiles(dataStream);
-//  tek_TLIST();
+  storage.listFiles(dataPort);
 }
 
 
+/***** CD command (debug output to serial) *****/
 void cd_h(char * params){
   char dir[13];
   if (params != NULL) {
     storage.setDirectory(params);
     strncpy(dir, params, 12);   // Copy max 12 characters (dir name = 10 plus characters + 2 slashes)
     storage.setDirectory(dir);  // Changes directory, closes previous file and sets index to 0
-    dataStream.print(F("Dir now = "));
-    dataStream.println(dir);
+    dataPort.print(F("Dir now = "));
+    dataPort.println(dir);
   } else {
     storage.getDirectory(dir);
-    dataStream.println(dir);
+    dataPort.println(dir);
   }
 }
 
@@ -813,53 +701,45 @@ void help_h(char * params){
 */
 
 
+/***** OLD command (debug output to serial) *****/
 void old_h(){
-  storage.viewCurrentFile(dataStream);
-//  tek_OLD();
+  storage.viewCurrentFile(dataPort);
 }
 
 #endif
 
 
 /***** Show a prompt *****/
+/*
 void showPrompt() {
   // Print prompt
-  dataStream.print("> ");
+  dataPort.print("> ");
 }
+*/
 
 
 /****** Send data to instrument *****/
 /* Processes the parse buffer whenever a full CR or LF
  * and sends data to the instrument
  */
-void sendToInstrument(char *buffr, uint8_t dsize) {
+void sendToInstrument(char *buffr, size_t dsize) {
 
 #ifdef DEBUG_SEND_TO_INSTR
-  if (buffr[dsize] != LF) debugStream.println();
-  debugStream.print(F("sendToInstrument: Received for sending: "));
-  printHex(buffr, dsize);
+  if (buffr[dsize] != LF) DB_RAW_PRINTLN();
+//  debugStream.print(F("sendToInstrument: Received for sending: "));
+//  printHex(buffr, dsize);
+  DB_PRINT(F("Received for sending: "),"");
+  DB_HEXB_PRINT(buffr, dsize);
 #endif
 
   // Is this an instrument query command (string ending with ?)
   if (buffr[dsize-1] == '?') isQuery = true;
 
-  // Address device
-//  if (!gpibBus.isDeviceAddressed()) gpibBus.addressDevice(gpibBus.cfg.paddr, LISTEN);
-
   // Send string to instrument
   gpibBus.sendData(buffr, dsize, true);
 
-  // Address device
-/*  
-  if (dataBufferFull) {
-    dataBufferFull = false;
-  }else{
-    gpibBus.unAddressDevice();
-  }
-*/
-
 #ifdef DEBUG_SEND_TO_INSTR
-  debugStream.println(F("sendToInstrument: Sent."));
+  DB_PRINT(F("Sent."),"");
 #endif
  
   // Show a prompt on completion?
@@ -876,7 +756,7 @@ void sendToInstrument(char *buffr, uint8_t dsize) {
 
 
 /***** Execute a command *****/
-void execCmd(char *buffr, uint8_t dsize) {
+void execCmd(char *buffr, size_t dsize) {
   char line[PBSIZE];
 
   // Copy collected chars to line buffer
@@ -887,21 +767,23 @@ void execCmd(char *buffr, uint8_t dsize) {
   lnRdy = 0;
 
 #ifdef DEBUG_CMD_PARSER
-  debugStream.print(F("execCmd: Command received: ")); printHex(line, dsize);
+  DB_PRINT(F("Command received: "),"");
+  DB_HEXB_PRINT(line, dsize);
 #endif
 
   // Its a ++command so shift everything two bytes left (ignore ++) and parse
-  for (int i = 0; i < dsize-2; i++) {
+  for (size_t i = 0; i < dsize-2; i++) {
     line[i] = line[i + 2];
   }
   // Replace last two bytes with a null (\0) character
   line[dsize - 2] = '\0';
   line[dsize - 1] = '\0';
 #ifdef DEBUG_CMD_PARSER
-  debugStream.print(F("execCmd: Sent to the command processor: ")); printHex(line, dsize-2);
+  DB_PRINT(F("Sent to command processor: "),"");
+  DB_HEXB_PRINT(line, dsize-2);
 #endif
   // Execute the command
-//  if (isVerb) dataStream.println(); // Shift output to next line
+//  if (isVerb) dataPort.println(); // Shift output to next line
   getCmd(line);
 
   // Show a prompt on completion?
@@ -919,8 +801,10 @@ void getCmd(char *buffr) {
   int i = 0;
 
 #ifdef DEBUG_CMD_PARSER
-  debugStream.print("getCmd: ");
-  debugStream.print(buffr); debugStream.print(F(" - length:")); debugStream.println(strlen(buffr));
+//  debugStream.print("getCmd: ");
+//  debugStream.print(buffr); debugStream.print(F(" - length:")); debugStream.println(strlen(buffr));
+  DB_PRINT(F("Buffer: "), buffr);
+  DB_PRINT(F("Length: "), strlen(buffr));
 #endif
 
   // If terminator on blank line then return immediately without processing anything 
@@ -932,7 +816,7 @@ void getCmd(char *buffr) {
   token = strtok(buffr, " \t");
 
 #ifdef DEBUG_CMD_PARSER
-  debugStream.print("getCmd: process token: "); debugStream.println(token);
+  DB_PRINT(F("Process token: "), token);
 #endif
 
   // Check whether it is a valid command token
@@ -945,7 +829,7 @@ void getCmd(char *buffr) {
   if (i < casize) {
     // We have found a valid command and handler
 #ifdef DEBUG_CMD_PARSER
-    debugStream.print("getCmd: found handler for: "); debugStream.println(cmdHidx[i].token);
+   DB_PRINT(F("Found handler for: "), cmdHidx[i].token);
 #endif
     // If command is found then execute it
     // If its a command with parameters
@@ -955,7 +839,7 @@ void getCmd(char *buffr) {
     // If command parameters were specified
     if (strlen(params) > 0) {
 #ifdef DEBUG_CMD_PARSER
-      debugStream.print(F("Calling handler with parameters: ")); debugStream.println(params);
+      DB_PRINT(F("Calling handler with parameters: "), params);
 #endif
       // Call handler with parameters specified
       cmdHidx[i].handler(params);
@@ -968,17 +852,6 @@ void getCmd(char *buffr) {
     // No valid command found
     errBadCmd();
   }
-}
-
-
-/***** Prints charaters as hex bytes *****/
-void printHex(char *buffr, int dsize) {
-#ifdef DB_SERIAL_ENABLE
-  for (int i = 0; i < dsize; i++) {
-    debugStream.print(buffr[i], HEX); debugStream.print(" ");
-  }
-  debugStream.println();
-#endif
 }
 
 
@@ -1002,10 +875,10 @@ bool notInRange(char *param, uint16_t lowl, uint16_t higl, uint16_t &rval) {
     errBadCmd();
 /*    
     if (isVerb) {
-      dataStream.print(F("Valid range is between "));
-      dataStream.print(lowl);
-      dataStream.print(F(" and "));
-      dataStream.println(higl);
+      dataPort.print(F("Valid range is between "));
+      dataPort.print(lowl);
+      dataPort.print(F(" and "));
+      dataPort.println(higl);
     }
 */    
     return true;
@@ -1021,51 +894,27 @@ bool notInRange(char *param, uint16_t lowl, uint16_t higl, uint16_t &rval) {
 /***** Show or change device address *****/
 void addr_h(char *params) {
   //  char *param, *stat;
-//  char *param;
   uint16_t val;
   if (params != NULL) {
 
     // Primary address
-//    param = strtok(params, " \t");
-//    if (notInRange(param, 1, 30, val)) return;
     if (notInRange(params, 1, 30, val)) return;
     if (val == gpibBus.cfg.caddr) {
       errBadCmd();
-//      if (isVerb) dataStream.println(F("That is my address! Address of a remote device is required."));
+//      if (isVerb) dataPort.println(F("That is my address! Address of a remote device is required."));
       return;
     }
     gpibBus.cfg.paddr = val;
 /*  
     if (isVerb) {
-      dataStream.print(F("Set device primary address to: "));
-      dataStream.println(val);
-    }
-*/
-/*
-    // Secondary address
-    gpibBus.cfg.saddr = 0;
-    val = 0;
-    param = strtok(NULL, " \t");
-    if (param != NULL) {
-      if (notInRange(param, 96, 126, val)) return;
-      gpibBus.cfg.saddr = val;
-      if (isVerb) {
-        dataStream.print("Set device secondary address to: ");
-        dataStream.println(val);
-      }
+      dataPort.print(F("Set device primary address to: "));
+      dataPort.println(val);
     }
 */
 
   } else {
-//    dataStream.print(gpibBus.cfg.paddr);
-    dataStream.println(gpibBus.cfg.paddr);
-/*    
-    if (gpibBus.cfg.saddr > 0) {
-      dataStream.print(F(" "));
-      dataStream.print(gpibBus.cfg.saddr);
-    }
-    dataStream.println();
-*/
+//    dataPort.println(gpibBus.cfg.paddr);
+    DATA_RAW_PRINTLN(gpibBus.cfg.paddr);
   }
 }
 
@@ -1078,95 +927,16 @@ void rtmo_h(char *params) {
     gpibBus.cfg.rtmo = val;
 /*    
     if (isVerb) {
-      dataStream.print(F("Set [read_tmo_ms] to: "));
-      dataStream.print(val);
-      dataStream.println(F(" milliseconds"));
+      dataPort.print(F("Set [read_tmo_ms] to: "));
+      dataPort.print(val);
+      dataPort.println(F(" milliseconds"));
     }
 */    
   } else {
-    dataStream.println(gpibBus.cfg.rtmo);
+//    dataPort.println(gpibBus.cfg.rtmo);
+    DATA_RAW_PRINTLN(gpibBus.cfg.rtmo);
   }
 }
-
-
-/***** Show or set end of send character *****/
-/*
-void eos_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 3, val)) return;
-    AR488.eos = (uint8_t)val;
-   
-    if (isVerb) {
-      dataStream.print(F("Set EOS to: "));
-      dataStream.println(val);
-    };
-    
-  } else {
-    dataStream.println(AR488.eos);
-  }
-}
-*/
-
-
-/***** Show or set EOI assertion on/off *****/
-/*
-void eoi_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 1, val)) return;
-    AR488.eoi = val ? true : false;
-   
-    if (isVerb) {
-      dataStream.print(F("Set EOI assertion: "));
-      dataStream.println(val ? "ON" : "OFF");
-    };
-
-  } else {
-    dataStream.println(AR488.eoi);
-  }
-}
-*/
-
-
-/***** Show or enable/disable sending of end of transmission character *****/
-/*
-void eot_en_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 1, val)) return;
-    AR488.eot_en = val ? true : false;
-    
-    if (isVerb) {
-      dataStream.print(F("Appending of EOT character: "));
-      dataStream.println(val ? "ON" : "OFF");
-    }
-    
-  } else {
-    dataStream.println(AR488.eot_en);
-  }
-}
-*/
-
-
-/***** Show or set end of transmission character *****/
-/*
-void eot_char_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 255, val)) return;
-    AR488.eot_ch = (uint8_t)val;
-    
-    if (isVerb) {
-      dataStream.print(F("EOT set to ASCII character: "));
-      dataStream.println(val);
-    };
-    
-  } else {
-    dataStream.println(AR488.eot_ch, DEC);
-  }
-}
-*/
 
 
 /***** Show or enable/disable auto mode *****/
@@ -1176,20 +946,20 @@ void amode_h(char *params) {
     if (notInRange(params, 0, 3, val)) return;
 /*   
     if (val > 0 && isVerb) {
-      dataStream.println(F("WARNING: automode ON can cause some devices to generate"));
-      dataStream.println(F("         'addressed to talk but nothing to say' errors"));
+      dataPort.println(F("WARNING: automode ON can cause some devices to generate"));
+      dataPort.println(F("         'addressed to talk but nothing to say' errors"));
     }
 */    
     gpibBus.cfg.amode = (uint8_t)val;
     if (gpibBus.cfg.amode < 3) autoReading = false;
 /*    
     if (isVerb) {
-      dataStream.print(F("Auto mode: "));
-      dataStream.println(gpibBus.cfg.amode);
+      dataPort.print(F("Auto mode: "));
+      dataPort.println(gpibBus.cfg.amode);
     }
 */    
   } else {
-    dataStream.println(gpibBus.cfg.amode);
+    DATA_RAW_PRINTLN(gpibBus.cfg.amode);
   }
 }
 
@@ -1199,13 +969,13 @@ void amode_h(char *params) {
 void ver_h(char *params) {
   // If "real" requested
   if (params != NULL && strncasecmp(params, "real", 3) == 0) {
-    dataStream.println(F(FWVER));
+    DATA_RAW_PRINTLN(F(FWVER));
     // Otherwise depends on whether we have a custom string set
   } else {
     if (strlen(gpibBus.cfg.vstr) > 0) {
-      dataStream.println(gpibBus.cfg.vstr);
+      DATA_RAW_PRINTLN(gpibBus.cfg.vstr);
     } else {
-      dataStream.println(F(FWVER));
+      DATA_RAW_PRINTLN(F(FWVER));
     }
   }
 }
@@ -1220,7 +990,7 @@ void read_h(char *params) {
   // Read any parameters
   if (params != NULL) {
     if (strlen(params) > 3) {
-//      if (isVerb) dataStream.println(F("Invalid termination character - ignored!")); void addr_h(char *params);
+//      if (isVerb) dataPort.println(F("Invalid termination character - ignored!")); void addr_h(char *params);
     } else if (strncmp(params, "eoi", 3) == 0) { // Read with eoi detection
       readWithEoi = true;
     } else { // Assume ASCII character given and convert to an 8 bit byte
@@ -1233,7 +1003,7 @@ void read_h(char *params) {
     autoReading = true;
   } else {
     // If auto mode is disabled we do a single read
-    gpibBus.receiveData(dataStream, readWithEoi, readWithEndByte, endByte);
+    gpibBus.receiveData(dataPort, readWithEoi, readWithEndByte, endByte);
   }
 }
 
@@ -1256,7 +1026,7 @@ void rst_h() {
   // Should never reach here....
 /*  
   if (isVerb) {
-    dataStream.println(F("Reset FAILED."));
+    dataPort.println(F("Reset FAILED."));
   };
 */  
 #else
@@ -1276,220 +1046,13 @@ void stat_h(char *params) {
     gpibBus.setStatus((uint8_t)val);
   } else {
     // Return the currently set status byte
-    dataStream.println(gpibBus.cfg.stat);
+    DATA_RAW_PRINTLN(gpibBus.cfg.stat);
   }
 }
-
-
-/***** Save controller configuration *****/
-/*
-void save_h() {
-#ifdef E2END
-  epWriteData(AR488.db, AR_CFG_SIZE);
-//  if (isVerb) dataStream.println(F("Settings saved."));
-#else
-  dataStream.println(F("EEPROM not supported."));
-#endif
-}
-*/
-
-/***** Show state or enable/disable listen only mode *****/
-void lon_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 1, val)) return;
-    isRO = val ? true : false;
-    if (isTO) isTO = false; // Talk-only mode must be disabled!
-/*    
-    if (isVerb) {
-      dataStream.print(F("LON: "));
-      dataStream.println(val ? "ON" : "OFF") ;
-    }
-*/    
-  } else {
-    dataStream.println(isRO);
-  }
-}
-
 
 /***********************************/
 /***** CUSTOM COMMAND HANDLERS *****/
 /***********************************/
-
-/***** Re-load default configuration *****/
-/*
-void default_h() {
-  gpibInit();
-}
-*/
-
-
-/***** Show or set end of receive character(s) *****/
-/*
-void eor_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 15, val)) return;
-    AR488.eor = (uint8_t)val;
-   
-    if (isVerb) {
-      dataStream.print(F("Set EOR to: "));
-      dataStream.println(val);
-    };
-   
-  } else {
-    if (AR488.eor>7) AR488.eor = 0;  // Needed to reset FF read from EEPROM after FW upgrade
-    dataStream.println(AR488.eor);
-  }
-}
-*/
-
-
-/***** Enable verbose mode 0=OFF; 1=ON *****/
-/*
-void verb_h() {
-  isVerb = !isVerb;
-  dataStream.print("Verbose: ");
-  dataStream.println(isVerb ? "ON" : "OFF");
-}
-*/
-
-/***** Set version string *****/
-/* Replace the standard AR488 version string with something else
- *  NOTE: some instrument software requires a sepcific version string to ID the interface
- */
-void setvstr_h(char *params) {
-  uint8_t plen;
-  char idparams[64];
-  plen = strlen(params);
-  memset(idparams, '\0', 64);
-  strncpy(idparams, "verstr ", 7);
-  strncat(idparams, params, plen);
-
-
-  id_h(idparams);
-
-}
-
-
-/***** Talk only mode *****/
-void ton_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 1, val)) return;
-    isTO = val ? true : false;
-    if (isTO) isRO = false; // Read-only mode must be disabled in TO mode!
-/*    
-    if (isVerb) {
-      dataStream.print(F("TON: "));
-      dataStream.println(val ? "ON" : "OFF") ;
-    }
-*/    
-  } else {
-    dataStream.println(isTO);
-  }
-}
-
-
-/***** Repeat a given command and return result *****/
-void repeat_h(char *params) {
-
-  uint16_t count;
-  uint16_t tmdly;
-  char *param;
-
-  if (params != NULL) {
-    // Count (number of repetitions)
-    param = strtok(params, " \t");
-    if (strlen(param) > 0) {
-      if (notInRange(param, 2, 255, count)) return;
-    }
-    // Time delay (milliseconds)
-    param = strtok(NULL, " \t");
-    if (strlen(param) > 0) {
-      if (notInRange(param, 0, 30000, tmdly)) return;
-    }
-
-    // Pointer to remainder of parameters string
-    param = strtok(NULL, "\n\r");
-    if (strlen(param) > 0) {
-      for (uint16_t i = 0; i < count; i++) {
-        // Send string to instrument
-        gpibBus.sendData(param, strlen(param), true);
-        delay(tmdly);
-        gpibBus.receiveData(dataStream, gpibBus.cfg.eoi, false, 0);
-      }
-    } else {
-      errBadCmd();
-//      if (isVerb) dataStream.println(F("Missing parameter"));
-      return;
-    }
-  } else {
-    errBadCmd();
-//    if (isVerb) dataStream.println(F("Missing parameters"));
-  }
-
-}
-
-
-/***** Storage management *****/
-#ifdef EN_STORAGE
-/*
-void store_h(char *params){
-  char *keyword;
-  char *param1;
-  char *param2;
-//  uint8_t mode = 0;
-//  uint8_t val = 0;
-  
-  // Get first parameter (action)
-  keyword = strtok(params, " \t");
-  param1 = strtok(NULL, " \t");
-  param2 = strtok(NULL, " \t");
-  
-  if (keyword != NULL) {
-    if (strncmp(keyword, "info", 4)==0) {
-      dataStream.print(F("SDcard initialised:\t"));
-      if (storage.isInit()){
-        dataStream.println(F("YES"));
-        storage.showSDInfo(dataStream);
-        dataStream.print(F("Volume mounted:\t\t"));
-        if (storage.isVolumeMounted()){
-          dataStream.println(F("YES"));
-          storage.showSdVolumeInfo(dataStream);
-        }else{
-          dataStream.println(F("NO"));
-        }
-      }else{
-        dataStream.println(F("NO"));
-      }
-    }
-
-    if (strncmp(keyword, "dir", 4)==0) {
-      storage.listSdFiles(dataStream);
-    }
-
-    if (strncmp(keyword, "fmt", 3)==0) {
-
-    }
-
-    if (strncmp(keyword, "tape", 4)==0) {
-      tape_h(param1, param2);
-    }
-  }
-
-
-}
-
-
-void tape_h(char *cmd, char *param){
-  
-}
-*/
-
-#endif
-
-
 
 
 /***** Bus diagnostics *****/
@@ -1510,7 +1073,7 @@ void xdiag_h(char *params){
     if (strlen(param)<4){
       mode = atoi(param);
       if (mode>2) {
-        dataStream.println(F("Invalid: 0=data bus; 1=control bus"));
+        DATA_RAW_PRINTLN(F("Invalid: 0=data bus; 1=control bus"));
         return;
       }
     }
@@ -1527,14 +1090,8 @@ void xdiag_h(char *params){
       gpibBus.setControlVal(0xFF, 0xFF, 1);  // Set direction
       gpibBus.setControlVal(~val, 0xFF, 0);  // Set state (low=asserted so must be inverse of value)
       // Reset after 10 seconds
-      delay(10000);
-/*      
-      if (AR488.cmode==2) {
-        setGpibControls(CINI);
-      }else{
-*/      
-        gpibBus.setControls(DIDS);
-//      }
+      delay(10000);  
+      gpibBus.setControls(DIDS);
     }else{        // Data bus
       // Set to required value
       gpibBus.setDataVal(val);
@@ -1543,129 +1100,6 @@ void xdiag_h(char *params){
       gpibBus.setDataVal(0);
     }
   }
-
-}
-
-
-/****** Timing parameters ******/
-/*
-void tmbus_h(char *params) {
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 30000, val)) return;
-    gpibBus.cfg.tmbus = val;
-  
-    if (isVerb) {
-      dataStream.print(F("TmBus set to: "));
-      dataStream.println(val);
-    };
-   
-  } else {
-    dataStream.println(gpibBus.cfg.tmbus, DEC);
-  }
-}
-*/
-
-/***** Set device ID *****/
-/*
- * Sets the device ID parameters including:
- * ++id verstr - version string (same as ++setvstr)
- * ++id name   - short name of device (e.g. HP3478A) up to 15 characters
- * ++id serial - serial number up to 9 digits long
- */
-void id_h(char *params) {
-  uint8_t dlen = 0;
-  char * keyword; // Pointer to keyword following ++id
-  char * datastr; // Pointer to supplied data (remaining characters in buffer)
-  char serialStr[10];
-
-#ifdef DEBUG_IDFUNC
-  dataStream.print(F("Params: "));
-  dataStream.println(params);
-#endif
-
-  if (params != NULL) {
-    keyword = strtok(params, " \t");
-    datastr = keyword + strlen(keyword) + 1;
-    dlen = strlen(datastr);
-    if (dlen) {
-      if (strncmp(keyword, "verstr", 6)==0) {
-#ifdef DEBUG_IDFUNC      
-        dataStream.print(F("Keyword: "));
-        dataStream.println(keyword);
-        dataStream.print(F("DataStr: "));
-        dataStream.println(datastr);
-#endif
-        if (dlen>0 && dlen<48) {
-#ifdef DEBUG_IDFUNC
-        dataStream.println(F("Length OK"));
-#endif
-          memset(gpibBus.cfg.vstr, '\0', 48);
-          strncpy(gpibBus.cfg.vstr, datastr, dlen);
-//          if (isVerb) dataStream.print(F("VerStr: "));dataStream.println(AR488.vstr);
-        }else{
-//          if (isVerb) dataStream.println(F("Length of version string must not exceed 48 characters!"));
-          errBadCmd();
-        }
-        return;
-      }
-      if (strncasecmp(keyword, "name", 4)==0) {
-        if (dlen>0 && dlen<16) {
-          memset(gpibBus.cfg.sname, '\0', 16);
-          strncpy(gpibBus.cfg.sname, datastr, dlen);
-        }else{
-//          if (isVerb) dataStream.println(F("Length of name must not exceed 15 characters!"));
-          errBadCmd();
-        }
-        return;
-      }
-      if (strncasecmp(keyword, "serial", 6)==0) {
-        if (dlen < 10) {
-          gpibBus.cfg.serial = atol(datastr);
-        }else{
-//          if (isVerb) dataStream.println(F("Serial number must not exceed 9 characters!"));
-          errBadCmd();
-        }
-        return;
-      }
-//      errBadCmd();
-    }else{
-      if (strncasecmp(keyword, "verstr", 6)==0) {
-        dataStream.println(gpibBus.cfg.vstr);
-        return;
-      }     
-      if (strncasecmp(keyword, "name", 4)==0) {
-        dataStream.println(gpibBus.cfg.sname);
-        return;      
-      }
-      if (strncasecmp(keyword, "serial", 6)==0) {
-        memset(serialStr, '\0', 10);
-        snprintf(serialStr, 10, "%09lu", gpibBus.cfg.serial);  // Max str length = 10-1 i.e 9 digits + null terminator 
-        dataStream.println(serialStr);
-        return;    
-      }
-    }
-  }
-  errBadCmd();
-}
-
-
-void idn_h(char * params){
-  uint16_t val;
-  if (params != NULL) {
-    if (notInRange(params, 0, 2, val)) return;
-    gpibBus.cfg.idn = (uint8_t)val;
-/*    
-    if (isVerb) {
-      dataStream.print(F("Sending IDN: "));
-      dataStream.print(val ? "Enabled" : "Disabled"); 
-      if (val==2) dataStream.print(F(" with serial number"));
-      dataStream.println();
-    };
-*/    
-  } else {
-    dataStream.println(gpibBus.cfg.idn, DEC);
-  }  
 }
 
 
@@ -1799,7 +1233,7 @@ void attnRequired() {
         if (gpibBus.isDeviceAddressedToListen()) {
 /*
 #ifdef DEBUG_DEVICE_ATN
-          debugStream.println(F("Listening..."));
+          DB_PRINT(F("Listening..."),);
 #endif
 */
           device_listen_h();
@@ -1811,7 +1245,7 @@ void attnRequired() {
         if (gpibBus.isDeviceAddressedToTalk()) {
 /*
 #ifdef DEBUG_DEVICE_ATN
-          debugStream.println(F("Talking..."));
+          DB_PRINT(F("Talking..."),);
 #endif
 */
           device_talk_h();
@@ -1826,48 +1260,44 @@ void attnRequired() {
 
 #ifdef DEBUG_DEVICE_ATN
   }else{
-    debugStream.println(F("No command to process!"));
-//    debugStream.print(F("Status: "));
-//    debugStream.println(stat);
+    DB_PRINT(F("No command to process!"),"");
 #endif
   }
 
 #ifdef DEBUG_DEVICE_ATN
   showATNStatus(atnstat, ustat, cmdbyteslist, listbytecnt, stat);
-  debugStream.println(F("attnRequired: END attnReceived.\n\n"));
+  DB_PRINT(F("END attnReceived.\n\n"),"");
 #endif
 
 }
 
 
 #ifdef DEBUG_DEVICE_ATN
-void showATNStatus(uint8_t atnstat, uint8_t ustat, uint8_t atnbytes[], uint8_t bcnt, uint8_t stat) {
+void showATNStatus(uint8_t atnstat, uint8_t ustat, uint8_t atnbytes[], size_t bcnt, uint8_t stat) {
 
-  if (ustat & 0x01) debugStream.println(F("attnRequired: unlistened."));
-  if (ustat & 0x02) debugStream.println(F("attnRequired: untalked."));
+  if (ustat & 0x01) DB_PRINT(F("attnRequired: unlistened."),);
+  if (ustat & 0x02) DB_PRINT(F("attnRequired: untalked."),);
 
-  if (atnstat & 0x01) debugStream.println(F("attnRequired: ATN read loop completed."));
-  if (atnstat & 0x02) debugStream.println(F("attnRequired: addressed to LISTEN."));
-  if (atnstat & 0x04) debugStream.println(F("attnRequired: addressed to TALK."));
-  if (atnstat & 0x08) debugStream.println(F("attnRequired: primary command received."));
-  if (atnstat & 0x10) debugStream.println(F("attnRequired: secondary command received."));
-  if (atnstat & 0x20) debugStream.println(F("attnRequired: primary command done."));
-  if (atnstat & 0x40) debugStream.println(F("attnRequired: secondary command done."));
-  if (atnstat & 0x80) debugStream.println(F("attnRequired: attnRequired done."));
+  if (atnstat & 0x01) DB_PRINT(F("ATN read loop completed."),);
+  if (atnstat & 0x02) DB_PRINT(F("addressed to LISTEN."),);
+  if (atnstat & 0x04) DB_PRINT(F("addressed to TALK."),);
+  if (atnstat & 0x08) DB_PRINT(F("primary command received."),);
+  if (atnstat & 0x10) DB_PRINT(F("secondary command received."),);
+  if (atnstat & 0x20) DB_PRINT(F("primary command done."),);
+  if (atnstat & 0x40) DB_PRINT(F("secondary command done."),);
+  if (atnstat & 0x80) DB_PRINT(F("attnRequired done."),);
 
-  debugStream.println(F("attnRequired: commands received:"));
-  for (uint8_t i=0; i<bcnt; i++) {
-    debugStream.println(atnbytes[i], HEX);
+  DB_PRINT(F("commands received:"),"");
+  for (size_t i=0; i<bcnt; i++) {
+    DB_HEX_PRINT(atnbytes[i]);
+//    DB_RAW_PRINT(" ");
   }
+  DB_RAW_PRINTLN();
 
-  debugStream.print(F("attnRequired: status - "));
-  debugStream.println(stat);
+  DB_PRINT(F("ATN loop end."),"");
+  DB_PRINT(bcnt, F("bytes read."));
+  DB_PRINT(F("Status: "), stat);
 
-  debugStream.println(F("attnRequired: ATN loop end."));
-  debugStream.print(bcnt);
-  debugStream.println(F(" bytes read."));
-  debugStream.print(F("Stat: "));
-  debugStream.println(stat);
 }
 #endif
 
@@ -1886,14 +1316,14 @@ void execGpibCmd(uint8_t gpibcmd){
     case GC_SPE:
       // Serial Poll enable request
 #ifdef DEBUG_DEVICE_ATN
-        debugStream.println(F("attnRequired: Received serial poll enable."));
+//        DB_PRINTLN(F("Received serial poll enable."));
 #endif
         device_spe_h();
         break;
       case GC_SPD:
         // Serial poll disable request
 #ifdef DEBUG_DEVICE_ATN
-        debugStream.println(F("attnRequired: Received serial poll disable."));
+//        DB_PRINTLN(F("Received serial poll disable."));
 #endif
         device_spd_h();
         break;
@@ -1928,7 +1358,7 @@ void execGpibCmd(uint8_t gpibcmd){
 /***** Device is addressed to listen - so listen *****/
 void device_listen_h(){
   // Receivedata params: stream, detectEOI, detectEndByte, endByte
-  gpibBus.receiveData(dataStream, false, false, 0x0);
+  gpibBus.receiveData(dataPort, false, false, 0x0);
 }
 
 
@@ -1942,12 +1372,12 @@ void device_talk_h(){
 void device_sdc_h() {
   // If being addressed then reset
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.print(F("device_sdc_h: Reset request received... "));
+//  DB_PRINTLN(F("Reset request received... "));
 #endif
   rst_h();
 #ifdef DEBUG_DEVICE_ATN
   // Shouldn't get here!
-  debugStream.print(F("device_sdc_h: Reset failed!"));
+//  DB_PRINTLN(F("Reset failed!"));
 #endif
 }
 
@@ -1955,7 +1385,7 @@ void device_sdc_h() {
 /***** Serial Poll Disable *****/
 void device_spd_h() {
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("<- serial poll request ended."));
+//  DB_PRINTLN(F("<- serial poll request ended."));
 #endif
 //  gpibBus.setDeviceAddressedState(DIDS);
   gpibBus.setControls(DIDS);
@@ -1965,17 +1395,17 @@ void device_spd_h() {
 /***** Serial Poll Enable *****/
 void device_spe_h() {
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Serial poll request received from controller ->"));
+//  DB_PRINTLN(F("Serial poll request received from controller ->"));
 #endif
   gpibBus.sendStatus();
 #ifdef DEBUG_DEVICE_ATN
-  debugStream.println(F("Status sent."));
+//  DB_PRINTLN(F("Status sent."));
 #endif
   // Check if SRQ bit is set and clear it
   if (gpibBus.cfg.stat & 0x40) {
     gpibBus.setStatus(gpibBus.cfg.stat & ~0x40);
 #ifdef DEBUG_DEVICE_ATN
-    debugStream.println(F("SRQ bit cleared."));
+//    DB_PRINTLN(F("SRQ bit cleared."));
 #endif
   }
 }
@@ -2024,7 +1454,7 @@ void device_gtl_h(){
 /***** Listen only mode *****/
 void lonMode(){
   // Receivedata params: stream, detectEOI, detectEndByte, endByte
-  gpibBus.receiveData(dataStream, false, false, 0x0 );
+  gpibBus.receiveData(dataPort, false, false, 0x0 );
 
   // Clear the buffer to prevent it getting blocked
   if (lnRdy==2) flushPbuf();

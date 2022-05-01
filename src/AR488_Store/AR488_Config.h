@@ -1,13 +1,14 @@
 #ifndef AR488_CONFIG_H
 #define AR488_CONFIG_H
 
+
 /*********************************************/
 /***** AR488 GLOBAL CONFIGURATION HEADER *****/
 /***** vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.65, 18/02/2022"
+#define FWVER "AR488 GPIB storage, ver. 0.05.70, 01/05/2022"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -35,33 +36,22 @@
    * Define board layout in the AR488 CUSTOM LAYOUT
    * section below
    */
-  /* Default serial port type */
-  #define AR_SERIAL_TYPE_HW
 
 /*** UNO and NANO boards ***/
 #elif __AVR_ATmega328P__
   /* Board/layout selection */
   #define AR488_UNO
   //#define AR488_NANO
-  /* Default serial port type */
-  //Select HardwareSerial or SoftwareSerial (default = HardwareSerial) ***/
-  // The UNO/NANO default hardware port is 'Serial'
-  // (Comment out #define AR_HW_SERIAL if using SoftwareSerial)
-  #define AR_SERIAL_TYPE_HW
 
 #elif __AVR_ATmega328PB__
   /* Board/layout selection */
   #define AR488_POLOLU_MICRO
-  /* Default serial port type */
-  #define AR_SERIAL_TYPE_HW
 
 /*** MEGA 32U4 based boards (Micro, Leonardo) ***/
 #elif __AVR_ATmega32U4__
   /*** Board/layout selection ***/
   #define AR488_MEGA32U4_MICRO  // Artag's design for Micro board
   //#define AR488_MEGA32U4_LR3  // Leonardo R3 (same pin layout as Uno)
-  /* Default serial port type */
-  #define AR_SERIAL_TYPE_CDC
   
 /*** MEGA 2560 board ***/
 #elif __AVR_ATmega2560__
@@ -71,15 +61,11 @@
   //#define AR488_MEGA2560_E2
   //#define AR488_MEGA2560_S1
   //#define AR488_MEGA2560_S2
-  /* Default serial port type */
-  #define AR_SERIAL_TYPE_HW
 
 /***** Panduino Mega 644 or Mega 1284 board *****/
 #elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__)
   /* Board/layout selection */
   #define AR488_MEGA644P_MCGRAW
-  /* Default serial port type */
-  #define AR_SERIAL_TYPE_HW
   
 #endif  // Board/layout selection
 
@@ -87,43 +73,46 @@
 
 /***** SERIAL PORT CONFIGURATION *****/
 /*
- * Serial type should be one of:
- * AR_SERIAL_TYPE_HW
- * AR_SERIAL_TYPE_CDC
- * AR_SERIAL_TYPE_SW
- * Note1: The default port type on 32u4 boards (Micro Pro, Leonardo) is AR_SERIAL_TYPE_CDC
- *        For other boards use type AR_SERIAL_TYPE_HW or optionally AR_SERIAL_TYPE_SW if required
- * Note2: On most boards the serial device is named Serial. Boards that have a secondary
- *        UART port this is named Serial1. Mega2560 also supports Serial3 and Serial4
+ * Serial port should be either:
+ * AR_SERIAL_PORT portname - e.g. AR_SERIAL_PORT Serial
+ * or when using SoftwareSerial:
+ * AR_SERIAL_SWPORT
+ * Only ONE of the above should be uncommented!
+ * The pins being used for the SoftwareSerial port should be configured in the 'Configure 
+ * SoftwareSerial Port' section.
+ * 
+ * Note: On most boards the default serial device is named 'Serial'. Where boards that have 
+ *       a secondary UART port this will have a numerical suffix, e.g.'Serial1'. The Mega2560 
+ *       also supports 'Serial3' and 'Serial4'
  */
 /***** Communication port *****/
-#define AR_SERIAL_ENABLE
-#ifdef AR_SERIAL_ENABLE
+//#define DATAPORT_ENABLE
+#ifdef DATAPORT_ENABLE
   // Serial port device
+  // (for SoftwareSerial comment out DB_SERIAL_PORT and uncomment DB_SERIAL_SWPORT)
   #define AR_SERIAL_PORT Serial
-  // Select port type
-  /* Defining type here will override automatic selection */
-//  #define AR_SERIAL_TYPE_HW
+//  #define AR_SERIAL_SWPORT
   // Set port operating speed
   #define AR_SERIAL_SPEED 115200
 #endif
+
 /***** Debug port *****/
-#define DB_SERIAL_ENABLE
-#ifdef DB_SERIAL_ENABLE
+//#define DEBUG_ENABLE
+#ifdef DEBUG_ENABLE
   // Serial port device
+  // (for SoftwareSerial comment out DB_SERIAL_PORT and uncomment DB_SERIAL_SWPORT)
   #define DB_SERIAL_PORT Serial
-  // Select port type
-  #define DB_SERIAL_TYPE_HW
-  // Set port operating speed
+//  #define DB_SERIAL_SWPORT
+  // Set port operating speed (SoftwareSerial max speed is 57600 baud)
   #define DB_SERIAL_SPEED 115200
 #endif
 /***** Configure SoftwareSerial Port *****/
 /*
- * Configure the SoftwareSerial TX/RX pins and baud rate here
+ * Configure the SoftwareSerial TX/RX pins.
  * Note: SoftwareSerial support conflicts with PCINT support
  * When using SoftwareSerial, disable USE_INTERRUPTS.
  */
-#if defined(AR_SERIAL_TYPE_SW) || defined(DB_SERIAL_TYPE_SW)
+#if defined(AR_SERIAL_SWPORT) || defined(DB_SERIAL_SWPORT)
   #define SW_SERIAL_RX_PIN 11
   #define SW_SERIAL_TX_PIN 12
 #endif
@@ -214,36 +203,48 @@
 
 
 /***** Debug options *****/
-/*
-// Uncomment to send debug messages to another port
-//#define DB_SERIAL_PORT Serial1
-// Configure alternative port for debug messages
-#define DB_SERIAL_BAUD 115200
-#define DB_HW_SERIAL
-#ifdef DB_SW_SERIAL
-  #define DB_SW_SERIAL_RX 53
-  #define DB_SW_SERIAL_TX 51
-#endif
-*/
 
 // Configure debug level
 #ifdef DB_SERIAL_ENABLE
   //#define DEBUG_SERIAL_INPUT    // serialIn_h(), parseInput_h()
-  //#define DEBUG_CMD_PARSER      // getCmd
+  #define DEBUG_CMD_PARSER      // getCmd
   //#define DEBUG_SEND_TO_INSTR   // sendToInstrument();
   //#define DEBUG_DEVICE_ATN      // attnRequired
-  //#define DEBUG_IDFUNC          // ID command
+
+//  //#define DEBUG_IDFUNC          // ID command
   
   // GPIB module
   //#define DEBUG_GPIBbus_RECEIVE
   //#define DEBUG_GPIBbus_SEND
-  //#define DEBUG_GPIBbus_CONTROL
-  //#define DEBUG_GPIBbus_COMMANDS
+//  //#define DEBUG_GPIBbus_CONTROL
+//  //#define DEBUG_GPIBbus_COMMANDS
 
-  // Store Module
-  #define DEBUG_STORE
-  #define DEBUG_STORE_COMMANDS
-  #define DEBUG_LOW_LEVEL
+  // Store Module - General
+  //#define DEBUG_STORE_EXEC
+  //#define DEBUG_STORE_BINARYCOPY
+  //#define DEBUG_STORE_COMMANDS
+  //#define DEBUG_STORE_FILESEARCH
+  //#define DEBUG_STORE_GETLAST
+  //#define DEBUG_STORE_RENAME
+  //#define DEBUG_STORE_MAKENEW
+  //#define DEBUG_STORE_EXEC
+  // Store Module - GPIB commands
+  //#define DEBUG_STORE_APPEND
+  //#define DEBUG_STORE_BINARYIO
+  //#define DEBUG_STORE_CLOSE
+  //#define DEBUG_STORE_COPY
+  //#define DEBUG_STORE_DIR
+  //#define DEBUG_STORE_ERROR
+  //#define DEBUG_STORE_FIND
+  //#define DEBUG_STORE_INPUT
+  //#define DEBUG_STORE_KILL
+  //#define DEBUG_STORE_MARK
+  //#define DEBUG_STORE_READ
+  //#define DEBUG_STORE_SAVE
+  //#define DEBUG_STORE_STATUS
+  //#define DEBUG_STORE_TLIST
+  //#define DEBUG_STORE_TYPE
+  //#define DEBUG_STORE_WRITE
 
 #endif
 
@@ -286,27 +287,6 @@
 /******************************************/
 /***** !!! DO NOT EDIT BELOW HERE !!! *****/
 /******vvvvvvvvvvvvvvvvvvvvvvvvvvvvvv******/
-
-
-/***** Debug Port *****/
-/*
-#ifdef DB_SERIAL_PORT
-  #ifdef DB_CDC_SERIAL
-    extern Serial_ *dbSerial;
-  #endif
-  #ifdef DB_HW_SERIAL
-    extern HardwareSerial *dbSerial;
-  #endif
-  // Note: SoftwareSerial support conflicts with PCINT support
-  #ifdef DB_SW_SERIAL
-    #include <SoftwareSerial.h>
-    extern SoftwareSerial *dbSerial;
-  #endif
-#endif
-*/
-/******^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^******/
-/***** SERIAL PORT EXTERNAL DECLARATIONS *****/
-/*********************************************/
 
 
 

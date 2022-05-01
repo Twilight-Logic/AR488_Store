@@ -1,9 +1,8 @@
 #include <Arduino.h>
-//#include <SD.h>
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.65, 18/02/2022 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.69, 30/04/2022 *****/
 
 
 /****** Process status values *****/
@@ -15,16 +14,6 @@
 #define CR   0xD    // Carriage return
 #define LF   0xA    // Newline/linefeed
 #define PLUS 0x2B   // '+' character
-
-
-/***** Serial/debug port *****/
-#ifdef AR_SERIAL_ENABLE
-  extern Stream& dataStream;
-#endif
-
-#ifdef DB_SERIAL_ENABLE
-  extern Stream& debugStream;
-#endif
 
 
 
@@ -126,7 +115,7 @@ void GPIBbus::sendEOI(){
  * 7 - command received via serial
  */
 
-bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte, uint8_t endByte) {
+bool GPIBbus::receiveData(Stream& output, bool detectEoi, bool detectEndByte, uint8_t endByte) {
 
   uint8_t r = 0; //, db;
   uint8_t bytes[3] = {0};
@@ -147,14 +136,11 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
   setControls(DLAS);
   
 #ifdef DEBUG_GPIBbus_READ
-  debugStream.println(F("gpibReceiveData: Start listen ->"));
-  debugStream.println(F("Before loop flags:"));
-  debugStream.print(F("TRNb: "));
-  debugStream.println(txBreak);
-  debugStream.print(F("rEOI: "));
-  debugStream.println(readWithEoi);
-  debugStream.print(F("ATN:  "));
-  debugStream.println(isAsserted(ATN) ? 1 : 0);
+  DB_PRINT(F("Start listen ->"),"");
+  DB_PRINT(F("Before loop flags:"),"");
+  DB_PRINT(F("TRNb: "), txBreak);
+  DB_PRINT(F("rEOI: "), readWithEoi);
+  DB_PRINT(F("ATN:  "), isAsserted(ATN) ? 1 : 0);
 #endif
 
   // Ready the data bus
@@ -176,10 +162,10 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
     if (isAsserted(ATN)) break;
 
 #ifdef DEBUG_GPIBbus_READ
-    debugStream.print(bytes[0], HEX), debugStream.print(' ');
+    DB_HEX_PRINT(bytes[0]);
 #else
     // Output the character to the serial port
-    dataStream.print((char)bytes[0]);
+    output.print((char)bytes[0]);
 #endif
 
     // Byte counter
@@ -206,31 +192,28 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
   }
 
 #ifdef DEBUG_GPIBbus_READ
-  debugStream.println();
-  debugStream.println(F("After loop flags:"));
-  debugStream.print(F("ATN: "));
-  debugStream.println(isAsserted(ATN));
-  debugStream.print(F("TMO:  "));
-  debugStream.println(r);
-  debugStream.print(F("Bytes read: "));
-  debugStream.println(x);
-  debugStream.println(F("GPIBbus::receiveData: <- End listen."));
+  DB_RAW_PRINTLN();
+  DB_PRINT(F("After loop flags:"),"");
+  DB_PRINT(F("ATN: "), isAsserted(ATN));
+  DB_PRINT(F("TMO:  "), r);
+  DB_PRINT(F("Bytes read: "), x);
+  DB_PRINT(F("<- End listen."),"");
 #endif
 
   // Detected that EOI has been asserted
   if (eoiDetected) {
 #ifdef DEBUG_GPIBbus_RECEIVE
-    dataStream.println(F("GPIBbus::receiveData: EOI detected!"));
+    DB_PRINT(F("EOI detected!"),"");
 #endif
     // If eot_enabled then add EOT character
-    if (cfg.eot_en) dataStream.print(cfg.eot_ch);
+    if (cfg.eot_en) output.print(cfg.eot_ch);
   }
 
   // Verbose timeout error
 #ifdef DEBUG_GPIBbus_RECEIVE
   if (r > 0) {
-    debugStream.println(F("GPIBbus::receiveData: Timeout waiting for sender!"));
-    debugStream.println(F("GPIBbus::receiveData: Timeout waiting for transfer to complete!"));
+    DB_PRINT(F("Timeout waiting for sender!"),"");
+    DB_PRINT(F("Timeout waiting for transfer to complete!"),"");
   }
 #endif
 
@@ -238,14 +221,14 @@ bool GPIBbus::receiveData(Stream& dataStream, bool detectEoi, bool detectEndByte
 //  setControls(DIDS);
 
 #ifdef DEBUG_GPIBbus_READ
-  debugStream.println(F("<- End listen."));
+  DB_PRINT(F("<- End listen."),"");
 #endif
 
   // Reset break flag
   if (txBreak) txBreak = false;
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("GPIBbus::receiveData: done."));
+  DB_PRINT(F("receiveData: done."),"");
 #endif
 
   if (r > 0) return ERR;
@@ -264,8 +247,8 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
   if (cstate != DTAS) setControls(DTAS);
 
 #ifdef DEBUG_GPIBbus_SEND
-  debugStream.println(F("Set write data mode."));
-  debugStream.print(F("Send->"));
+  DB_PRINT(F("Set write data mode."),"");
+  DB_PRINT(F("Send->"),"");
 #endif
 
   // Write the data string
@@ -278,11 +261,9 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
     if (cfg.eoi) {
       // If EOI asserting is on
       if ((lastChunk) && (i == lastbyte)) {
-//debugStream.println(F("Send EOI"));
         // Send character with EOI (if enabled)
         err = writeByte(databuffer[i], true);
       }else{
-//debugStream.println(F("Send"));
         // Send character
         err = writeByte(databuffer[i], false);
       }
@@ -291,16 +272,15 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
       if ((databuffer[i] != CR) || (databuffer[i] != LF) || (databuffer[i] != ESC)) err = writeByte(databuffer[i], false);
     }
 #ifdef DEBUG_GPIBbus_SEND
-    debugStream.print(databuffer[i]);
+    DB_RAW_PRINT(databuffer[i]);
 #endif
     if (err) break;
   }
 
 #ifdef DEBUG_GPIBbus_SEND
-  debugStream.println("<-End.");
+  DB_PRINT(F("<-End."),"");
   if (err) {
-    debugStream.print("sendData: Error: ");
-    debugStream.println(err);
+    DB_PRINT("Error: ", err);
   }
 #endif
 
@@ -310,14 +290,14 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
     if ((cfg.eos & 0x2) == 0) {
       writeByte(CR, false);
 #ifdef DEBUG_GPIBbus_SEND
-      debugStream.println(F("Appended CR"));
+      DB_PRINT(F("Appended CR"),);
 #endif
     }
     // Do we need to write an LF?
     if ((cfg.eos & 0x1) == 0) {
       writeByte(LF, false);
 #ifdef DEBUG_GPIBbus_SEND
-      debugStream.println(F("Appended LF"));
+      DB_PRINT(F("Appended LF"),"");
 #endif
     }
   }
@@ -328,7 +308,7 @@ void GPIBbus::sendData(char *databuffer, size_t dsize, bool lastChunk) {
   }
 
 #ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("<- End of send."));
+    DB_PRINT(F("<- End of send."),"");
 #endif
  
 }
@@ -352,30 +332,20 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   uint8_t r = 0; //, db;
   uint8_t bytes[3] = {0};
   int x = 0;
-//  bool readWithEoi = false;
   bool eoiDetected = false;
-//  uint8_t pos = 0;
   uint8_t savedstate = cstate;
 
   // Reset transmission break flag
   txBreak = 0;
 
-  // EOI detection required ?
-//  if (detectEoi) readWithEoi = true;    // Detect EOI as terminator
-
   // Set GPIB controls to device read mode
   setControls(DLAS);
-//  readWithEoi = true;  // In device mode we read with EOI by default
   
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("gpibReceiveParams: Start listen ->"));
-  debugStream.println(F("Before loop flags:"));
-  debugStream.print(F("TRNb: "));
-  debugStream.println(txBreak);
-  debugStream.print(F("rEOI: "));
-//  debugStream.println(readWithEoi);
-  debugStream.print(F("ATN:  "));
-  debugStream.println(isAsserted(ATN) ? 1 : 0);
+  DB_PRINT(F("Start listen ->"),"");
+  DB_PRINT(F("Before loop flags:"),"");
+  DB_PRINT(F("TRNb: "), txBreak);
+  DB_PRINT(F("ATN:  "),(isAsserted(ATN) ? 1 : 0));
 #endif
 
   // Ready the data bus
@@ -405,7 +375,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
 //    if (r==2) break;  // ATN asserted
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-    debugStream.print(bytes[0], HEX), debugStream.print(' ');
+    DB_HEX_PRINT(bytes[0]);
 #endif
 
     // Byte counter
@@ -428,32 +398,29 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   }
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println();
-  debugStream.println(F("After loop flags:"));
-  if (r==2) debugStream.println(F("ATN asserted"));
-  debugStream.print(F("ATN:  "));
-  debugStream.println(isAsserted(ATN) ? 1 : 0);
-  debugStream.print(F("Err:  "));
-  debugStream.println(r);
-  debugStream.print(F("Bytes read: "));
-  debugStream.println(x);
-  debugStream.println(F("GPIBbus::receiveParams: <- End listen."));
+  DB_RAW_PRINTLN();
+  DB_PRINT(F("After loop flags:"),);
+//  if (r==2) DB_PRINT(F("ATN asserted"),);
+  DB_PRINT(F("ATN:  "),(isAsserted(ATN) ? 1 : 0));
+  DB_PRINT(F("Err:  "),r);
+  DB_PRINT(F("Bytes read: "),x);
+  DB_PRINT(F("<- End listen."),"");
 #endif
 
   // Detected that EOI has been asserted
   if (eoiDetected) {
 #ifdef DEBUG_GPIBbus_RECEIVE
-    dataStream.println(F("GPIBbus::receiveParams: EOI detected!"));
+    DB_PRINT(F("receiveParams: EOI detected!"),"");
 #endif
     // If eot_enabled then add EOT character
-//    if (cfg.eot_en) dataStream.print(cfg.eot_ch);
+//    if (cfg.eot_en) output.print(cfg.eot_ch);
   }
 
   // Verbose timeout error
 #ifdef DEBUG_GPIBbus_RECEIVE
   if (r > 0) {
-    debugStream.println(F("GPIBbus::receiveParams: Timeout waiting for sender!"));
-    debugStream.println(F("GPIBbus::receiveParams: Timeout waiting for transfer to complete!"));
+    DB_PRINT(F("receiveParams: Timeout waiting for sender!"),"");
+    DB_PRINT(F("Timeout waiting for transfer to complete!"),"");
   }
 #endif
 
@@ -464,7 +431,7 @@ uint8_t GPIBbus::receiveParams(bool detectEoi, char * receiveBuffer, uint8_t buf
   if (txBreak) txBreak = false;
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("GPIBbus::receiveParams: done."));
+  DB_PRINT(F("done."),"");
 #endif
 
   return x;
@@ -495,14 +462,11 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
   readWithEoi = true;  // In device mode we read with EOI by default
   
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("gpibReceiveToFile: Start listen ->"));
-  debugStream.println(F("Before loop flags:"));
-  debugStream.print(F("TRNb: "));
-  debugStream.println(txBreak);
-  debugStream.print(F("rEOI: "));
-  debugStream.println(readWithEoi);
-  debugStream.print(F("ATN:  "));
-  debugStream.println(isAsserted(ATN) ? 1 : 0);
+  DB_PRINT(F("Start listen ->"),"");
+  DB_PRINT(F("Before loop flags:"),"");
+  DB_PRINT(F("TRNb: "), txBreak);
+  DB_PRINT(F("rEOI: "), readWithEoi);
+  DB_PRINT(F("ATN:  "), (isAsserted(ATN) ? 1 : 0));
 #endif
 
   // Ready the data bus
@@ -524,7 +488,8 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
     if (isAsserted(ATN)) break;
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-    debugStream.print(bytes[0], HEX), debugStream.print(' ');
+    DB_HEX_PRINT(bytes[0]);
+//    DB_RAW_PRINT(' ');
 #endif
     // Write the character to the file
     s = outputFile.write(bytes[0]);
@@ -560,48 +525,45 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
   if (s) outputFile.sync();
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println();
-  debugStream.println(F("After loop flags:"));
-  debugStream.print(F("ATN: "));
-  debugStream.println(isAsserted(ATN));
-  debugStream.print(F("TMO:  "));
-  debugStream.println(r);
-  debugStream.print(F("Bytes read: "));
-  debugStream.println(x);
-  debugStream.println(F("GPIBbus::receiveToFile: <- End listen."));
+  DB_RAW_PRINTLN();
+  DB_PRINT(F("After loop flags:"),"");
+  DB_PRINT(F("ATN: "), isAsserted(ATN));
+  DB_PRINT(F("TMO:  "), r);
+  DB_PRINT(F("Bytes read: "), x);
+  DB_PRINT(F("End listen."),"");
 #endif
 
   // Detected that EOI has been asserted
   if (eoiDetected) {
 #ifdef DEBUG_GPIBbus_RECEIVE
-    dataStream.println(F("GPIBbus::receiveToFile: EOI detected!"));
+    DB_PRINT(F("EOI detected!"),"");
 #endif
     // If eot_enabled then add EOT character
-    if (cfg.eot_en) dataStream.print(cfg.eot_ch);
+    if (cfg.eot_en) outputFile.print(cfg.eot_ch);
   }
 
   // Verbose timeout error
 #ifdef DEBUG_GPIBbus_RECEIVE
   if (r > 0 && r < 3) {
-    debugStream.println(F("GPIBbus::receiveToFile: Timeout waiting for sender!"));
-    debugStream.println(F("GPIBbus::receiveToFile: Timeout waiting for transfer to complete!"));
+    DB_PRINT(F("Timeout waiting for sender!"),"");
+    DB_PRINT(F("Timeout waiting for transfer to complete!"),"");
   }
 #endif
 
   // File write error
 #ifdef DEBUG_GPIBbus_RECEIVE
-  if (r == 5) debugStream.println(F("GPIBbus::receiveToFile: failed to write to file!"));
+  if (r == 5) DB_PRINT(F("failed to write to file!"),"");
 #endif
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("<- End listen."));
+  DB_PRINT(F("<- End listen."),"");
 #endif
 
   // Reset break flag
   if (txBreak) txBreak = false;
 
 #ifdef DEBUG_GPIBbus_RECEIVE
-  debugStream.println(F("GPIBbus::receiveToFile: done."));
+  DB_PRINT(F("done."),"");
 #endif
 
   if (r > 0) return ERR;
@@ -721,7 +683,7 @@ void GPIBbus::setControls(uint8_t state) {
       // Set data bus to input pullup
       readyGpibDbus();
 #ifdef GPIBbus_CONTROL
-      debugStream.println(F("Set GPIB signals IDLE state"));
+      DB_PRINT(F("Set GPIB signals IDLE state"),"");
 #endif
       break;
 
@@ -735,7 +697,7 @@ void GPIBbus::setControls(uint8_t state) {
       // Set data bus to input pullup
       readyGpibDbus();
 #ifdef GPIBbus_CONTROL
-      debugStream.println(F("Set GPIB signals to idle state"));
+      DB_PRINT(F("Set GPIB signals to idle state"),"");
 #endif
       break;
 
@@ -746,7 +708,7 @@ void GPIBbus::setControls(uint8_t state) {
       setGpibState(0b00000110, 0b00011110, 1);
       setGpibState(0b11111001, 0b00011110, 0);
 #ifdef GPIBbus_CONTROL
-      debugStream.println(F("Set GPIB signals to LISTEN state"));
+      DB_PRINT(F("Set GPIB signals to LISTEN state"),"");
 #endif
       break;
 
@@ -757,13 +719,13 @@ void GPIBbus::setControls(uint8_t state) {
       setGpibState(0b00011000, 0b00011110, 1);
       setGpibState(0b11111001, 0b00011110, 0);
 #ifdef GPIBbus_CONTROL
-      debugStream.println(F("Set GPIB signals to TALK state"));
+      DB_PRINT(F("Set GPIB signals to TALK state"),"");
 #endif
       break;
 #ifdef GPIBbus_CONTROL
     default:
       // Should never get here!
-      debugStream.println(F("Unknown GPIB state requested!"));
+      DB_PRINT(F("Unknown GPIB state requested!"),"");
 #endif
   }
 
@@ -788,113 +750,6 @@ void GPIBbus::setDataVal(uint8_t value){
 }
 
 
-/***** Flag more data to come - suppress addressing *****/
-/*
-void GPIBbus::setDataContinuity(bool flag){
-  dataContinuity = flag;
-}
-*/
-
-/***** Write a single byte using handshaking *****/
-/*
- * Returns: 
- * 0 : write succeeded
- * 1 : Sender requested stop/abort
- * 2 : ATN asserted during write
- * 3 : NDAC/NRFD protocol error
- */
-/*
-uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
-
-  // If IFC has been asserted then abort
-  if (isAsserted(IFC)) {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("GPIBbus::writeByte: detected interface clear [IFC]"));
-#endif
-    return 1;    
-  }
-
-  // Wait for NDAC to go LOW (indicating that devices are at attention)
-  if (waitOnPinState(LOW, NDAC, cfg.rtmo)) {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("GPIBbus::writeByte: timeout waiting for receiver attention [NDAC asserted]"));
-#endif
-    return 2;
-  }
-
-  // Wait for NRFD to go HIGH (indicating that receiver is ready)
-  if (waitOnPinState(HIGH, NRFD, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: timeout waiting for receiver ready - [NRFD unasserted]"));
-#endif
-    return 3;
-  }
-*/
-/*
-  // If NDAC (and NRFD) are high receiver has asked us to stop transmitting
-  if (!isAsserted(NDAC)){
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: stop requested!"));
-#endif    
-    return 1;
-  }
-*/
-/*
-  // If ATN has been asserted we need to abort and listen
-  if (isAsserted(ATN)) {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: ATN detected!"));
-#endif    
-    return 4;
-  }
-
-
-  // Place data on the bus
-  setGpibDbus(db);
-
-  if (cfg.eoi && isLastByte) {
-    // If EOI enabled and this is the last byte then assert DAV and EOI
-#ifdef DEBUG_GPIBbus_SEND
-    debugStream.println(F("Asserting EOI..."));    
-#endif
-    setGpibState(0b00000000, 0b00011000, 0);
-  }else{
-    // Assert DAV (data is valid - ready to collect)
-    setGpibState(0b00000000, 0b00001000, 0);
-  }
-
-  // Wait for NRFD to go LOW (receiver accepting data)
-  if (waitOnPinState(LOW, NRFD, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND    
-    dataStream.println(F("gpibBus::writeByte: timeout waiting for data to be accepted - [NRFD asserted]"));
-#endif
-    return 5;
-  }
-
-  // Wait for NDAC to go HIGH (data accepted)
-  if (waitOnPinState(HIGH, NDAC, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_SEND
-    dataStream.println(F("gpibBus::writeByte: timeout waiting for data accepted signal - [NDAC unasserted]"));
-#endif
-    return 6;
-  }
-
-  if (cfg.eoi && isLastByte) {
-    // If EOI enabled and this is the last byte then un-assert both DAV and EOI
-    if (cfg.eoi && isLastByte) setGpibState(0b00011000, 0b00011000, 0);
-  }else{
-    // Unassert DAV
-    setGpibState(0b00001000, 0b00001000, 0);
-  }
-  
-  // Reset the data bus
-  setGpibDbus(0);
-
-  return 0;
-}
-*/
-
-
 uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
   unsigned long startMillis = millis();
   unsigned long currentMillis = startMillis + 1;
@@ -909,7 +764,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
       if (isAsserted(IFC)) {
         setControls(DLAS);       
 #ifdef DEBUG_GPIBbus_SEND
-        debugStream.println(F("GPIBbus::writeByte: IFC detected!"));
+        DB_PRINT(F("IFC detected!"),"");
 #endif
         stage = 1;
         break;    
@@ -919,7 +774,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
       if (isAsserted(ATN)) {
         setControls(DLAS);       
 #ifdef DEBUG_GPIBbus_SEND
-        debugStream.println(F("gpibBus::writeByte: ATN detected!"));
+        DB_PRINT(F("ATN detected!"),"");
 #endif
         stage = 2;
         break;
@@ -942,7 +797,7 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
       if (cfg.eoi && isLastByte) {
         // If EOI enabled and this is the last byte then assert DAV and EOI
 #ifdef DEBUG_GPIBbus_SEND
-        debugStream.println(F("Asserting EOI..."));    
+        DB_PRINT(F("Asserting EOI..."),"");    
 #endif
         setGpibState(0b00000000, 0b00011000, 0);
       }else{
@@ -988,20 +843,19 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 #ifdef DEBUG_GPIBbus_SEND
   switch (stage) {
     case 4:
-      debugStream.print("writeByte: NDAC timeout!");
+      DB_PRINT(F("NDAC timeout!"),"");
       break;
     case 5:
-      debugStream.print("writeByte: NRFD timout!");
+      DB_PRINT(F("NRFD timout!"),"");
       break;
     case 7:
-      debugStream.print("writeByte: NRFD timout!");
+      DB_PRINT(F("NRFD timout!"),"");
       break;
     case 8:
-      debugStream.print("writeByte: NDAC timout!");
+      DB_PRINT(F("NDAC timout!"),"");
       break;
     default:
-      debugStream.print(F("writeByte: Error: "));
-      debugStream.println(stage);
+      DB_PRINT(F("Error: "), stage);
   }
 #endif
 
@@ -1060,69 +914,6 @@ bool GPIBbus::isDeviceNotAddressed(){
  * (- this function is called in a loop to read data    )
  * (- the GPIB bus must already be configured to listen )
  */
-/*
-uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
-  bool atnStat = isAsserted(ATN);
-  *eoi = false;
-
-  // Verify that IFC has not been asserted. If it has then abort
-  if (isAsserted(IFC)) {
-#ifdef DEBUG_GPIBbus_RECEIVE
-    dataStream.println(F("GPIBbus::readByte: detected interface clear [IFC]"));
-#endif
-    return 4;    
-  }
-
-  // Unassert NRFD (we are ready for more data)
-  setGpibState(0b00000100, 0b00000100, 0);
-
-  // ATN asserted and just got unasserted - abort - we are not ready yet
-  if (atnStat && (!isAsserted(ATN))) {
-    setGpibState(0b00000000, 0b00000100, 0);
-    return 3;
-  }
-
-  // Wait for DAV to go LOW indicating talker has finished setting data lines..
-  if (waitOnPinState(LOW, DAV, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_RECEIVE
-    debugStream.println(F("GPIBbus::readByte: timeout waiting for DAV to go LOW"));
-#endif
-    setGpibState(0b00000000, 0b00000100, 0);
-    // No more data for you?
-    return 1;
-  }
-
-  // Assert NRFD (NOT ready - busy reading data)
-  setGpibState(0b00000000, 0b00000100, 0);
-
-  // Check for EOI signal
-  if (readWithEoi && isAsserted(EOI)) *eoi = true;
-
-  // read from DIO
-  *db = readGpibDbus();
-
-  // Unassert NDAC signalling data accepted
-  setGpibState(0b00000010, 0b00000010, 0);
-
-  // Wait for DAV to go HIGH indicating data no longer valid (i.e. transfer complete)
-  if (waitOnPinState(HIGH, DAV, cfg.rtmo))  {
-#ifdef DEBUG_GPIBbus_RECEIVE
-    debugStream.println(F("GPIBbus::readByte: timeout waiting DAV to go HIGH"));
-#endif
-    return 2;
-  }
-
-  // Re-assert NDAC - handshake complete, ready to accept data again
-  setGpibState(0b00000000, 0b00000010, 0);
-
-  // GPIB bus DELAY
-//  delayMicroseconds(cfg.tmbus);
-
-  return 0;
-}
-*/
-
-
 uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 
   unsigned long startMillis = millis();
@@ -1140,7 +931,7 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
       if (isAsserted(IFC)) {
         // If IFC has been asserted then abort
 #ifdef DEBUG_GPIBbus_RECEIVE
-        dataStream.println(F("GPIBbus::readByte: IFC detected]"));
+        DB_PRINT(F("IFC detected]"),"");
 #endif
         stage = 1;
         break;    
@@ -1202,10 +993,9 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
   // Otherwise return stage
 #ifdef DEBUG_GPIBbus_RECEIVE
   if ( (stage==4) || (stage==8) ) {
-    debugStream.println(F("readByte: DAV timout!"));
+    DB_PRINT(F("readByte: DAV timout!"),"");
   }else{
-    debugStream.print(F("readByte: Error: "));
-    debugStream.println(stage);
+    DB_PRINT(F("readByte: Error: "), stage);
   }
 #endif
 
@@ -1213,115 +1003,6 @@ uint8_t GPIBbus::readByte(uint8_t *db, bool readWithEoi, bool *eoi) {
 
 }
 
-
-
-/***** Wait for "pin" to reach a specific state *****/
-/*
- * Returns false on success, true on timeout.
- * Pin MUST be set as INPUT_PULLUP otherwise it will not change and simply time out!
- */
-/*
- * Note: without millis() - using millis() in here breaks the protocol for longer 
- *        transmissions. Reason unknown. 
- */
-/*
-boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, const uint16_t interval) {
-
-  unsigned long timeout = interval;
-  timeout = timeout * 1000;   // Convert milliseconds to microseconds
-
-  bool atnStat = (isAsserted(ATN));
-  unsigned long clk = 0;
-  
-  while (digitalRead(pin) != state) {
-    // Check timer
-    if (clk >= timeout) return true;
-*/
-/*
-    // ATN changed state so abort
-    if (atnStat != isAsserted(ATN)) {
-#if defined (DEBUG_GPIBbus_RECEIVE) || defined (DEBUG_GPIBbus_SEND)
-      if (!atnStat) setControls(DLAS);  // If ATN asserted imediately go into listen mode
-      debugStream.println(F("ATN status changed!"));
-#endif
-      return true;
-    }
-*/
-/*
-    delayMicroseconds(100);
-    clk = clk + 100;
-  }
-  return false;        // = no timeout therefore succeeded!
-}
-*/
-
-
-/***** Wait for "pin" to reach a specific state *****/
-/*
- * Returns false on success, true on timeout.
- * Pin MUST be set as INPUT_PULLUP otherwise it will not change and simply time out!
- */
-/*
- * Note: with millis() - experimental (rollover = 49 days)
- */
-/*
-boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, uint16_t interval) {
-  unsigned long startMillis = millis();
-  unsigned long currentMillis = startMillis + 1;
-    
-  // Wait for interval to expire
-  while ( (unsigned long)(currentMillis - startMillis) < interval ) {
-    // Check condition
-    if (digitalRead(pin) == state) {
-//      debugStream.print(F("Elapsed: "));
-//      debugStream.println( (unsigned long)(currentMillis - startMillis) );
-      return false;  // Condition met.
-    }
-    // Grab the current time
-    currentMillis = millis();
-  }
-//  debugStream.print(F("Timeout!"));
-  return true;  // Timeout!
-}
-*/
-
-
-/***** Wait for "pin" to reach a specific state *****/
-/*
- * Returns false on success, true on timeout.
- * Pin MUST be set as INPUT_PULLUP otherwise it will not change and simply time out!
- */
-/*
-   * Note: with micros() - experimental (rollover = 70 minutes)
- */
-/*
-boolean GPIBbus::waitOnPinState(uint8_t state, uint8_t pin, const unsigned long interval) {
-  const unsigned long startMicros = micros();           // Snapshot of time the function started
-  unsigned long currentMicros = startMicros + 1;  // Initialise the current time value
-  const unsigned long timeval = interval * 1000;  // Convert milliseconds to microseconds
-  bool timeout = true;
-
-//      debugStream.print(F("Checking pin: "));
-//      debugStream.println(pin);
- 
-  // Wait for interval to expire
-  while ( (unsigned long)(currentMicros - startMicros) < timeval ) {
-    // Check condition
-    if (digitalRead(pin) == state) {
-//      debugStream.print(F("Elapsed: "));
-//      debugStream.println( (unsigned long)(currentMicros - startMicros) );
-      timeout = false;  // Condition met.
-      break;
-    }
-    // Grab the current time
-    currentMicros = micros();
-  }
-
-//  timeout ? debugStream.println(F("Timeout!")) : debugStream.println(F("State matched."));
-//  debugStream.print(F("Timeout!"));
-  return timeout;  // Timeout!
-}
-*/
 
 /***** Check for terminator *****/
 bool GPIBbus::isTerminatorDetected(uint8_t bytes[3], uint8_t eorSequence){
