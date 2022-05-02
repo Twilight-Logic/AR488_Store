@@ -13,7 +13,7 @@
 
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.71, 02/05/2022 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.72, 02/05/2022 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4
@@ -35,7 +35,7 @@
 
 
 // Number of storage GPIB commands
-#define STGC_SIZE 19
+#define STGC_SIZE 18
 
 #define DATA_CONTINUE false
 #define DATA_COMPLETE true
@@ -195,7 +195,7 @@ class SDstorage {
     // MARK
     void stgc_0x7C_h();
     // SECRET
-    void stgc_0x7D_h();
+//    void stgc_0x7D_h();
     // ERROR
     void stgc_0x7E_h();
 

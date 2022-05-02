@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.71, 02/05/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.72, 02/05/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -60,7 +60,7 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x73, &SDstorage::stgc_0x73_h },  // LIST/TLIST
   { 0x7B, &SDstorage::stgc_0x7B_h },  // FIND
   { 0x7C, &SDstorage::stgc_0x7C_h },  // MARK
-  { 0x7D, &SDstorage::stgc_0x7D_h },  // SECRET
+//  { 0x7D, &SDstorage::stgc_0x7D_h },  // SECRET
   { 0x7E, &SDstorage::stgc_0x7E_h }   // ERROR
 };
 
@@ -1918,10 +1918,11 @@ void SDstorage::stgc_0x7C_h(){
 
 
 /***** SECRET command *****/
+/*
 void SDstorage::stgc_0x7D_h(){
   
 }
-
+*/
 
 /***** ERROR command *****/
 /*

@@ -2,7 +2,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.71, 02/05/2022 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.72, 02/05/2022 *****/
 
 
 /****** Process status values *****/
