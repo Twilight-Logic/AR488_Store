@@ -12,7 +12,7 @@
   #endif
 #endif
 
-/***** AR488_GPIBbus.cpp, ver. 0.05.70, 01/05/2022 *****/
+/***** AR488_GPIBbus.cpp, ver. 0.05.71, 02/05/2022 *****/
 
 
 /*********************************************/
@@ -119,7 +119,7 @@ class GPIBbus {
 //    void setDeviceAddressedState(uint8_t stat);
     bool isDeviceAddressedToListen();
     bool isDeviceAddressedToTalk();
-    bool isDeviceNotAddressed();
+    bool isDeviceInIdleState();
 
 #ifdef EN_STORAGE
 //    bool receiveData(ofstream& outputFile, bool detectEoi, bool detectEndByte, uint8_t endByte);

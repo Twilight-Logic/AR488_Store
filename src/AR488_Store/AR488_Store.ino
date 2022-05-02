@@ -28,7 +28,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.70, 01/05/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.71, 02/05/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -379,7 +379,7 @@ void loop() {
     if (lnRdy == 2) sendToInstrument(pBuf, pbPtr);
 /*    
   }else{
-    if (!gpibBus.isDeviceNotAddressed()) {
+    if (!gpibBus.isDeviceInIdleState()) {
       gpibBus.setControls(DIDS);
     }
 */    
@@ -1121,6 +1121,8 @@ void attnRequired() {
   uint8_t bytecnt = 0;
   uint8_t atnstat = 0;
   uint8_t ustat = 0;
+  bool addressed = false;
+  
 #ifdef EN_STORAGE
   uint8_t saddrcmd = 0;
 #endif
@@ -1165,8 +1167,9 @@ void attnRequired() {
 
   /***** Command process loop *****/
 
-  if (bytecnt>0) {  // Some commands to process
-    // Process commands
+  if (bytecnt>0) {  // Some command tokens to process
+
+    // Process received command tokens
     for (uint8_t i=0; i<bytecnt; i++) { 
 
       if (!cmdbytes[i]) break;  // End loop on zero
@@ -1176,18 +1179,20 @@ void attnRequired() {
       // Device is addressed to listen
       if (gpibBus.cfg.paddr == (db ^ 0x20)) { // MLA = db^0x20
         atnstat |= 0x02;
+        addressed = true;
         gpibBus.setControls(DLAS);
 
       // Device is addressed to talk
       }else if (gpibBus.cfg.paddr == (db ^ 0x40)) { // MLA = db^0x40
         // Call talk handler to send data
         atnstat |= 0x04;
+        addressed = true;
         gpibBus.setControls(DTAS);
 
 #ifdef EN_STORAGE
       }else if (db>0x5F && db<0x80) {
         // Secondary addressing command received
-        if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
+        if (addressed) { // If we have been addressed (talk or listen)
           saddrcmd = db;
           atnstat |= 0x10;
         }
@@ -1195,68 +1200,68 @@ void attnRequired() {
 
       }else{
         // Primary command received
-        if (!gpibBus.isDeviceNotAddressed()) { // If we have been addressed
+        if (addressed) { // If we have been addressed (talk or listen)
           gpibcmd = db;
           atnstat |= 0x08;
         }
       }
+    }   // End for
 
-  /***** Perform GPIB primary command actions *****/
+    // If we have not been adressed then back to idle and exit loop
+    if (!addressed) {
+      gpibBus.setControls(DLAS);
+      return;
+    }
 
-      if (gpibcmd) {
-        // Respond to GPIB command
-        execGpibCmd(gpibcmd);
-        // Clear flags
-        gpibcmd = 0;
-        atnstat |= 0x20;
-      }
+    // If we have been adressed, then execute commands
 
-  /***** Perform GIB secondry address command actions *****/
+    /***** Perform GPIB primary command actions *****/
+    if (gpibcmd) {
+      // Respond to GPIB command
+      execGpibCmd(gpibcmd);
+      // Clear flags
+      gpibcmd = 0;
+      atnstat |= 0x20;
+    }
 
+    /***** Perform GPIB secondry address command actions *****/
 #ifdef EN_STORAGE
-      if (saddrcmd) {
-        // Execute the GPIB secondary addressing command
-        storage.storeExecCmd(saddrcmd);
-        // Clear secondary address command
-        saddrcmd = 0;
-        atnstat |= 0x40;
-      }
-
+    if (saddrcmd) {
+      // Execute the GPIB secondary addressing command
+      storage.storeExecCmd(saddrcmd);
+      // Clear secondary address command
+      saddrcmd = 0;
+      atnstat |= 0x40;
+    }
 #endif
 
+    /***** Otherwise perform controller mode read or write *****/
+    if (gpibBus.cfg.cmode == 2) { 
 
-  /***** Otherwise perform controller mode read or write *****/
-
-      if (gpibBus.cfg.cmode == 2) { 
-
-        // Listen for data
-        if (gpibBus.isDeviceAddressedToListen()) {
+      // Listen for data
+      if (gpibBus.isDeviceAddressedToListen()) {
 /*
 #ifdef DEBUG_DEVICE_ATN
           DB_PRINT(F("Listening..."),);
 #endif
 */
-          device_listen_h();
-          atnstat |= 0x80;
-//          return;
-        }
+        device_listen_h();
+        atnstat |= 0x80;
+      }
 
-        // Talk (send data)
-        if (gpibBus.isDeviceAddressedToTalk()) {
+      // Talk (send data)
+      if (gpibBus.isDeviceAddressedToTalk()) {
 /*
 #ifdef DEBUG_DEVICE_ATN
           DB_PRINT(F("Talking..."),);
 #endif
 */
-          device_talk_h();
-          atnstat |= 0x80;
-// Done at begining of ATN
-//          gpibBus.setControls(DLAS);  // Data sent. Now listen for next CMD
-//          return;
-        }
-
+        device_talk_h();
+        atnstat |= 0x80;
+          
       }
-    }
+
+    }  // End mode = 2
 
 #ifdef DEBUG_DEVICE_ATN
   }else{
