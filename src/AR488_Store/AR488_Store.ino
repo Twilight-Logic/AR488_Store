@@ -28,7 +28,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.72, 02/05/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.73, 03/05/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1436,6 +1436,7 @@ bool device_unt_h(){
   // Stop sending data and go to idle
   if (gpibBus.isDeviceAddressedToTalk()) {
     gpibBus.setControls(DIDS);
+    gpibBus.clearDataBus();
     return true;
   }
   return false;

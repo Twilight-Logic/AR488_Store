@@ -2,7 +2,7 @@
 #include "AR488_Config.h"
 #include "AR488_GPIBdevice.h"
 
-/***** AR488_GPIB.cpp, ver. 0.05.72, 02/05/2022 *****/
+/***** AR488_GPIB.cpp, ver. 0.05.73, 03/05/2022 *****/
 
 
 /****** Process status values *****/
@@ -458,7 +458,7 @@ bool GPIBbus::receiveToFile(File& outputFile, bool detectEoi, bool detectEndByte
   if (cfg.eoi || detectEoi || (cfg.eor==7)) readWithEoi = true;    // Use EOI as terminator
 
   // Set GPIB controls to device read mode
-  if (!dataContinuity) setControls(DLAS);
+//  if (!dataContinuity) setControls(DLAS);
   readWithEoi = true;  // In device mode we read with EOI by default
   
 #ifdef DEBUG_GPIBbus_RECEIVE
@@ -762,7 +762,8 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
     if (cfg.cmode == 1) {
       // If IFC has been asserted then abort
       if (isAsserted(IFC)) {
-        setControls(DLAS);       
+        setControls(DLAS);
+        readyGpibDbus();
 #ifdef DEBUG_GPIBbus_SEND
         DB_PRINT(F("IFC detected!"),"");
 #endif
@@ -772,7 +773,8 @@ uint8_t GPIBbus::writeByte(uint8_t db, bool isLastByte) {
 
       // If ATN has been asserted we need to abort and listen
       if (isAsserted(ATN)) {
-        setControls(DLAS);       
+        setControls(DLAS);
+        readyGpibDbus();
 #ifdef DEBUG_GPIBbus_SEND
         DB_PRINT(F("ATN detected!"),"");
 #endif
@@ -899,6 +901,11 @@ bool GPIBbus::isDeviceInIdleState(){
   return false;
 }
 
+
+/***** Clear the data bus - set to listen state *****/
+void GPIBbus::clearDataBus(){
+  readyGpibDbus();
+}
 
 
 
