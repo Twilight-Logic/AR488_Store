@@ -28,7 +28,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.73, 03/05/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.74, 04/05/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1160,7 +1160,6 @@ void attnRequired() {
       listbytecnt++;
 #endif
     }
-//    delayMicroseconds(30);  // Allow time for ATN signal to change
   }
 
   atnstat |= 0x01;
@@ -1198,7 +1197,7 @@ void attnRequired() {
         }
 #endif
 
-      }else{
+      }else if (db<0x20){
         // Primary command received
         if (addressed) { // If we have been addressed (talk or listen)
           gpibcmd = db;
@@ -1209,7 +1208,7 @@ void attnRequired() {
 
     // If we have not been adressed then back to idle and exit loop
     if (!addressed) {
-      gpibBus.setControls(DLAS);
+      gpibBus.setControls(DINI);
       return;
     }
 
