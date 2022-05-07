@@ -13,7 +13,7 @@
 
 
 
-/***** AR488_Storage_Tek_4924.h, ver. 0.05.74, 04/05/2022 *****/
+/***** AR488_Storage_Tek_4924.h, ver. 0.05.75, 05/05/2022 *****/
 
 // Default chip select pin number is defined on some cards as SDCARD_SS_PIN
 // If its not defined and its not been set in config then we use pin 4

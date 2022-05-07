@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.74, 04/05/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.75, 05/05/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -582,8 +582,6 @@ uint8_t SDstorage::binaryCopy() {
 
     if ( c==(copyterm&0xFF)) {
       // Terminator reached
-//      err = gpibBus.writeByte(c, DATA_CONTINUE);
-//      err = gpibBus.writeByte(c, DATA_COMPLETE);
       err = gpibBus.writeByte(c, DATA_COMPLETE);
 //      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
       return 0;
@@ -602,7 +600,6 @@ uint8_t SDstorage::binaryCopy() {
     }else if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
       err = gpibBus.writeByte(c, DATA_COMPLETE);
-//      err = gpibBus.writeByte(c, DATA_CONTINUE);
 //      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
       return 0;
 
