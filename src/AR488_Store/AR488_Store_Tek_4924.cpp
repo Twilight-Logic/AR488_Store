@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.75, 05/05/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.77, 18/06/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -463,7 +463,7 @@ bool SDstorage::findFile(uint8_t fnum){
 
       return true;
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_VERBOSE
     }else{
       // Type undetemined
       DB_PRINT(F("Unknown type!"),"");
@@ -516,7 +516,7 @@ uint8_t SDstorage::binaryRead() {
     // Read a byte
     c = sdinout.read();
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_BINARYREAD
     if (!err) {
       DB_HEX_PRINT(c);
     }
@@ -524,24 +524,24 @@ uint8_t SDstorage::binaryRead() {
 
     if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
-      err = gpibBus.writeByte(c, DATA_CONTINUE);
-      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
+      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
       return(0);
 
 /*
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_BINARYREAD
       DB_PRINT(F("<EOF"),"");
 #endif
 */
 
     }else{
       // Send byte to the GPIB bus
-      err = gpibBus.writeByte(c, DATA_CONTINUE);
+      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
     }
 
     // Exit on ATN or receiver request to stop (NDAC HIGH)
     if (err) {
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_BINARYREAD
       if (err == 1) DB_PRINT(F("\r\nIFC detected!"),"");
       if (err == 2) DB_PRINT(F("\r\nATN detected!"),"");
       if (err == 10) DB_PRINT(F("\r\nTimeout!"),"");
@@ -552,7 +552,7 @@ uint8_t SDstorage::binaryRead() {
     }
   }
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_BINARYREAD
   DB_PRINT(F("Err: "), err);
 #endif
 
@@ -582,36 +582,36 @@ uint8_t SDstorage::binaryCopy() {
 
     if ( c==(copyterm&0xFF)) {
       // Terminator reached
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
-//      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, SEND_WITH_EOI);
+//      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
       return 0;
     } else if (c==0x0D) {
       // CR reached
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, SEND_WITH_EOI);
       return 0;
     }else if (c<0) {
       // EOF reached
-      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
       return 0;
     }else if (copycnt == (copylen-1)) {
       // Reached copylen bytes
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, SEND_WITH_EOI);
       return 0;      
     }else if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
-      err = gpibBus.writeByte(c, DATA_COMPLETE);
-//      err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+      err = gpibBus.writeByte(c, SEND_WITH_EOI);
+//      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
       return 0;
 
 /*
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_BINARYCOPY
       DB_PRINT(F("<EOF"),);
 #endif
 */
 
     }else{
       // Send byte to the GPIB bus
-      err = gpibBus.writeByte(c, DATA_CONTINUE);
+      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
       copycnt++;
     }
 
@@ -902,6 +902,10 @@ void SDstorage::storeExecCmd(uint8_t cmd) {
   uint8_t i = 0;
   while (storeCmdHidx[i].cmdByte) {
     if (storeCmdHidx[i].cmdByte == cmd) {
+#ifdef DEBUG_STORE_EXEC
+      DB_PRINT(F("Executing GPIB secondary command: "),"");
+      DB_HEX_PRINT(cmd);
+#endif
       // Call handler
       (this->*storeCmdHidx[i].handler)();
       return;
@@ -926,7 +930,7 @@ void SDstorage::stgc_0x60_h(){
 #endif
   itoa(gpibBus.cfg.stat, statstr, 10);
   // Send info to GPIB bus
-  gpibBus.sendData(statstr, strlen(statstr), DATA_COMPLETE);
+  gpibBus.sendData(statstr, strlen(statstr), SEND_WITH_EOI);
 #ifdef DEBUG_STORE_STATUS
   DB_PRINT(F("done."),"");
 #endif  
@@ -1021,10 +1025,10 @@ void SDstorage::stgc_0x64_h() {
     
       if (sdin.peek() == EOF) {
         // Last line was read so send data with EOI on last character
-        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_COMPLETE);
+        gpibBus.sendData(linebuffer, strlen(linebuffer), SEND_WITH_EOI);
       }else{
         // Send line of data to the GPIB bus
-        gpibBus.sendData(linebuffer, strlen(linebuffer), DATA_CONTINUE);
+        gpibBus.sendData(linebuffer, strlen(linebuffer), SEND_DATA_ONLY);
       }
     }
 
@@ -1032,7 +1036,8 @@ void SDstorage::stgc_0x64_h() {
     stgc_0x62_h();  // Close function
     
   }else{
-    gpibBus.writeByte(0xFF, true);  // Send FF and signal EOI
+    errorCode = 6;
+    gpibBus.writeByte(0xFF, SEND_WITH_EOI);  // Send FF and signal EOI
 #ifdef DEBUG_STORE_APPEND
     DB_PRINT(F("incorrect file type!"),"");
 #endif
@@ -1092,10 +1097,10 @@ void SDstorage::stgc_0x66_h() {
 //    if ( (dtype>2) && (dtype<5) ) dsize = peekb[1];
 
     sprintf(numstr, "%d\x0D" ,dtype);
-    gpibBus.sendData(numstr, strlen(numstr), DATA_CONTINUE);
+    gpibBus.sendData(numstr, strlen(numstr), SEND_DATA_ONLY);
     memset(numstr, '\0', 6);
     sprintf(numstr, "%d\x0D" ,dsize);
-    gpibBus.sendData(numstr, strlen(numstr), DATA_COMPLETE);
+    gpibBus.sendData(numstr, strlen(numstr), SEND_WITH_EOI);
 
 #ifdef DEBUG_STORE_TYPE
     DB_PRINT(F("type BINARY"),"");
@@ -1103,17 +1108,17 @@ void SDstorage::stgc_0x66_h() {
 
   }else if ( (sdinout.isOpen()) && (f_type == 'D') ) {
     sprintf(numstr, "%d\x0D" ,2);
-    gpibBus.sendData(numstr, 2, DATA_CONTINUE);
+    gpibBus.sendData(numstr, 2, SEND_DATA_ONLY);
     memset(numstr, '\0', 6);
     sprintf(numstr, "%d\x0D" ,0);
-    gpibBus.sendData(numstr, 2, DATA_COMPLETE);
+    gpibBus.sendData(numstr, 2, SEND_WITH_EOI);
 #ifdef DEBUG_STORE_TYPE
     DB_PRINT(F("type ASCII"),"");
 #endif
   }else{
     sprintf(numstr, "%d\x0D" ,0);
-    gpibBus.sendData(numstr, 2, DATA_CONTINUE);
-    gpibBus.sendData(numstr, 2, DATA_COMPLETE);
+    gpibBus.sendData(numstr, 2, SEND_DATA_ONLY);
+    gpibBus.sendData(numstr, 2, SEND_WITH_EOI);
 #ifdef DEBUG_STORE_TYPE
     DB_PRINT(F("NEW or not open"),"");
 #endif
@@ -1217,7 +1222,7 @@ void SDstorage::stgc_0x69_h() {
 
   // If addressed to talk, send the current directory name
   if (gpibBus.isDeviceAddressedToTalk()){
-    gpibBus.sendData(directory, strlen(directory), DATA_COMPLETE);
+    gpibBus.sendData(directory, strlen(directory), SEND_WITH_EOI);
   }
   
 #ifdef DEBUG_STORE_DIR
@@ -1325,19 +1330,19 @@ void SDstorage::stgc_0x6D_h() {
     
       if (c == EOF) {  // Reached EOF
         // Send EOI + 0xFF to indicate EOF reached
-        err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+        err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
 
 /*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_INPUT
         DB_PRINT(F("\nEOF reached!"),"");
 #endif
 */
       }else{
         // Send byte to the GPIB bus
-        err = gpibBus.writeByte((uint8_t)c, DATA_CONTINUE);
+        err = gpibBus.writeByte((uint8_t)c, SEND_DATA_ONLY);
 
 /*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_INPUT
         if (!err) DB_RAW_PRINT((char)c);
 #endif
 */
@@ -1349,14 +1354,14 @@ void SDstorage::stgc_0x6D_h() {
         if (err == 2) {
           gpibBus.setControls(DLAS);
 /*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_COMMANDS          
+#ifdef DEBUG_STORE_INPUT      
           DB_PRINT(F("\r\nATN detected."),"");
 #endif
 */
         }
 
 /*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_COMMANDS          
+#ifdef DEBUG_STORE_INPUT        
         if (err == 3) DB_PRINT(F("\r\nwait timeout."),"");
 #endif
 */
@@ -1370,7 +1375,7 @@ void SDstorage::stgc_0x6D_h() {
   }else{
     errorCode = 2;
     // Send EOI + 0xFF to indicate EOF (no data)
-    err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+    err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
 #ifdef DEBUG_STORE_INPUT
     DB_PRINT(F("incorrect file type!"),"");
 #endif
@@ -1410,7 +1415,7 @@ void SDstorage::stgc_0x6E_h() {
       if ( (header[0]==-1) || (header[1]==-1) ) {
 
         // Reached EOF - send last byte and 0xFF with EOI
-        err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+        err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
         return;
       }
 
@@ -1425,12 +1430,12 @@ void SDstorage::stgc_0x6E_h() {
 #endif
 
       // Send header
-      err = gpibBus.writeByte((uint8_t)header[0], DATA_CONTINUE);
+      err = gpibBus.writeByte((uint8_t)header[0], SEND_DATA_ONLY);
       if (err) {
         sdinout.seekCur(-2);  // Move back to begining of header
         break;
       }
-      err = gpibBus.writeByte((uint8_t)header[1], DATA_CONTINUE);
+      err = gpibBus.writeByte((uint8_t)header[1], SEND_DATA_ONLY);
       if (err) {
         sdinout.seekCur(-2);
         break;
@@ -1440,7 +1445,7 @@ void SDstorage::stgc_0x6E_h() {
       if (!err) {
         for (uint16_t i=0; i<(dlen); i++){
           c = sdinout.read();
-          err = gpibBus.writeByte(c, DATA_CONTINUE);
+          err = gpibBus.writeByte(c, SEND_DATA_ONLY);
           if (err) break;
 /*     
 #ifdef DEBUG_STORE_READ
@@ -1461,7 +1466,7 @@ void SDstorage::stgc_0x6E_h() {
   }else{
 #ifdef DEBUG_STORE_READ
     DB_PRINT(F("incorrect file type!"),"");
-    err = gpibBus.writeByte(0xFF, DATA_COMPLETE);
+    err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
 #endif
   }  
 
@@ -1506,7 +1511,7 @@ void SDstorage::stgc_0x6F_h() {
   uint8_t r = 0;
   bool readWithEoi = false;
   bool eoiDetected = false;
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
   debugStream.println(F("stgc_0x6F_h: started WRITE handler..."));
 #endif
   if ( (f_type == 'N') || (f_type == 'H') ) {
@@ -1530,7 +1535,7 @@ debugStream.print(F("  Dlen: "));
 debugStream.println(dlen);
 
       sdinout.write(db);
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
       char x[4] = {0};
       sprintf(x,"%02X ",db);    
       debugStream.print(x);
@@ -1550,7 +1555,7 @@ debugStream.println(dlen);
         if (r>0) break;
         sdinout.write(db);
 
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
       char x[4] = {0};
       sprintf(x,"%02X ",db);    
       debugStream.print(x);
@@ -1562,18 +1567,18 @@ debugStream.println(dlen);
     if (r==0) {
       // Make sure file is makrked as BINARY DATA, with appropriate length and rename
       if (f_type == 'N') renameFile(sdinout, 'B', 'D');
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
     }else{
       debugStream.print("   Error: ");
       debugStream.println(r);
 #endif
     }
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
   }else{
     debugStream.println(F("stgc_0x6F_h: incorrect file type!"));
 #endif
   }
-#ifdef DEBUG_STORE_COMMANDS
+#ifdef DEBUG_STORE_WRITE
     debugStream.println(F("stgc_0x6F_h: done."));
 #endif
 }
@@ -1615,6 +1620,7 @@ void SDstorage::stgc_0x71_h() {
       }
     }else{
       err = 5;
+      errorCode = 6;
     }
   }
 
@@ -1629,6 +1635,8 @@ void SDstorage::stgc_0x71_h() {
       err = binaryRead();
     }else{
       err = 5;
+      errorCode = 6;
+      gpibBus.writeByte(0xFF, SEND_WITH_EOI);  // Send FF and signal EOI
     }
   }
 
@@ -1702,9 +1710,9 @@ void SDstorage::stgc_0x73_h(){
   }else{
     // If its not a NULL string then return the file name
     if (f_name[0]>0) {
-      gpibBus.sendData(f_name, file_header_size, DATA_COMPLETE);
+      gpibBus.sendData(f_name, file_header_size, SEND_WITH_EOI);
     }else{
-      gpibBus.writeByte(0xFF,DATA_COMPLETE);
+      gpibBus.writeByte(0xFF,SEND_WITH_EOI);
     }
   }
 
@@ -1947,9 +1955,7 @@ void SDstorage::stgc_0x7E_h(){
   // Send info to GPIB bus
 //  gpibBus.sendRawData(charStream.toCharArray(), charStream.length());
 //  gpibBus.sendRawData(errstr, strlen(errstr));
-  gpibBus.sendData(errstr, strlen(errstr), DATA_COMPLETE);
-  // Signal end of data
-//  gpibBus.sendEOI();
+  gpibBus.sendData(errstr, strlen(errstr), SEND_WITH_EOI);
 #ifdef DEBUG_STORE_ERROR
   DB_PRINT(F("done."),"");
 #endif

@@ -28,7 +28,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.75, 05/05/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.77, 18/06/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
@@ -1282,17 +1282,17 @@ void attnRequired() {
 #ifdef DEBUG_DEVICE_ATN
 void showATNStatus(uint8_t atnstat, uint8_t ustat, uint8_t atnbytes[], size_t bcnt, uint8_t stat) {
 
-  if (ustat & 0x01) DB_PRINT(F("unlistened."),);
-  if (ustat & 0x02) DB_PRINT(F("untalked."),);
+  if (ustat & 0x01) DB_PRINT(F("unlistened."),"");
+  if (ustat & 0x02) DB_PRINT(F("untalked."),"");
 
-  if (atnstat & 0x01) DB_PRINT(F("ATN read loop completed."),);
-  if (atnstat & 0x02) DB_PRINT(F("addressed to LISTEN."),);
-  if (atnstat & 0x04) DB_PRINT(F("addressed to TALK."),);
-  if (atnstat & 0x08) DB_PRINT(F("primary command received."),);
-  if (atnstat & 0x10) DB_PRINT(F("secondary command received."),);
-  if (atnstat & 0x20) DB_PRINT(F("primary command done."),);
-  if (atnstat & 0x40) DB_PRINT(F("secondary command done."),);
-  if (atnstat & 0x80) DB_PRINT(F("attnRequired done."),);
+  if (atnstat & 0x01) DB_PRINT(F("ATN read loop completed."),"");
+  if (atnstat & 0x02) DB_PRINT(F("addressed to LISTEN."),"");
+  if (atnstat & 0x04) DB_PRINT(F("addressed to TALK."),"");
+  if (atnstat & 0x08) DB_PRINT(F("primary command received."),"");
+  if (atnstat & 0x10) DB_PRINT(F("secondary command received."),"");
+  if (atnstat & 0x20) DB_PRINT(F("primary command done."),"");
+  if (atnstat & 0x40) DB_PRINT(F("secondary command done."),"");
+  if (atnstat & 0x80) DB_PRINT(F("attnRequired done."),"");
 
   DB_PRINT(F("commands received:"),"");
   for (size_t i=0; i<bcnt; i++) {
