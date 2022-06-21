@@ -49,7 +49,7 @@ https://www.eevblog.com/forum/projects/tektronix-4924-tape-drive-emulator/
 <table>
 <tr><td>Emanuelle Girlando</td><td>Original GPIB interface project for the Arduino Uno</td></tr>
 <tr><td>Monty McGraw</td><td>Storage functions, Tektronix content, testing/debugging</td></tr>
-<tr><td>Tom Stephenson</td><td>Testing and debugging</td></tr>
+<tr><td>Tom Stepleton</td><td>Testing and debugging</td></tr>
 </table>
 
 Also, thank you to all the contributors to the Emulator EEVblog thread for their suggestions and support.

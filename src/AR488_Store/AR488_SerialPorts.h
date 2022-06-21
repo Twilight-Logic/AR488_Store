@@ -47,12 +47,12 @@
   template<typename T1, typename T2>
   void debugPrint(const char * function, const char * filestr, int line, T1 msg1, T2 msg2){
     const char * filename = (strrchr(filestr, '/') ? strrchr(filestr, '/') + 1 : filestr);
-    dataPort.print(function);
-    dataPort.print(' ');
     dataPort.print(filename);
     dataPort.print(':');
     dataPort.print(line);
-    dataPort.print(' ');
+    dataPort.print(" (");
+    dataPort.print(function);
+    dataPort.print(") > ");
     dataPort.print(msg1);
     dataPort.println(msg2);
   }
@@ -61,7 +61,7 @@
   void printHexBuf(char * buf, size_t bsize);
 
   #define DEBUG_START() startDebugPort()
-  #define DB_PRINT(msg1,msg2) debugPrint(__PRETTY_FUNCTION__, __FILE__, __LINE__,(msg1),(msg2))
+  #define DB_PRINT(msg1,msg2) debugPrint(__FUNCTION__, __FILE__, __LINE__,(msg1),(msg2))
   #define DB_RAW_PRINT(msg) debugPort.print(msg)
   #define DB_RAW_PRINTLN(msg) debugPort.println(msg)
   #define DB_HEX_PRINT(byteval) printHex(byteval)
