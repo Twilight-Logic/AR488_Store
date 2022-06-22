@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.77, 18/06/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.79, 22/06/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -510,6 +510,14 @@ void SDstorage::listFiles(Stream &output){
 uint8_t SDstorage::binaryRead() {
   int16_t c;
   uint8_t err = 0;
+  uint32_t filesize;
+  uint32_t padding = 0;
+
+  // Actual file size on disk
+  filesize = sdinout.fileSize();
+  // Calculate padding required to fill up to the next 256-byte block
+  padding = (256 - (filesize % 256));
+  
   
   while (sdinout.available()) {
 
@@ -522,22 +530,25 @@ uint8_t SDstorage::binaryRead() {
     }
 #endif
 
+/*
     if (sdinout.peek() < 0) {  // Look ahead for EOF
       // Reached EOF - send last byte and 0xFF with EOI
-      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
-      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
-      return(0);
+//      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
+//      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
 
-/*
-#ifdef DEBUG_STORE_BINARYREAD
-      DB_PRINT(F("<EOF"),"");
-#endif
-*/
+      err = gpibBus.writeByte(c, SEND_WITH_EOI);
+
+      return(0);
 
     }else{
       // Send byte to the GPIB bus
       err = gpibBus.writeByte(c, SEND_DATA_ONLY);
     }
+*/
+
+      // Send byte to the GPIB bus
+      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
+
 
     // Exit on ATN or receiver request to stop (NDAC HIGH)
     if (err) {
@@ -549,6 +560,13 @@ uint8_t SDstorage::binaryRead() {
       // Rewind file read by a character (current character has already been read)
       sdinout.seekCur(-1);
       break;
+    }
+  }
+
+  if (padding > 0) {
+    for (uint32_t p=0; p<padding; p++) {
+      err = gpibBus.writeByte(0xFF, SEND_DATA_ONLY);
+      if (err) break;      
     }
   }
 

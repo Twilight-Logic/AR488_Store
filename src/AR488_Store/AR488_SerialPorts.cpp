@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include "AR488_SerialPorts.h"
 
-/***** AR488_SerialPort.cpp, ver. 0.05.77, 18/06/2022 *****/
+/***** AR488_SerialPort.cpp, ver. 0.05.79, 22/06/2022 *****/
 /*
  * Serial Port implementation
  */
