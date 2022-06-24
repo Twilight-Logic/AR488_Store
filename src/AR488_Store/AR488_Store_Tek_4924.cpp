@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.79, 22/06/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.80, 23/06/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -564,8 +564,10 @@ uint8_t SDstorage::binaryRead() {
   }
 
   if (padding > 0) {
+    err = gpibBus.writeByte(0xFF, SEND_DATA_ONLY);    // Signal end of data
+    padding--;
     for (uint32_t p=0; p<padding; p++) {
-      err = gpibBus.writeByte(0xFF, SEND_DATA_ONLY);
+      err = gpibBus.writeByte(0x20, SEND_DATA_ONLY);  // Pad with 0x20 to 256-byte boundary
       if (err) break;      
     }
   }
