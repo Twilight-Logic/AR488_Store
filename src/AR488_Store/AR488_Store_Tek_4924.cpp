@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.80, 23/06/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.81, 26/06/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -996,10 +996,17 @@ void SDstorage::stgc_0x61_h(){
 
 /***** CLOSE command *****/
 void SDstorage::stgc_0x62_h(){
+  uint8_t r = 0;
+  char pbuffer[12];
 #ifdef DEBUG_STORE_CLOSE
   DB_PRINT(F("started CLOSE handler..."),"");
   DB_PRINT(F("closing: "), f_name);
 #endif
+
+  // Read optional file number with EOI detection
+  r = gpibBus.receiveParams(true, pbuffer, 12);   // Limit to 12 characters
+  r=r;  // Get rid of compiler warning
+
   // Close file handle
   sdinout.close();
   // Clear f_name and f_type
