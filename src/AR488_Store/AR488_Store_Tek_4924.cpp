@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.81, 26/06/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.82, 27/06/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -407,7 +407,7 @@ void SDstorage::setDirectory(char * path) {
   listIdx = 0;
 
   // Close any previous file that was open
-  stgc_0x62_h();  // Close function
+  closeFile();
 }
 
 
@@ -904,6 +904,14 @@ bool SDstorage::makeNewFile(File& fileObj, uint16_t filelength) {
 }
 
 
+void SDstorage::closeFile(){
+  // Close file handle
+  sdinout.close();
+  // Clear f_name and f_type
+  memset(f_name, '\0', file_header_size);
+  f_type = '\0';
+}
+
 
 /*****^^^^^^^^^^^^^^^^^^^^^^^^^^^^*****/
 /***** SD Card handling functions *****/
@@ -1008,10 +1016,8 @@ void SDstorage::stgc_0x62_h(){
   r=r;  // Get rid of compiler warning
 
   // Close file handle
-  sdinout.close();
-  // Clear f_name and f_type
-  memset(f_name, '\0', file_header_size);
-  f_type = '\0';
+  closeFile();
+
 #ifdef DEBUG_STORE_CLOSE
   DB_PRINT(F("done."),"");
 #endif
@@ -1060,7 +1066,7 @@ void SDstorage::stgc_0x64_h() {
     }
 
     // Close the file
-    stgc_0x62_h();  // Close function
+    closeFile();
     
   }else{
     errorCode = 6;
@@ -1209,8 +1215,9 @@ void SDstorage::stgc_0x67_h(){
 /***** DIRECTORY / HEADER / CD command *****/
 void SDstorage::stgc_0x69_h() {
 /*
- * There is no CD command on the 4051 or 4924
- * CD is run using PRINT@5,9:
+ * This function retrieves or sets the current directory name.
+ * There is no CD command on the 4051 or 4924 so the
+ * CD command is run using PRINT@5,9:
  */
   // limit the emulator dir name to single level "/" plus 8 characters trailing "/" plus NULL
   char dnbuffer[13] = {0};
@@ -1678,6 +1685,11 @@ void SDstorage::stgc_0x71_h() {
 
 
 /***** LIST / TLIST command *****/
+/*
+ * Retrieve or rename the next file name in the directory
+ * INPUT@5,19:A$ retrieves thenext file name into A$ 
+ * PRINT@5,19:A$ renames the current file
+ */
 void SDstorage::stgc_0x73_h(){
 /*
   char fname[file_header_size+1] = {0};
@@ -1769,7 +1781,7 @@ void SDstorage::stgc_0x7B_h(){
 #endif
 
   // Close currently open work file (clears handle, f_name and f_type)
-  if (sdinout.isOpen()) stgc_0x62_h(); // Close function
+  if (sdinout.isOpen()) closeFile();
 
   // Read file number parameter from GPIB
   paramLen = gpibBus.receiveParams(false, receiveBuffer, 83);
