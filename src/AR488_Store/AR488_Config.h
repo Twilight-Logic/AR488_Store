@@ -8,7 +8,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.87, 24/07/2022"
+#define FWVER "AR488 GPIB storage, ver. 0.05.86, 13/07/2022"
 
 
 /***** BOARD CONFIGURATION *****/

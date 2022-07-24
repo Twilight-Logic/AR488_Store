@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.87, 24/07/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.86, 13/07/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */

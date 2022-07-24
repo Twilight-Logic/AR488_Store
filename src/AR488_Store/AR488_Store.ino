@@ -28,7 +28,7 @@
 #endif
 
 
-/***** FWVER "AR488 GPIB Storage, ver. 0.05.87, 24/07/2022" *****/
+/***** FWVER "AR488 GPIB Storage, ver. 0.05.86, 13/07/2022" *****/
 
 /*
   Arduino IEEE-488 implementation by John Chajecki
