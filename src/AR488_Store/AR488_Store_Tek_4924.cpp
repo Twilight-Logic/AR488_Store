@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.86, 13/07/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.87, 24/07/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -1390,52 +1390,37 @@ void SDstorage::stgc_0x6D_h() {
     DB_PRINT(F("reading: "),(String(directory)+f_name));
 #endif
 
+/*
+ * Note: DB_PRINT with the loop may hinde perfomance!
+ */
+
     while (sdinout.available()) {
 
       // Read a byte
       c = sdinout.read();
+      // Send byte to the GPIB bus
+      err = gpibBus.writeByte((uint8_t)c, SEND_DATA_ONLY);
+      // Exit on ATN, receiver request stop, or error
+      if (err) break;
+
+    }
+
+/*
+ * Note: DB_PRINT with the loop may hinde perfomance!
+ */
+
+    if (err) {
     
-      if (c == EOF) {  // Reached EOF
-        // Send EOI + 0xFF to indicate EOF reached
-        err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
+      // ATN detected, set GPIB to Listen state
+      if (err == 2) gpibBus.setControls(DLAS);
 
-/*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_INPUT
-        DB_PRINT(F("\nEOF reached!"),"");
-#endif
-*/
-      }else{
-        // Send byte to the GPIB bus
-        err = gpibBus.writeByte((uint8_t)c, SEND_DATA_ONLY);
+      // Rewind file read by a character (current character has already been read)
+      sdinout.seekCur(-1);
+    
+    }else{
 
-/*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_INPUT
-        if (!err) DB_RAW_PRINT((char)c);
-#endif
-*/
-      }
-
-      // Exit on ATN or receiver request stop
-      if (err) {
-//        if (err == 1) DB_PRINT(F("\r\nreceiver requested stop!"),"");
-        if (err == 2) {
-          gpibBus.setControls(DLAS);
-/*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_INPUT      
-          DB_PRINT(F("\r\nATN detected."),"");
-#endif
-*/
-        }
-
-/*** IN LOOP - MAY IMPACT TIMING ***
-#ifdef DEBUG_STORE_INPUT        
-        if (err == 3) DB_PRINT(F("\r\nwait timeout."),"");
-#endif
-*/
-        // Rewind file read by a character (current character has already been read)
-        sdinout.seekCur(-1);
-        break;
-      }
+      // Send EOI + 0xFF to indicate EOF reached
+      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
 
     }
 
