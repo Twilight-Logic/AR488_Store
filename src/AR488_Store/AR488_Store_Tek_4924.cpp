@@ -4,7 +4,7 @@
 
 
 
-/***** AR488_Store_Tek_4924.cpp, ver. 0.05.86, 13/07/2022 *****/
+/***** AR488_Store_Tek_4924.cpp, ver. 0.05.88, 27/09/2022 *****/
 /*
  * Tektronix 4924 Tape Storage functions implementation
  */
@@ -511,14 +511,15 @@ uint8_t SDstorage::binaryRead() {
   int16_t c;
   uint8_t err = 0;
   uint32_t filesize;
-  uint16_t padding = 0;
+  uint8_t padding = 0;
 
   // Actual file size on disk
   filesize = sdinout.fileSize();
   
   // Calculate padding required to fill up to the next 256-byte block
-  padding = (256 - (uint16_t)(filesize % 256));
-  
+  padding = (uint8_t)(filesize % 256);
+  if (padding > 0) padding = 256 - padding;
+
   while (sdinout.available()) {
 
     // Read a byte
@@ -530,25 +531,8 @@ uint8_t SDstorage::binaryRead() {
     }
 #endif
 
-/*
-    if (sdinout.peek() < 0) {  // Look ahead for EOF
-      // Reached EOF - send last byte and 0xFF with EOI
-//      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
-//      err = gpibBus.writeByte(0xFF, SEND_WITH_EOI);
-
-      err = gpibBus.writeByte(c, SEND_WITH_EOI);
-
-      return(0);
-
-    }else{
-      // Send byte to the GPIB bus
-      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
-    }
-*/
-
-      // Send byte to the GPIB bus
-      err = gpibBus.writeByte(c, SEND_DATA_ONLY);
-
+    // Send byte to the GPIB bus
+    err = gpibBus.writeByte(c, SEND_DATA_ONLY);
 
     // Exit on ATN or receiver request to stop (NDAC HIGH)
     if (err) {
@@ -1621,9 +1605,6 @@ void SDstorage::stgc_0x71_h() {
   }
 
 
-  
-
-
   // If addressed to talk read (BOLD) the file  
   if (gpibBus.isDeviceAddressedToTalk()){
     sdinout.getName(fname, file_header_size);
@@ -1633,6 +1614,8 @@ void SDstorage::stgc_0x71_h() {
       DB_PRINT(F("reading file..."),"");
 #endif
       err = binaryRead();
+      // On error or interrupt reset the bus to listening state    
+      if (err) gpibBus.setControls(DLAS);
     }else{
       err = 5;
       errorCode = 6;
@@ -1640,8 +1623,11 @@ void SDstorage::stgc_0x71_h() {
     }
   }
 
+
 #ifdef DEBUG_STORE_BINARYIO
   if (err==5) DB_PRINT(F("incorrect file type!"),"");
+//  DB_PRINT("Filetype: ", fileinfo.getFtype());
+//  DB_PRINT("Fileusage: ", fileinfo.getFusage()); 
   DB_PRINT(F("done."),"");
 #endif
 
