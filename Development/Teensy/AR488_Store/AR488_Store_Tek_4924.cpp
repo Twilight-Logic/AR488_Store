@@ -61,7 +61,8 @@ SDstorage::storeCmdRec SDstorage::storeCmdHidx [] = {
   { 0x7B, &SDstorage::stgc_0x7B_h },  // FIND
   { 0x7C, &SDstorage::stgc_0x7C_h },  // MARK
 //  { 0x7D, &SDstorage::stgc_0x7D_h },  // SECRET
-  { 0x7E, &SDstorage::stgc_0x7E_h }   // ERROR
+  { 0x7E, &SDstorage::stgc_0x7E_h },  // ERROR
+  { 0x7F, &SDstorage::stgc_0x7F_h }   // GAMEPAD  
 };
 
 
@@ -1989,6 +1990,41 @@ void SDstorage::stgc_0x7E_h(){
 #ifdef DEBUG_STORE_ERROR
   DB_PRINT(F("done."),"");
 #endif
+}
+
+
+void SDstorage::stgc_0x7F_h(){
+
+  const buffsize = 27;
+  char buffr[buffsize];
+  memset(buffr, '\0', buffsize);
+
+  int Xin = analogRead(A1);
+  int Yin = analogRead(A2);
+ 
+  // following values work for my Vectrex X pot: center 0 +/- 5 max 330 min -320
+  int Xout=max(Xin,176);
+  Xout=min(Xout,826);
+  Xout=Xout-176-320;
+
+  // following values work for my Vectrex Y pot: center 0 +/- 5 max 372 min -320
+  int Yout=max(Yin,222);
+  Yout=min(Yout,914);
+  Yout=Yout-222-320;
+
+  pinMode(0, INPUT_PULLUP);
+   
+  int button1 = digitalRead(0);
+  int button2 = digitalRead(1);
+  int button3 = digitalRead(2);
+  int button4 = digitalRead(3);
+
+  // Convert inputs to character aarray
+  sprintf(buffr, "%d,%d,%u,%u,%u,%u", Xout, Yout, digitalRead(0), digitalRead(1), digitalRead(2), digitalRead(3) );
+  
+  // Send info to GPIB bus
+  gpibBus.sendData(buffr,strlen(buffr), SEND_WITH_EOI);
+
 }
 
 

@@ -160,7 +160,7 @@ class SDstorage {
 
 
   /***** SD library definitions *****/
-  #ifdef __IMXRT1062__
+  #if defined(__IMXRT1062__) || defined(ARDUINO_ARCH_RP2040)
 //    #include <SD.h>
     SdFat sd;
 //    SdFs sd;
@@ -230,6 +230,8 @@ class SDstorage {
 //    void stgc_0x7D_h();
     // ERROR
     void stgc_0x7E_h();
+    // Gamepad
+    void stgc_0x7F_h();
 
     // Storage command function record
     struct storeCmdRec {

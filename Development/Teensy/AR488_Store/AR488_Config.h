@@ -8,7 +8,7 @@
 
 
 /***** Firmware version *****/
-#define FWVER "AR488 GPIB storage, ver. 0.05.90, 25/05/2025"
+#define FWVER "AR488 GPIB storage, ver. 0.05.88, 27/09/2022"
 
 
 /***** BOARD CONFIGURATION *****/
@@ -66,6 +66,11 @@
 #elif defined(__AVR_ATmega644P__) || defined(__AVR_ATmega1284P__)
   /* Board/layout selection */
   #define AR488_MEGA644P_MCGRAW
+
+#elif defined(ARDUINO_ARCH_RP2040)
+  /** RP2040 Boards **/
+  #define RAS_PICO_L1
+  //#define RAS_PICO_L2
 
 #elif defined(__IMXRT1062__)    // Teensy 40 and Teensy 41
   #define DISABLE_FS_H_WARNING  // Disable warning for type File not defined.

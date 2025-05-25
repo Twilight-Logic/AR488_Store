@@ -1891,6 +1891,310 @@ void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
 /***************************************************/
 
 
+/***********************************/
+/***** RAS PICO BOARD LAYOUT 1 *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef RAS_PICO_L1
+/*
+  Data pin map
+  ------------
+  DIO1_PIN   6 : GPIB 1  : GPIO6
+  DIO2_PIN   7 : GPIB 2  : GPIO7
+  DIO3_PIN   8 : GPIB 3  : GPIO8
+  DIO4_PIN   9 : GPIB 4  : GPIO9
+  DIO5_PIN  10 : GPIB 13 : GPIO10
+  DIO6_PIN  11 : GPIB 14 : GPIO11
+  DIO7_PIN  12 : GPIB 15 : GPIO12
+  DIO8_PIN  13 : GPIB 16 : GPIO13
+
+  Control pin map
+  ---------------
+  IFC_PIN   14 : GPIB 9  : GPIO14 : b0
+  NDAC_PIN  15 : GPIB 8  : GPIO15 : b1
+  NRFD_PIN  16 : GPIB 7  : GPIO16 : b2
+  DAV_PIN   17 : GPIB 6  : GPIO17 : b3
+  EOI_PIN   18 : GPIB 5  : GPIO18 : b4
+  REN_PIN   19 : GPIB 17 : GPIO19 : b5
+  SRQ_PIN   20 : GPIB 10 : GPIO20 : b6
+  ATN_PIN   21 : GPIB 11 : GPIO21 : b7
+
+  Bits control lines as follows: 7-ATN_PIN, 6-SRQ_PIN, 5-REN_PIN, 4-EOI_PIN, 3-DAV_PIN, 2-NRFD_PIN, 1-NDAC_PIN, 0-IFC_PIN
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+*/
+
+
+const uint32_t gpioDbMask = 0x00003FC0;
+const uint32_t gpioCtrlMask = 0x003FC000;
+const uint8_t gpioDbOffset = 6;
+const uint8_t gpioCtrlOffset = 14;
+
+
+void gpioFuncList(){
+  /*
+  Serial.print(F("Func: "));
+  for (uint8_t i=6; i<21; i++){
+    Serial.print(gpio_get_function(i));
+  }
+  */
+  Serial.println();
+  Serial.print(F("Pull: "));
+  for (uint8_t i=21; i>5; i--){
+    Serial.print(gpio_is_pulled_up(i));
+  }
+  Serial.println();
+  Serial.print(F("Outs: "));
+  for (uint8_t i=21; i>5; i--){
+    Serial.print(gpio_is_dir_out(i));
+  }
+  Serial.println();
+}
+
+
+
+/***** Set GPIO internal pullup resistors *****/
+void gpio_set_pullups_masked(uint32_t mask){
+  for (uint8_t i=0; i<32; i++){
+    if ( mask & (1<<i) ) gpio_pull_up(i);
+  }
+}
+
+
+/***** Disable GPIO pull-up resistors *****/
+void gpio_clear_pullups_masked(uint32_t mask){
+  for (uint8_t i=0; i<32; i++){
+    if ( mask & (1<<i) ) gpio_disable_pulls(i);
+  }
+}
+
+
+/***** Initialise all GPIO pins *****/
+void initRpGpioPins(){
+  uint32_t gpiomask = gpioCtrlMask | gpioDbMask;  // Scope of GPIO pins to be allocated to GPIB
+  gpio_init_mask(gpiomask);                       // Configure as GPIO pins those allocated to GPIB
+  gpio_set_dir_in_masked(gpiomask);               // Configure all as inputs by default
+  gpio_set_pullups_masked(gpiomask);              // Enable all pullups (un-asserted) by default
+  delay(200);                                     // Allow some settling time
+}
+
+
+/***** Set the GPIB data bus to input pullup *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  gpio_set_dir_in_masked(gpioDbMask);
+  gpio_set_pullups_masked(gpioDbMask);
+  
+}
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  uint32_t gpioall = gpio_get_all();
+  gpioall = (gpioall & gpioDbMask) >> gpioDbOffset;
+  return (uint8_t)~gpioall;  
+}
+
+
+/***** Set the GPIB data bus to output and with the requested byte *****/
+void setGpibDbus(uint8_t db) {
+  uint32_t gpioall = ((uint8_t)~db) << gpioDbOffset;
+  gpio_clear_pullups_masked(gpioDbMask);
+  gpio_set_dir_out_masked(gpioDbMask);
+  gpio_put_masked(gpioDbMask, gpioall);
+}
+
+
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+  if (mode) setGpibCtrlDir(bits, mask);
+  setGpibCtrlState(bits, mask);
+}
+
+
+void setGpibCtrlState(uint8_t bits, uint8_t mask){
+
+  uint32_t gpiobits = (uint8_t)(bits & mask) << gpioCtrlOffset;
+  uint32_t gpioOmask = (mask << gpioCtrlOffset);
+
+  gpio_put_masked(gpioOmask, gpiobits);
+
+}
+
+
+void setGpibCtrlDir(uint8_t bits, uint8_t mask){
+
+  uint32_t gpioOmask = ( (bits & mask) << gpioCtrlOffset );
+  uint32_t gpioImask = ( ((uint8_t)~bits & mask) << gpioCtrlOffset );
+
+  if (gpioOmask){
+    gpio_clear_pullups_masked(gpioOmask);
+    gpio_set_dir_out_masked(gpioOmask);
+  }
+
+  if (gpioImask){
+    gpio_set_pullups_masked(gpioImask);
+    gpio_set_dir_in_masked(gpioImask);
+  }
+  
+}
+
+#endif // RAS_PICO_L1
+/***** ^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** RAS PICO BOARD LAYOUT 1 *****/
+/***********************************/
+
+
+
+/***********************************/
+/***** RAS PICO BOARD LAYOUT 2 *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef RAS_PICO_L2
+/*
+  Data pin map
+  ------------
+  DIO1_PIN  14 : GPIB 1  : GPIO14
+  DIO2_PIN  15 : GPIB 2  : GPIO15
+  DIO3_PIN  16 : GPIB 3  : GPIO16
+  DIO4_PIN  17 : GPIB 4  : GPIO17
+  DIO5_PIN  18 : GPIB 13 : GPIO18
+  DIO6_PIN  19 : GPIB 14 : GPIO19
+  DIO7_PIN  20 : GPIB 15 : GPIO20
+  DIO8_PIN  21 : GPIB 16 : GPIO21
+
+  Control pin map
+  ---------------
+  IFC_PIN    6 : GPIB 9  : GPIO6  : b0
+  NDAC_PIN   7 : GPIB 8  : GPIO7  : b1
+  NRFD_PIN   8 : GPIB 7  : GPIO8  : b2
+  DAV_PIN    9 : GPIB 6  : GPIO9  : b3
+  EOI_PIN   10 : GPIB 5  : GPIO10 : b4
+  REN_PIN   11 : GPIB 17 : GPIO11 : b5
+  SRQ_PIN   12 : GPIB 10 : GPIO12 : b6
+  ATN_PIN   13 : GPIB 11 : GPIO13 : b7
+
+  Bits control lines as follows: 7-ATN_PIN, 6-SRQ_PIN, 5-REN_PIN, 4-EOI_PIN, 3-DAV_PIN, 2-NRFD_PIN, 1-NDAC_PIN, 0-IFC_PIN
+    bits (databits) : State - 0=LOW, 1=HIGH/INPUT_PULLUP; Direction - 0=input, 1=output;
+    mask (mask)     : 0=unaffected, 1=enabled
+*/
+
+
+const uint32_t gpioDbMask = 0x003FC000;
+const uint32_t gpioCtrlMask = 0x00003FC0;
+const uint8_t gpioDbOffset = 14;
+const uint8_t gpioCtrlOffset = 6;
+
+
+void gpioFuncList(){
+  /*
+  Serial.print(F("Func: "));
+  for (uint8_t i=6; i<21; i++){
+    Serial.print(gpio_get_function(i));
+  }
+  */
+  Serial.println();
+  Serial.print(F("Pull: "));
+  for (uint8_t i=21; i>5; i--){
+    Serial.print(gpio_is_pulled_up(i));
+  }
+  Serial.println();
+  Serial.print(F("Outs: "));
+  for (uint8_t i=21; i>5; i--){
+    Serial.print(gpio_is_dir_out(i));
+  }
+  Serial.println();
+}
+
+
+/***** Set GPIO internal pullup resistors *****/
+void gpio_set_pullups_masked(uint32_t mask){
+  for (uint8_t i=0; i<32; i++){
+    if ( mask & (1<<i) ) gpio_pull_up(i);
+  }
+}
+
+
+/***** Disable GPIO pull-up resistors *****/
+void gpio_clear_pullups_masked(uint32_t mask){
+  for (uint8_t i=0; i<32; i++){
+    if ( mask & (1<<i) ) gpio_disable_pulls(i);
+  }
+}
+
+
+/***** Initialise all GPIO pins *****/
+void initRpGpioPins(){
+  uint32_t gpiomask = gpioCtrlMask | gpioDbMask;  // Scope of GPIO pins to be allocated to GPIB
+  gpio_init_mask(gpiomask);                       // Configure as GPIO pins those allocated to GPIB
+  gpio_set_dir_in_masked(gpiomask);               // Configure all as inputs by default
+  gpio_set_pullups_masked(gpiomask);              // Enable all pullups (un-asserted) by default
+  delay(200);                                     // Allow some settling time
+}
+
+
+/***** Set the GPIB data bus to input pullup *****/
+void readyGpibDbus() {
+  // Set data pins to input
+  gpio_set_dir_in_masked(gpioDbMask);
+  gpio_set_pullups_masked(gpioDbMask);
+  
+}
+
+
+/***** Read the GPIB data bus wires to collect the byte of data *****/
+uint8_t readGpibDbus() {
+  // Read the byte of data on the bus
+  uint32_t gpioall = gpio_get_all();
+  gpioall = (gpioall & gpioDbMask) >> gpioDbOffset;
+  return (uint8_t)~gpioall;  
+}
+
+
+/***** Set the GPIB data bus to output and with the requested byte *****/
+void setGpibDbus(uint8_t db) {
+  uint32_t gpioall = ((uint8_t)~db) << gpioDbOffset;
+  gpio_clear_pullups_masked(gpioDbMask);
+  gpio_set_dir_out_masked(gpioDbMask);
+  gpio_put_masked(gpioDbMask, gpioall);
+}
+
+
+void setGpibState(uint8_t bits, uint8_t mask, uint8_t mode) {
+  if (mode) setGpibCtrlDir(bits, mask);
+  setGpibCtrlState(bits, mask);
+}
+
+void setGpibCtrlState(uint8_t bits, uint8_t mask){
+
+  uint32_t gpiobits = (uint8_t)(bits & mask) << gpioCtrlOffset;
+  uint32_t gpioOmask = (mask << gpioCtrlOffset);
+
+  gpio_put_masked(gpioOmask, gpiobits);
+
+}
+
+
+void setGpibCtrlDir(uint8_t bits, uint8_t mask){
+
+  uint32_t gpioOmask = ( (bits & mask) << gpioCtrlOffset );
+  uint32_t gpioImask = ( ((uint8_t)~bits & mask) << gpioCtrlOffset );
+
+  if (gpioOmask){
+    gpio_clear_pullups_masked(gpioOmask);
+    gpio_set_dir_out_masked(gpioOmask);
+  }
+
+  if (gpioImask){
+    gpio_set_pullups_masked(gpioImask);
+    gpio_set_dir_in_masked(gpioImask);
+  }
+  
+}
+
+#endif // RAS_PICO_L2
+/***** ^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** RAS PICO BOARD LAYOUT 2 *****/
+/***********************************/
+
 
 
 /*************************************/

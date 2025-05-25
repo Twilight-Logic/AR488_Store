@@ -990,6 +990,8 @@ void rst_h() {
     dataPort.println(F("Reset FAILED."));
   };
 */
+#elif defined(ARDUINO_ARCH_RP2040)
+  rp2040.reboot();
 #elif defined (__IMXRT1062__) 
   SCB_AIRCR = 0x05FA0004;
 #else

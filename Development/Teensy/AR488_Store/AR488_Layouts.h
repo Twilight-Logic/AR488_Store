@@ -460,6 +460,73 @@ uint8_t reverseBits(uint8_t dbyte);
 /********************************************************/
 
 
+/***************************************/
+/***** RAS PICO LAYOUT 1 DEFINITION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef RAS_PICO_L1
+
+void gpioFuncList();
+void setGpibCtrlState(uint8_t bits, uint8_t mask);
+void setGpibCtrlDir(uint8_t bits, uint8_t mask);
+
+#define DIO1   6   /* GPIB 1  */
+#define DIO2   7   /* GPIB 2  */
+#define DIO3   8   /* GPIB 3  */
+#define DIO4   9   /* GPIB 4  */
+#define DIO5  10   /* GPIB 13 */
+#define DIO6  11   /* GPIB 14 */
+#define DIO7  12   /* GPIB 15 */
+#define DIO8  13   /* GPIB 16 */
+
+#define IFC   14   /* GPIB 9  */
+#define NDAC  15   /* GPIB 8  */
+#define NRFD  16   /* GPIB 7  */
+#define DAV   17   /* GPIB 6  */
+#define EOI   18   /* GPIB 5  */
+
+#define REN   19   /* GPIB 17 */
+#define SRQ   20   /* GPIB 10 */
+#define ATN   21   /* GPIB 11 */
+
+#endif // RAS_PICO_L1
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** RAS PICO LAYOUT 1 DEFINITION *****/
+/****************************************/
+
+
+/****************************************/
+/***** RAS PICO LAYOUT 2 DEFINITION *****/
+/***** vvvvvvvvvvvvvvvvvvvvvvvvvvvv *****/
+#ifdef RAS_PICO_L2
+
+void gpioFuncList();
+void setGpibCtrlState(uint8_t bits, uint8_t mask);
+void setGpibCtrlDir(uint8_t bits, uint8_t mask);
+
+#define DIO1_PIN  14   /* GPIB 1  */
+#define DIO2_PIN  15   /* GPIB 2  */
+#define DIO3_PIN  16   /* GPIB 3  */
+#define DIO4_PIN  17   /* GPIB 4  */
+#define DIO5_PIN  18   /* GPIB 13 */
+#define DIO6_PIN  19   /* GPIB 14 */
+#define DIO7_PIN  20   /* GPIB 15 */
+#define DIO8_PIN  21   /* GPIB 16 */
+
+#define IFC_PIN    6   /* GPIB 9  */
+#define NDAC_PIN   7   /* GPIB 8  */
+#define NRFD_PIN   8   /* GPIB 7  */
+#define DAV_PIN    9   /* GPIB 6  */
+#define EOI_PIN   10   /* GPIB 5  */
+
+#define REN_PIN   11   /* GPIB 17 */
+#define SRQ_PIN   12   /* GPIB 10 */
+#define ATN_PIN   13   /* GPIB 11 */
+
+#endif // RAS_PICO_L2
+/***** ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ *****/
+/***** RAS PICO LAYOUT 2 DEFINITION *****/
+/****************************************/
+
 
 /**************************************/
 /***** GLOBAL DEFINITIONS SECTION *****/
